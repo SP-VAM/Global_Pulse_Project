@@ -1,0 +1,33 @@
+{
+  "name": "global-pulse-integrated-node16",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@react-oauth/google": "^0.13.5",
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
+    "axios": "^1.19.0",
+    "firebase": "^12.17.1",
+    "framer-motion": "^13.0.0",
+    "gsap": "^3.15.0",
+    "jwt-decode": "^4.0.0",
+    "lucide-react": "0.469.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-icons": "^5.7.0",
+    "react-router-dom": "6.28.0",
+    "recharts": "2.12.7",
+    "three": "^0.185.1",
+    "uuid": "9.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "4.2.1",
+    "vite": "4.5.14"
+  }
+}

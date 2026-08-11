@@ -1,0 +1,27 @@
+.ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.ring__svg {
+  transform: rotate(-90deg);
+}
+
+.ring__value {
+  filter: drop-shadow(0 0 6px var(--blue-glow));
+  animation: gp-ring-fill 1.4s var(--ease) forwards;
+}
+
+@keyframes gp-ring-fill {
+  from {
+    stroke-dashoffset: var(--ring-c);
+  }
+}
+
+.ring__label {
+  position: absolute;
+  font-size: 16px;
+  font-weight: 700;
+}

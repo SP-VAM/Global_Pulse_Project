@@ -1,0 +1,93 @@
+.dc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: dcFadeIn 0.25s ease forwards;
+}
+
+.dc-box {
+  width: 100%;
+  max-width: 380px;
+  background: #0f131f;
+  border-radius: 18px;
+  padding: 20px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  margin: auto;
+}
+
+.dc-head {
+  text-align: center;
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dc-title {
+  margin: 0;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.dc-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.dc-btn {
+  height: 44px;
+  border: none;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.dc-btn--cancel {
+  background: #1e2332;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dc-btn--cancel:hover {
+  background: #2a3045;
+}
+
+.dc-btn--delete {
+  background: #ff0000;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(255, 0, 0, 0.4);
+}
+
+.dc-btn--delete:hover {
+  background: #cc0000;
+  transform: translateY(-1px);
+}
+
+@keyframes dcFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

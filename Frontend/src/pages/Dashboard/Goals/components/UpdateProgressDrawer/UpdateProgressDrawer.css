@@ -1,0 +1,8 @@
+@import "../UpdateGoalDrawer/UpdateGoalDrawer.css";
+
+/* Specific styles for select dropdown option elements in dark theme */
+.drawer-panel__select option {
+  background: #0f1421;
+  color: #f8fafc;
+  padding: 10px;
+}

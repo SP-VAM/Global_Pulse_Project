@@ -1,0 +1,229 @@
+/* Shared building blocks reused across dashboard sub-pages.
+   Compact, aligned, 8px-based system — the single source of truth for
+   cards, buttons, grids, section headers and chips. */
+
+.gp-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* ---------- Section header (shared across pages) ---------- */
+.gp-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.gp-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.gp-section-sub {
+  color: var(--text-3);
+  font-size: 13px;
+  margin-top: 2px;
+}
+.gp-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Grid ---------- */
+.gp-grid {
+  display: grid;
+  gap: var(--sp-4);
+}
+.gp-grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.gp-grid--2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* ---------- Card (unified) ---------- */
+.gp-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--card-pad-lg);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  animation: gp-fade-up 0.45s var(--ease) forwards;
+  transition: transform 200ms var(--ease), border-color 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+.gp-card--hover:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
+}
+
+.gp-card__title {
+  font-size: 15px;
+  font-weight: 500;
+}
+.gp-card__meta {
+  color: var(--text-3);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.gp-stat {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-top: var(--sp-2);
+}
+
+/* ---------- Progress bar ---------- */
+.gp-progress {
+  height: 6px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: var(--sp-3);
+}
+.gp-progress__fill {
+  height: 100%;
+  border-radius: 20px;
+  background: linear-gradient(90deg, var(--blue), var(--blue-bright));
+  box-shadow: 0 0 10px var(--blue-glow);
+  width: 0;
+  animation: gp-progress-grow 1.1s var(--ease) forwards;
+}
+@keyframes gp-progress-grow {
+  to {
+    width: var(--val, 0%);
+  }
+}
+
+/* ---------- Buttons (unified system) ---------- */
+.gp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: 38px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: linear-gradient(150deg, var(--blue-bright), var(--blue));
+  color: #fff;
+  box-shadow: 0 6px 18px -10px var(--blue-glow);
+  transition: transform 160ms var(--ease), box-shadow 160ms var(--ease), background 160ms var(--ease);
+}
+.gp-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px -8px var(--blue-glow);
+}
+.gp-btn--secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: none;
+}
+.gp-btn--secondary:hover {
+  background: var(--card-hover);
+}
+.gp-btn--ghost,
+.gp-btn--outline {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+.gp-btn--ghost:hover,
+.gp-btn--outline:hover {
+  background: var(--surface);
+  border-color: var(--blue-bright);
+}
+/* Sizes */
+.gp-btn--sm {
+  height: 32px;
+  padding: 0 var(--sp-3);
+  font-size: 12px;
+}
+.gp-btn--lg {
+  height: 44px;
+  padding: 0 var(--sp-6);
+  font-size: 14px;
+}
+.gp-btn--icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+.gp-btn--block {
+  width: 100%;
+}
+
+/* ---------- Filter chips (shared) ---------- */
+.gp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.gp-chip {
+  height: 32px;
+  padding: 0 var(--sp-4);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: all 160ms var(--ease);
+}
+.gp-chip:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.gp-chip--active {
+  color: #fff;
+  background: linear-gradient(150deg, var(--blue-bright), var(--blue));
+  border-color: transparent;
+  box-shadow: 0 6px 16px -10px var(--blue-glow);
+}
+
+/* ---------- Empty state ---------- */
+.gp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: 40px var(--sp-6);
+  text-align: center;
+  color: var(--text-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: rgba(15, 20, 33, 0.4);
+}
+.gp-empty__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--blue-bright);
+  background: rgba(47, 107, 255, 0.12);
+}
+
+@media (max-width: 1024px) {
+  .gp-grid--3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .gp-grid--3,
+  .gp-grid--2 {
+    grid-template-columns: 1fr;
+  }
+}

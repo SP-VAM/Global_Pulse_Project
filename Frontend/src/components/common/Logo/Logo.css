@@ -1,0 +1,31 @@
+.logo__link {
+  display: inline-flex;
+  align-items: center;
+  transition: transform 180ms var(--ease), filter 180ms var(--ease);
+}
+
+.logo__link:hover {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 4px 14px rgba(47, 107, 255, 0.35));
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+}
+
+.logo__img {
+  display: block;
+  width: auto;
+  object-fit: contain;
+}
+
+.logo--sm .logo__img {
+  height: 24px;
+}
+.logo--md .logo__img {
+  height: 42px;
+}
+.logo--lg .logo__img {
+  height: 48px;
+}

@@ -1,0 +1,344 @@
+/* ============================================================
+   Expense Tracker — Redesigned to match GOALS Dashboard Exactly
+   ============================================================ */
+ 
+@import "../Goals/components/GoalDashboard/GoalDashboard.css";
+@import "../Goals/components/GoalCreation/GoalCreation.css";
+@import "../Goals/components/UpdateGoalDrawer/UpdateGoalDrawer.css";
+@import "../Goals/components/DeleteConfirmationModal/DeleteConfirmationModal.css";
+ 
+.et-page,
+.et-page * {
+  box-sizing: border-box;
+  font-family: var(--font-sans, "Inter", sans-serif);
+}
+ 
+.et-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  padding-bottom: 24px;
+  color: var(--text, #f4f6fb);
+}
+ 
+/* Remove native number spinner arrows */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+ 
+/* Perfect Full-screen Modal Overlay & Centered Panel */
+.et-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(5, 6, 10, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px 16px !important;
+  animation: gp-fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+}
+ 
+.et-modal-panel {
+  width: 100% !important;
+  max-width: 480px !important;
+  max-height: calc(100vh - 48px) !important;
+  background: rgba(11, 15, 25, 0.96) !important;
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.16)) !important;
+  border-radius: var(--radius, 14px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(56, 189, 248, 0.1) !important;
+  animation: gp-scale-in 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  overflow-y: auto !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+ 
+.et-modal-panel::-webkit-scrollbar {
+  display: none !important;
+}
+ 
+/* Ensure Delete Confirmation Modal Overlay is 100% Full-Viewport Centered */
+.delete-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(5, 6, 10, 0.82) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  z-index: 999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  animation: gp-fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+}
+ 
+.delete-modal {
+  background: rgba(15, 20, 33, 0.96) !important;
+  border: 1px solid rgba(239, 75, 91, 0.35) !important;
+  border-radius: var(--radius, 14px) !important;
+  padding: 32px 28px 24px !important;
+  max-width: 420px !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  position: relative !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(239, 75, 91, 0.2) !important;
+  animation: gp-scale-in 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+ 
+/* Calendar Grid Customizations (Inheriting Goals Panel System) */
+.et-cal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+ 
+.et-cal__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+ 
+.et-cal__nav button {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 8px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.12));
+  color: var(--text-2, #aeb6c7);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 160ms var(--ease, ease);
+}
+ 
+.et-cal__nav button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text, #f4f6fb);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+ 
+.et-cal__weekdays,
+.et-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+ 
+.et-cal__weekdays span {
+  text-align: center;
+  color: var(--text-3, #6b7385);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 4px 0;
+}
+ 
+.et-cal__cell {
+  position: relative;
+  min-height: 38px;
+  aspect-ratio: 1 / 0.75;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 8px);
+  display: grid;
+  place-items: center;
+  color: var(--text-2, #aeb6c7);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 160ms var(--ease, ease);
+}
+ 
+.et-cal__cell:hover:not(.et-cal__cell--empty) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text, #f4f6fb);
+  transform: translateY(-1px);
+}
+ 
+.et-cal__cell--empty {
+  background: transparent;
+  border-color: transparent;
+  pointer-events: none;
+}
+ 
+.et-cal__cell--selected {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, var(--blue, #2f6bff), var(--blue-bright, #4f83ff)) !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 16px -4px rgba(47, 107, 255, 0.6);
+  font-weight: 700;
+}
+ 
+.et-cal__dot {
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--green, #2ec27e);
+}
+ 
+.et-cal__cell--selected .et-cal__dot {
+  background: #ffffff;
+}
+ 
+/* Category Breakdown Progress Rows */
+.et-break-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius-sm, 8px);
+  transition: all 160ms var(--ease, ease);
+}
+ 
+.et-break-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+ 
+.et-break-item__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+ 
+.et-break-item__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+ 
+.et-break-item__icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+ 
+.et-break-item__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #f4f6fb);
+}
+ 
+.et-break-item__amt {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text, #f4f6fb);
+}
+ 
+/* Budget Card Items in Budget Setup */
+.et-budget-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 10px);
+  transition: all 160ms var(--ease, ease);
+}
+ 
+.et-budget-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--border-strong, rgba(255, 255, 255, 0.16));
+  transform: translateY(-1px);
+}
+ 
+.et-budget-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+ 
+.et-budget-item__info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+ 
+.et-budget-item__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+}
+ 
+.et-budget-item__name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text, #f4f6fb);
+}
+ 
+.et-budget-item__note {
+  font-size: 11px;
+  color: var(--text-3, #6b7385);
+}
+ 
+.et-budget-item__edit-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  color: var(--text-2, #aeb6c7);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+ 
+.et-budget-item__edit-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text, #f4f6fb);
+}
+ 
+.et-budget-item__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-2, #aeb6c7);
+}
+ 
+/* Select Dropdown options styling */
+.drawer-panel__select option {
+  background: #0f1421;
+  color: #f8fafc;
+  padding: 10px;
+}

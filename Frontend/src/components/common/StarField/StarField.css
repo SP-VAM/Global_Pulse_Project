@@ -1,0 +1,58 @@
+.starfield {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(1200px 700px at 78% -5%, rgba(47, 107, 255, 0.1), transparent 60%),
+    radial-gradient(900px 600px at 10% 8%, rgba(47, 107, 255, 0.06), transparent 55%),
+    var(--bg);
+}
+
+.starfield__star {
+  position: absolute;
+  border-radius: 50%;
+  background: #cfd7ea;
+  opacity: 0.4;
+  animation: gp-twinkle linear infinite;
+}
+
+.starfield__star--bright {
+  background: #ffffff;
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.7);
+}
+
+.starfield__glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+}
+
+.starfield__glow--1 {
+  width: 420px;
+  height: 420px;
+  top: -120px;
+  right: -60px;
+  background: radial-gradient(circle, rgba(47, 107, 255, 0.28), transparent 70%);
+  animation: gp-glow-float 14s ease-in-out infinite alternate;
+}
+
+.starfield__glow--2 {
+  width: 360px;
+  height: 360px;
+  bottom: -140px;
+  left: 12%;
+  background: radial-gradient(circle, rgba(47, 107, 255, 0.16), transparent 70%);
+  animation: gp-glow-float 18s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes gp-glow-float {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-30px, 30px, 0);
+  }
+}

@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# Build & Output
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# Environment & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Databases & SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Large Binary ML Models & Datasets
+*.pkl
+*.bin
+*.onnx
+*.h5
+*.h5py
+*.pt
+*.pth
+*.csv
+
+# IDE & System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary Audit Files & Excluded Folders
+new.csv
+old.csv
+commands.md
+legacy_archive/
+_legacy_archive/
+_project_cleanup_archive/
+STOCKS Nifty 50/
+
+# Large ML model artifacts
+globalpulse-backend/app/data/stocks/models/*.pkl

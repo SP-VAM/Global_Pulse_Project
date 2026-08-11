@@ -1,0 +1,145 @@
+.google-login-page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  font-family: "Inter", Arial, sans-serif;
+}
+
+.google-login-card {
+  width: 100%;
+  max-width: 620px;
+  min-height: 720px;
+  padding: 64px 58px;
+  border-radius: 34px;
+  background: rgba(4, 9, 15, 0.94);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.google-back-btn {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: white;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.google-back-btn:hover {
+  opacity: 0.8;
+}
+
+.google-profile-icon {
+  width: 86px;
+  height: 86px;
+  margin-top: 82px;
+  border-radius: 50%;
+  background: #1677ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.google-profile-icon span {
+  font-size: 42px;
+}
+
+.google-login-title {
+  margin: 45px 0 12px;
+  font-size: 46px;
+  line-height: 1.2;
+  font-weight: 700;
+  text-align: center;
+}
+
+.google-login-subtitle {
+  margin: 0;
+  color: #f1f1f1;
+  font-size: 18px;
+  text-align: center;
+}
+
+.google-account-box {
+  width: 100%;
+  height: 64px;
+  margin-top: 72px;
+  padding: 0 22px;
+  border-radius: 18px;
+  background: white;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.google-account-box input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #7a7a7a;
+  font-size: 20px;
+}
+
+.google-account-badge {
+  padding: 7px 18px;
+  border-radius: 20px;
+  background: #b6b6b6;
+  color: white;
+  font-size: 16px;
+  text-transform: lowercase;
+}
+
+.google-login-submit {
+  width: 100%;
+  height: 64px;
+  margin-top: 34px;
+  border: none;
+  border-radius: 18px;
+  background: #69717c;
+  color: #e9e9e9;
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.google-login-submit:hover {
+  background: #78818d;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 700px) {
+  .google-login-card {
+    min-height: auto;
+    padding: 40px 24px;
+    border-radius: 26px;
+  }
+
+  .google-profile-icon {
+    margin-top: 55px;
+  }
+
+  .google-login-title {
+    font-size: 36px;
+  }
+
+  .google-login-subtitle {
+    font-size: 16px;
+  }
+
+  .google-account-box {
+    margin-top: 50px;
+  }
+}

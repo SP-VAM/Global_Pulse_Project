@@ -1,0 +1,66 @@
+.wc-root {
+  width: 100%;
+  background: #17191f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 24px;
+  margin-top: 24px;
+}
+
+.wc-root h3 {
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+/* Chart Axis */
+
+.recharts-cartesian-axis-tick-value {
+  fill: #b8c0cc;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick-line {
+  stroke: rgba(255, 255, 255, 0.15);
+}
+
+/* Grid */
+
+.recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+/* Tooltip */
+
+.recharts-default-tooltip {
+  background: #1f2430 !important;
+  border: none !important;
+  border-radius: 10px !important;
+  color: white !important;
+}
+
+.recharts-tooltip-label {
+  color: white !important;
+}
+
+.recharts-tooltip-item {
+  color: #2f6bff !important;
+}
+
+/* Value above bars */
+
+.recharts-label-list text {
+  fill: #ffffff !important;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Hover */
+
+.recharts-bar-rectangle:hover {
+  opacity: 0.9;
+  cursor: pointer;
+}

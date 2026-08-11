@@ -1,0 +1,320 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:"Segoe UI",sans-serif;
+}
+
+body{
+    overflow-y:auto;
+}
+
+.otp-page{
+
+    width:100%;
+    min-height:100vh;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
+
+    padding:20px;
+}
+
+.otp-card{
+
+    width:520px;
+
+    background:rgba(10,12,18,.92);
+
+    border:1px solid rgba(255,255,255,.08);
+
+    border-radius:24px;
+
+    backdrop-filter:blur(18px);
+
+    padding:26px 34px;
+
+    box-shadow:
+    0 20px 60px rgba(0,0,0,.45);
+}
+
+/* Back */
+
+.back-btn{
+
+    background:none;
+
+    border:none;
+
+    color:white;
+
+    font-size:18px;
+
+    cursor:pointer;
+
+    transition:.25s;
+}
+
+.back-btn:hover{
+
+    color:#4F6CFF;
+}
+
+/* Title */
+
+.otp-title{
+
+    margin-top:24px;
+
+    text-align:center;
+
+    color:white;
+
+    font-size:42px;
+
+    font-weight:700;
+}
+
+/* Subtitle */
+
+.otp-subtitle{
+
+    margin-top:12px;
+
+    text-align:center;
+
+    color:#C8CBD3;
+
+    font-size:15px;
+
+    line-height:1.6;
+
+    margin-bottom:24px;
+}
+
+/* OTP */
+
+.otp-boxes{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    gap:10px;
+
+    margin-top:10px;
+}
+
+.otp-input{
+
+    width:52px;
+
+    height:52px;
+
+    border-radius:12px;
+
+    border:1px solid rgba(255,255,255,.12);
+
+    background:rgba(255,255,255,.06);
+
+    color:white;
+
+    text-align:center;
+
+    font-size:22px;
+
+    font-weight:600;
+
+    outline:none;
+
+    transition:.25s;
+}
+
+.otp-input:focus{
+
+    border-color:#4F6CFF;
+
+    box-shadow:
+    0 0 0 3px rgba(79,108,255,.15);
+}
+/* ===========================
+   VERIFY BUTTON
+=========================== */
+
+.verify-btn{
+
+    width:100%;
+
+    height:44px;
+
+    margin-top:24px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:linear-gradient(
+        90deg,
+        #4B5DFF,
+        #3F51FF
+    );
+
+    color:white;
+
+    font-size:15px;
+
+    font-weight:600;
+
+    cursor:pointer;
+
+    transition:.25s;
+}
+
+.verify-btn:hover{
+
+    transform:translateY(-2px);
+
+    box-shadow:
+    0 10px 22px rgba(79,108,255,.35);
+}
+
+.verify-btn:active{
+
+    transform:scale(.98);
+}
+
+/* ===========================
+   RESEND OTP
+=========================== */
+
+.resend-text{
+
+    margin-top:18px;
+
+    text-align:center;
+
+    color:#C9CDD7;
+
+    font-size:14px;
+}
+
+.resend-btn{
+
+    margin-left:6px;
+
+    border:none;
+
+    background:none;
+
+    color:#5C7CFF;
+
+    font-size:14px;
+
+    font-weight:600;
+
+    cursor:pointer;
+
+    transition:.25s;
+}
+
+.resend-btn:hover{
+
+    color:#88A2FF;
+
+    text-decoration:underline;
+}
+
+.resend-btn:disabled{
+
+    color:#6B7280;
+
+    cursor:not-allowed;
+
+    text-decoration:none;
+}
+
+/* ===========================
+   RESPONSIVE
+=========================== */
+
+@media(max-width:768px){
+
+    .otp-card{
+
+        width:100%;
+
+        max-width:420px;
+
+        padding:22px;
+    }
+
+    .otp-title{
+
+        font-size:34px;
+    }
+
+    .otp-subtitle{
+
+        font-size:14px;
+    }
+
+    .otp-input{
+
+        width:48px;
+
+        height:48px;
+
+        font-size:20px;
+    }
+
+}
+
+@media(max-width:480px){
+
+    .otp-page{
+
+        padding:14px;
+    }
+
+    .otp-card{
+
+        border-radius:18px;
+
+        padding:18px;
+    }
+
+    .otp-title{
+
+        font-size:30px;
+    }
+
+    .otp-subtitle{
+
+        font-size:13px;
+    }
+
+    .otp-boxes{
+
+        gap:6px;
+    }
+
+    .otp-input{
+
+        width:44px;
+
+        height:44px;
+
+        font-size:18px;
+    }
+
+    .verify-btn{
+
+        height:42px;
+    }
+
+}

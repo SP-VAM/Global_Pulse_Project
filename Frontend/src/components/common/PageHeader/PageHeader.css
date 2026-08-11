@@ -1,0 +1,39 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+  animation: gp-fade-up 0.5s var(--ease) both;
+}
+
+.page-header__main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-header__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--blue-bright);
+  background: rgba(47, 107, 255, 0.12);
+  border: 1px solid rgba(79, 131, 255, 0.28);
+  flex-shrink: 0;
+}
+
+.page-header__title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.page-header__subtitle {
+  color: var(--text-3);
+  font-size: 15px;
+  margin-top: 4px;
+}

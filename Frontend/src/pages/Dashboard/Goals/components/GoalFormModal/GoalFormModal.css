@@ -1,0 +1,164 @@
+.gf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: gfFadeIn 0.25s ease forwards;
+}
+
+.gf-modal {
+  width: 100%;
+  max-width: 400px;
+  background: #0f131f;
+  border-radius: 18px;
+  padding: 18px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  margin: auto;
+}
+
+.gf-modal-head {
+  text-align: center;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gf-modal-title {
+  margin: 0;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.gf-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gf-label {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.gf-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: #181d2c;
+  color: #ffffff;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.gf-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.gf-input--error {
+  border-color: #ef4444 !important;
+}
+
+.gf-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.gf-error {
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.gf-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.gf-btn {
+  height: 46px;
+  border: none;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.gf-btn--cancel {
+  background: #1e2332;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gf-btn--cancel:hover {
+  background: #2a3045;
+}
+
+.gf-btn--delete {
+  background: #ff0000;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(255, 0, 0, 0.35);
+}
+
+.gf-btn--delete:hover {
+  background: #cc0000;
+  transform: translateY(-1px);
+}
+
+.gf-btn--submit {
+  background: #3b82f6;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+}
+
+.gf-btn--submit:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.modal-open {
+  overflow: hidden;
+}
+
+@keyframes gfFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

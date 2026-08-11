@@ -1,0 +1,222 @@
+/* Disable browser native password reveal icon */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="password"]::-webkit-reveal {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body{
+    overflow-y: auto;
+}
+
+.complete-profile-page{
+    width: 100vw;
+    min-height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)), url("../../../assets/images/space-background.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    padding: 20px;
+}
+
+.complete-profile-card{
+    width:100%;
+    max-width:440px;
+    background:#090B10;
+    border-radius:20px;
+    border:1px solid rgba(255,255,255,0.08);
+    box-shadow:0 20px 50px rgba(0,0,0,0.6);
+    padding:32px 36px 36px 36px;
+    position: relative;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    color:white;
+}
+
+/* Header Slot matching SignUp & VerifyPhone */
+.complete-profile-header {
+    height: 38px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+.back-btn{
+    background: none;
+    border: none;
+    color: #9CA3AF;
+    font-size: 14.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+}
+
+.back-btn:hover{
+    color: #ffffff;
+}
+
+/* Blue Circle Profile Avatar */
+.profile-avatar-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #2563EB;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px auto;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+}
+
+.complete-profile-title{
+    text-align: center;
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+    margin-bottom: 6px;
+}
+
+.complete-profile-subtitle{
+    text-align: center;
+    color: #9CA3AF;
+    font-size: 13.5px;
+    line-height: 1.4;
+    margin-bottom: 24px;
+}
+
+.complete-profile-form{
+    display: flex;
+    flex-direction: column;
+}
+
+/* White background input fields matching reference screenshot */
+.complete-profile-input,
+.complete-profile-form input {
+    width: 100%;
+    height: 48px;
+    background: #ffffff;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    color: #111827;
+    font-size: 15px;
+    padding: 0 16px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.complete-profile-input::placeholder,
+.complete-profile-form input::placeholder {
+    color: #9CA3AF;
+}
+
+.complete-profile-input:focus,
+.complete-profile-form input:focus {
+    border-color: #2533B8;
+    box-shadow: 0 0 0 2px rgba(37, 51, 184, 0.25);
+}
+
+.complete-profile-email {
+    position: relative;
+    width: 100%;
+    margin-bottom: 14px;
+}
+
+.complete-profile-email input {
+    padding-right: 80px !important;
+}
+
+.complete-profile-badge {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #9CA3AF;
+    color: #ffffff;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: lowercase;
+}
+
+.create-account-btn,
+.complete-profile-btn {
+    width: 100%;
+    height: 48px;
+    margin-top: 20px;
+    border: none;
+    border-radius: 12px;
+    background: #374151;
+    color: #9CA3AF;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: not-allowed;
+    transition: background-color 0.3s ease, color 0.3s ease, transform 0.15s ease, opacity 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.create-account-btn:disabled,
+.complete-profile-btn:disabled {
+    background: #374151 !important;
+    color: #9CA3AF !important;
+    cursor: not-allowed !important;
+    opacity: 0.7;
+}
+
+.create-account-btn:not(:disabled),
+.complete-profile-btn:not(:disabled) {
+    background: #2533B8 !important;
+    color: #ffffff !important;
+    cursor: pointer !important;
+    opacity: 1;
+}
+
+.create-account-btn:not(:disabled):hover,
+.complete-profile-btn:not(:disabled):hover {
+    background: #2D3EE3;
+    transform: translateY(-1px);
+}
+
+@media(max-width: 480px){
+    .complete-profile-card{
+        padding: 26px 20px 26px 20px;
+        border-radius: 16px;
+    }
+    .complete-profile-title{
+        font-size: 24px;
+    }
+    .complete-profile-subtitle{
+        font-size: 13px;
+    }
+    .complete-profile-input{
+        height: 44px;
+        font-size: 14px;
+    }
+    .create-account-btn{
+        height: 44px;
+        font-size: 14px;
+    }
+}

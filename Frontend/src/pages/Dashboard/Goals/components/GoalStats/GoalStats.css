@@ -1,0 +1,5 @@
+.gs-root{display:flex;gap:0.75rem}
+.gs-card{background:rgba(255,255,255,0.03);padding:0.85rem;border-radius:10px;min-width:120px;text-align:center}
+.gs-title{font-size:0.75rem;color:#9eb0d8}
+.gs-value{font-weight:700;margin-top:0.6rem}
+.gs-card:hover{transform:translateY(-4px);transition:transform .18s}

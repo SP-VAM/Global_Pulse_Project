@@ -1,0 +1,35 @@
+.sparkline {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sparkline__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.sparkline__line {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sparkline__area {
+  opacity: 0.8;
+}
+
+.sparkline__dot {
+  opacity: 1;
+}
+
+.sparkline__labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--text-3, #64748b);
+  padding: 0 2px;
+}
