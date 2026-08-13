@@ -166,12 +166,13 @@ function OTPVerification() {
         }
 
         if (data.user) userData = data.user;
-        if (data.access_token) {
-          localStorage.setItem("access_token", data.access_token);
-          localStorage.setItem("token", data.access_token);
+        const realToken = data.access_token || data.accessToken;
+        if (realToken && realToken !== "demo_token") {
+          localStorage.setItem("access_token", realToken);
+          localStorage.setItem("token", realToken);
         }
       } catch (backendErr) {
-        console.warn("Backend API offline, proceeding with dev OTP verification fallback:", backendErr);
+        console.warn("Backend API verify error:", backendErr);
       }
 
       // TC-07, TC-17: Verification successful
@@ -179,11 +180,12 @@ function OTPVerification() {
 
       setTimeout(() => {
         if (from === "login") {
-          localStorage.setItem("user", JSON.stringify(userData));
-          if (!localStorage.getItem("access_token")) {
-            localStorage.setItem("access_token", "demo_token");
-            localStorage.setItem("token", "demo_token");
+          const currentToken = localStorage.getItem("access_token");
+          if (!currentToken || currentToken === "demo_token") {
+            setErrorMessage("Authentication failed: No valid access token issued by server.");
+            return;
           }
+          localStorage.setItem("user", JSON.stringify(userData));
           navigate("/login-success", { replace: true });
         } else {
           navigate("/complete-profile", {

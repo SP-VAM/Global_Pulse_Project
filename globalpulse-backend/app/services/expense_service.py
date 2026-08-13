@@ -103,13 +103,14 @@ class ExpenseService:
             categories = await self.ensure_default_categories()
             cat_id = categories[0].category_id
 
+        pm = req.payment_method.strip().upper().replace(" ", "_") if req.payment_method else "OTHER"
         expense = await self.expense_repo.create(
             {
                 "user_id": user_id,
                 "category_id": cat_id,
                 "amount": req.amount,
                 "expense_date": req.expense_date,
-                "payment_method": req.payment_method,
+                "payment_method": pm,
                 "notes": req.notes,
             }
         )
@@ -117,12 +118,13 @@ class ExpenseService:
 
     async def create_income(self, user_id: int, req: IncomeCreate) -> IncomeResponse:
         """Record a new income entry for the user."""
+        pm = req.payment_method.strip().upper().replace(" ", "_") if req.payment_method else "OTHER"
         income = await self.income_repo.create(
             {
                 "user_id": user_id,
                 "amount": req.amount,
                 "income_date": req.income_date,
-                "payment_method": req.payment_method,
+                "payment_method": pm,
                 "notes": req.notes,
             }
         )

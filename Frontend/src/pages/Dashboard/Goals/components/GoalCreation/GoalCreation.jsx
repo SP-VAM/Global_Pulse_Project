@@ -1,23 +1,24 @@
 import React, { useState } from "react";
 import { ArrowLeft, Target, FileText, IndianRupee, Calendar, X } from "lucide-react";
-import { getTodayString, formatINR } from "../../goalsContext.jsx";
+import { formatINR } from "../../goalsContext.jsx";
+import { getTodayISO, getMaxDateISO, formatDateDisplay } from "../../../../../utils/dateRules.js";
 import "../UpdateGoalDrawer/UpdateGoalDrawer.css";
 import "./GoalCreation.css";
 
-const getOneMonthLaterString = (dateStr) => {
-  if (!dateStr) return "";
-  const parts = dateStr.split("-");
-  if (parts.length !== 3) return dateStr;
-  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+const getTodayString = () => getTodayISO();
+
+const getOneMonthLaterString = (baseDateStr) => {
+  const d = baseDateStr ? new Date(baseDateStr) : new Date();
   d.setMonth(d.getMonth() + 1);
-  const yr = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, "0");
-  const dy = String(d.getDate()).padStart(2, "0");
-  return `${yr}-${mo}-${dy}`;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 export default function GoalCreation({ onCancel, onCreateSuccess }) {
   const todayStr = getTodayString();
+  const maxDateStr = getMaxDateISO();
 
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
@@ -39,7 +40,9 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
     const selected = e.target.value;
     setStartDate(selected);
     const minEndDate = getOneMonthLaterString(selected);
-    setEndDate(minEndDate);
+    if (endDate < minEndDate) {
+      setEndDate(minEndDate);
+    }
     if (errors.startDate) {
       setErrors((prev) => ({ ...prev, startDate: null }));
     }
@@ -72,6 +75,8 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
       newErrors.startDate = "Start date is required.";
     } else if (startDate < todayStr) {
       newErrors.startDate = "Start date cannot be in the past.";
+    } else if (startDate > maxDateStr) {
+      newErrors.startDate = `Start date cannot be later than ${formatDateDisplay(maxDateStr)}.`;
     }
 
     const minAllowedEndDate = getOneMonthLaterString(startDate);
@@ -81,6 +86,8 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
       newErrors.endDate = "End date must be at least 1 month after Start date.";
     } else if (endDate < todayStr) {
       newErrors.endDate = "End date cannot be in the past.";
+    } else if (endDate > maxDateStr) {
+      newErrors.endDate = `End date cannot be later than ${formatDateDisplay(maxDateStr)}.`;
     }
 
     setErrors(newErrors);
@@ -138,12 +145,13 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
                 id="create-goal-name"
                 type="text"
                 className={`drawer-panel__input ${errors.name ? "has-error" : ""}`}
-                placeholder="e.g. Dream House, Retirement Fund"
+                placeholder="e.g. Dream Vacation, House Downpayment..."
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
                   if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
                 }}
+                autoFocus
                 required
               />
             </div>
@@ -209,6 +217,7 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
                   id="create-start-date"
                   type="date"
                   min={todayStr}
+                  max={maxDateStr}
                   className={`drawer-panel__input ${errors.startDate ? "has-error" : ""}`}
                   value={startDate}
                   onChange={handleStartDateChange}
@@ -228,6 +237,7 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
                   id="create-end-date"
                   type="date"
                   min={getOneMonthLaterString(startDate || todayStr)}
+                  max={maxDateStr}
                   className={`drawer-panel__input ${errors.endDate ? "has-error" : ""}`}
                   value={endDate}
                   onChange={handleEndDateChange}

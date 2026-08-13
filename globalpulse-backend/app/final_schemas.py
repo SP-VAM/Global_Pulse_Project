@@ -19,7 +19,10 @@ class SignupRequest(BaseModel):
 # ==========================================================
 
 class LoginRequest(BaseModel):
-    email: str
+    email: Optional[str] = None
+    identity: Optional[str] = None
+    username: Optional[str] = None
+    identifier: Optional[str] = None
     password: str
 
 

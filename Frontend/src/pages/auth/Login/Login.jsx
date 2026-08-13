@@ -89,11 +89,11 @@ function Login() {
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: cleanedIdentifier,
+          identity: cleanedIdentifier,
           password: password,
         }),
       });
@@ -101,8 +101,13 @@ function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem("access_token", data.access_token);
-        localStorage.setItem("token", data.access_token);
+        const token = data.access_token || data.accessToken;
+        if (!token || token === "demo_token") {
+          setErrorMessage("Login failed: Server did not return a valid session token.");
+          return;
+        }
+        localStorage.setItem("access_token", token);
+        localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify(data.user || { username: cleanedIdentifier }));
         navigate("/login-success", { replace: true });
       } else {

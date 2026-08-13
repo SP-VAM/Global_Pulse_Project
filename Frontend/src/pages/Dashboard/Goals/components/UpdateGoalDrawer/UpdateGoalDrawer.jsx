@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ArrowLeft, Target, FileText, IndianRupee, Calendar, Trash2, X, AlertTriangle } from "lucide-react";
 import { formatINR, getTodayString, formatDateDisplay } from "../../goalsContext.jsx";
+import { getMaxDateISO, formatDateDisplay as formatDisplay } from "../../../../../utils/dateRules.js";
 import "./UpdateGoalDrawer.css";
 
 export default function UpdateGoalDrawer({
@@ -10,6 +11,7 @@ export default function UpdateGoalDrawer({
   onOpenDeleteConfirm,
 }) {
   const todayStr = getTodayString();
+  const maxDateStr = getMaxDateISO();
   const currentTarget = goal.target || 10000;
 
   const [name, setName] = useState(goal.name || "");
@@ -43,12 +45,10 @@ export default function UpdateGoalDrawer({
 
     if (!endDate) {
       newErrors.endDate = "End date is required.";
-    } else if (endDate < goal.startDate) {
-      newErrors.endDate = `End date cannot be before Start date (${formatDateDisplay(
-        goal.startDate
-      )}).`;
-    } else if (endDate < todayStr) {
-      newErrors.endDate = "End date cannot be in the past.";
+    } else if (endDate < (goal.startDate || todayStr)) {
+      newErrors.endDate = "End date cannot be earlier than Start date.";
+    } else if (endDate > maxDateStr) {
+      newErrors.endDate = `End date cannot be later than ${formatDisplay(maxDateStr)}.`;
     }
 
     setErrors(newErrors);
@@ -88,12 +88,12 @@ export default function UpdateGoalDrawer({
           </button>
         </div>
 
-        {/* Form Body */}
+        {/* Drawer Form */}
         <form className="drawer-panel__form" onSubmit={handleSubmit} noValidate>
           {/* Goal Name */}
           <div className="drawer-panel__field">
             <label className="drawer-panel__label" htmlFor="edit-goal-name">
-              Goal Name
+              Goal Name <span className="goal-creation__req">*</span>
             </label>
             <div className="drawer-panel__input-wrapper">
               <Target size={16} className="drawer-panel__icon" />
@@ -115,7 +115,7 @@ export default function UpdateGoalDrawer({
           {/* Note */}
           <div className="drawer-panel__field">
             <label className="drawer-panel__label" htmlFor="edit-goal-note">
-              Note
+              Note <span className="goal-creation__opt">(Optional)</span>
             </label>
             <div className="drawer-panel__input-wrapper">
               <FileText size={16} className="drawer-panel__icon" />
@@ -131,9 +131,16 @@ export default function UpdateGoalDrawer({
 
           {/* Target Amount */}
           <div className="drawer-panel__field">
-            <label className="drawer-panel__label" htmlFor="edit-goal-target">
-              Target Amount
-            </label>
+            <div className="drawer-panel__label-row">
+              <label className="drawer-panel__label" htmlFor="edit-goal-target">
+                Update Target Amount <span className="goal-creation__req">*</span>
+              </label>
+              {targetRaw ? (
+                <span className="drawer-panel__preview-badge">
+                  New: <strong>{formattedTargetDisplay}</strong>
+                </span>
+              ) : null}
+            </div>
             <div className="drawer-panel__input-wrapper">
               <IndianRupee size={16} className="drawer-panel__icon" />
               <input
@@ -183,6 +190,7 @@ export default function UpdateGoalDrawer({
                   id="edit-goal-end-date"
                   type="date"
                   min={goal.startDate || todayStr}
+                  max={maxDateStr}
                   className={`drawer-panel__input ${errors.endDate ? "has-error" : ""}`}
                   value={endDate}
                   onChange={(e) => {

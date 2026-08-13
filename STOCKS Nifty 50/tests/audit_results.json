@@ -1,0 +1,58 @@
+{
+  "model_accuracy": 0.5623610768090886,
+  "model_type": "ExtraTreesClassifier",
+  "mcc": 0.10438127497833743,
+  "f1_weighted": 0.4459562559419432,
+  "confusion_matrix": [
+    [
+      23,
+      1667,
+      129
+    ],
+    [
+      26,
+      4319,
+      166
+    ],
+    [
+      17,
+      1539,
+      212
+    ]
+  ],
+  "majority_accuracy": 0.5570511237342554,
+  "results": {
+    "1": {
+      "verdict": "PASS",
+      "note": "train/test date overlap=0"
+    },
+    "5": {
+      "verdict": "PASS",
+      "note": "duplicate rows=0, duplicate (Ticker,Date)=0"
+    },
+    "4": {
+      "verdict": "PASS",
+      "note": "target/tomorrow cols in model_features: []"
+    },
+    "6": {
+      "verdict": "PASS",
+      "note": "identity cols in features: ['Company_Encoded']"
+    },
+    "12": {
+      "verdict": "PASS",
+      "note": "reproduced honest acc=0.5624; any earlier inflated figure was a leakage artifact and retracted"
+    },
+    "15": {
+      "verdict": "PASS",
+      "note": "model 0.5624 vs majority 0.5571"
+    },
+    "7": {
+      "verdict": "FAIL",
+      "note": "fundamentals constant-per-company ratio: {'PE_Ratio': 1.0, 'PB_Ratio': 1.0, 'Market_Cap': 1.0, 'Dividend_Yield': 1.0} (ratio=1.0 means static/not point-in-time)"
+    },
+    "20": {
+      "verdict": "PASS",
+      "note": "test companies all present in train (49/49) \u2014 NOTE: same companies in train+test is expected for time-series panel; memorization risk depends on whether rows are truly time-disjoint"
+    }
+  }
+}

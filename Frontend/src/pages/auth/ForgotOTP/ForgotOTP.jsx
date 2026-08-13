@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 import background from "../../../assets/images/space-background.png";
+import { API_BASE_URL } from "../../../config/api.js";
 
 function ForgotOTP() {
   const navigate = useNavigate();
@@ -86,7 +87,7 @@ function ForgotOTP() {
       setErrorMessage("");
 
       const response = await fetch(
-        "http://127.0.0.1:8000/api/auth/verify-forgot-otp",
+        `${API_BASE_URL}/api/auth/verify-forgot-otp`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -127,7 +128,7 @@ function ForgotOTP() {
       setErrorMessage("");
 
       const response = await fetch(
-        "http://127.0.0.1:8000/api/auth/forgot-password",
+        `${API_BASE_URL}/api/auth/forgot-password`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

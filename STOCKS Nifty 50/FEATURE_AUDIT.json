@@ -1,0 +1,309 @@
+{
+  "merged_dataset": {
+    "rows": 53986,
+    "cols": 250,
+    "constant_columns": [],
+    "sentiment_nonzero_pct": 1.7208165079835513
+  },
+  "datasets": [
+    {
+      "file": "all_companies_stock_data.csv",
+      "rows": 54036,
+      "cols": 300,
+      "missing_pct": 96.0,
+      "columns_sample": [
+        "Date",
+        "Adj Close",
+        "Close",
+        "High",
+        "Low",
+        "Open",
+        "Volume",
+        "Company",
+        "Ticker",
+        "Year"
+      ]
+    },
+    {
+      "file": "merged_data/merged_dataset.csv",
+      "rows": 53986,
+      "cols": 250,
+      "missing_pct": 4.13,
+      "columns_sample": [
+        "Date",
+        "Adj Close",
+        "Close",
+        "High",
+        "Low",
+        "Open",
+        "Volume",
+        "Company",
+        "Ticker",
+        "Year"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-29"
+    },
+    {
+      "file": "merged_data/news_sentiment_aggregated.csv",
+      "rows": 5805,
+      "cols": 8,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Company",
+        "Date",
+        "Sentiment_Mean",
+        "Sentiment_Count",
+        "Sentiment_Positive",
+        "Sentiment_Neutral",
+        "Sentiment_Negative",
+        "Ticker"
+      ],
+      "date_min": "2008-06-07",
+      "date_max": "2025-01-10"
+    },
+    {
+      "file": "merged_data/fundamentals_data.csv",
+      "rows": 49,
+      "cols": 14,
+      "missing_pct": 8.02,
+      "columns_sample": [
+        "Ticker",
+        "PE_Ratio",
+        "PB_Ratio",
+        "Market_Cap",
+        "Dividend_Yield",
+        "Forward_PE",
+        "PEG_Ratio",
+        "EPS",
+        "Debt_To_Equity",
+        "ROE"
+      ]
+    },
+    {
+      "file": "news_data/final_news_sentiment_analysis.csv",
+      "rows": 13363,
+      "cols": 5,
+      "missing_pct": 0.01,
+      "columns_sample": [
+        "Company Name",
+        "Symbol",
+        "Headline",
+        "Publish Date",
+        "Sentiment"
+      ],
+      "date_min": "2008-06-07",
+      "date_max": "2025-01-10"
+    },
+    {
+      "file": "market_data/market_features.csv",
+      "rows": 1107,
+      "cols": 214,
+      "missing_pct": 0.91,
+      "columns_sample": [
+        "Date",
+        "NIFTY_Daily_Return",
+        "NIFTY_3D_Return",
+        "NIFTY_5D_Return",
+        "NIFTY_10D_Return",
+        "NIFTY_20D_Return",
+        "NIFTY_EMA20",
+        "NIFTY_EMA50",
+        "NIFTY_EMA200",
+        "NIFTY_RSI"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "market_data/market_breadth.csv",
+      "rows": 1111,
+      "cols": 9,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Date",
+        "Advance_Count",
+        "Decline_Count",
+        "Pct_Above_EMA20",
+        "Pct_Above_EMA50",
+        "Nifty_52Week_High_Count",
+        "Nifty_52Week_Low_Count",
+        "Advance_Decline_Ratio",
+        "Breadth_Score"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "market_data/index_NIFTY.csv",
+      "rows": 1107,
+      "cols": 6,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "market_data/index_SENSEX.csv",
+      "rows": 1105,
+      "cols": 6,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "market_data/index_BANKNIFTY.csv",
+      "rows": 1106,
+      "cols": 6,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "market_data/index_INDIAVIX.csv",
+      "rows": 1101,
+      "cols": 6,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "market_data/macro_USDINR.csv",
+      "rows": 1167,
+      "cols": 6,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "market_data/macro_GOLD.csv",
+      "rows": 1128,
+      "cols": 6,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "market_data/macro_BRENT.csv",
+      "rows": 1129,
+      "cols": 6,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "market_data/macro_WTI.csv",
+      "rows": 1128,
+      "cols": 6,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "market_data/macro_US10Y.csv",
+      "rows": 1126,
+      "cols": 6,
+      "missing_pct": 0.0,
+      "columns_sample": [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-30"
+    },
+    {
+      "file": "data/fii_dii/fii_dii_daily.csv",
+      "rows": 778,
+      "cols": 30,
+      "missing_pct": 0.39,
+      "columns_sample": [
+        "Date",
+        "FII_Buy",
+        "FII_Sell",
+        "FII_Net",
+        "DII_Buy",
+        "DII_Sell",
+        "DII_Net",
+        "FII_DII_Spread",
+        "FII_OI_Index",
+        "DII_OI_Index"
+      ],
+      "date_min": "2022-01-03",
+      "date_max": "2026-06-29"
+    }
+  ],
+  "known_issues": [
+    "Static fundamentals (not point-in-time)",
+    "FII/DII is derivatives-OI proxy not cash flows",
+    "utils/improved_model.py uses leaked split (should not be used)",
+    "Duplicate indicator pipelines (technical_indicators.py vs utils/preprocess_stock.py)",
+    "Sparse news sentiment"
+  ]
+}

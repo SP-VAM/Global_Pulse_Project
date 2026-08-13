@@ -26,6 +26,7 @@ export default function Goals() {
   const [showUpdateGoal, setShowUpdateGoal] = useState(false);
   const [showUpdateProgress, setShowUpdateProgress] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [toastMsg, setToastMsg] = useState(null);
 
   // Sync view when activeGoal state changes
   useEffect(() => {
@@ -46,6 +47,8 @@ export default function Goals() {
   const handleUpdateGoal = (updatedFields) => {
     if (activeGoal) {
       updateGoal(activeGoal.id, updatedFields);
+      setToastMsg("Goal details updated successfully!");
+      setTimeout(() => setToastMsg(null), 3500);
     }
   };
 
@@ -53,6 +56,8 @@ export default function Goals() {
   const handleAddProgress = (progressData) => {
     if (activeGoal) {
       addProgress(activeGoal.id, progressData);
+      setToastMsg("Goal progress updated successfully!");
+      setTimeout(() => setToastMsg(null), 3500);
     }
   };
 
@@ -69,6 +74,26 @@ export default function Goals() {
 
   return (
     <div className="goals-page">
+      {toastMsg && (
+        <div style={{
+          position: "fixed",
+          bottom: "24px",
+          right: "24px",
+          background: "rgba(46, 194, 126, 0.95)",
+          color: "#ffffff",
+          padding: "12px 20px",
+          borderRadius: "10px",
+          fontWeight: 600,
+          fontSize: "13.5px",
+          boxShadow: "0 10px 25px rgba(0,0,0,0.4)",
+          zIndex: 99999,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
+        }}>
+          <span>✓ {toastMsg}</span>
+        </div>
+      )}
       {/* 1. Goals Landing Page */}
       {view === "landing" && (
         <GoalsLanding onSetGoal={() => setView("create")} />

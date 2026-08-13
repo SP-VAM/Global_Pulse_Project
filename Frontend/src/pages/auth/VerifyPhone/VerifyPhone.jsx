@@ -191,8 +191,9 @@ function VerifyPhone() {
           console.log("Backend OTP response:", resData);
         } else {
           const errData = await backendResp.json().catch(() => ({}));
-          if (errData.detail) {
-            let msg = errData.detail;
+          const errMsg = errData.detail || errData.error?.message || errData.message;
+          if (errMsg) {
+            let msg = errMsg;
             if (msg.toLowerCase().includes("already registered") || msg.toLowerCase().includes("already exist")) {
               msg = "Mobile number already exists. Please log in.";
             }
@@ -200,7 +201,9 @@ function VerifyPhone() {
             setLoading(false);
             return;
           }
-          console.warn("Backend OTP response error:", errData);
+          setErrorMessage("Failed to send OTP code. Please check your phone number.");
+          setLoading(false);
+          return;
         }
       } catch (backendErr) {
         console.warn("Backend API offline, trying Firebase Phone Auth:", backendErr);

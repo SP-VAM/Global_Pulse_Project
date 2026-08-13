@@ -109,7 +109,8 @@
 }
 
 /* Center Avatar Card */
-.profile-avatar-card {
+.profile-avatar-card,
+.profile-photo-card {
   width: 220px;
   flex-shrink: 0;
   background: rgba(15, 19, 30, 0.72);
@@ -121,13 +122,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
 }
 
-.avatar-ring-wrapper {
-  width: 120px;
-  height: 120px;
+.avatar-ring-wrapper,
+.avatar-wrapper {
+  width: 110px;
+  height: 110px;
   border-radius: 50%;
   border: 3px solid #38bdf8;
   box-shadow: 0 0 28px rgba(56, 189, 248, 0.38);
@@ -138,10 +140,29 @@
   margin-bottom: 4px;
 }
 
-.avatar-image {
+.avatar-image,
+.avatar-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+}
+
+.photo-action-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
 }
 
 .btn-change-photo {
@@ -335,6 +356,60 @@
 
 .btn-save:active {
   transform: translateY(0);
+}
+
+/* Read-Only State & Mode Action Buttons */
+.form-input--readonly {
+  background: rgba(15, 20, 32, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #94a3b8 !important;
+  cursor: default !important;
+  box-shadow: none !important;
+}
+
+.form-input--readonly:focus {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+}
+
+.btn-cancel {
+  height: 46px;
+  padding: 0 24px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #cbd5e1;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.btn-edit-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 22px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 10px;
+  color: #38bdf8;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-edit-mode-toggle:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
 }
 
 /* Advanced Security & Notification View Styles */

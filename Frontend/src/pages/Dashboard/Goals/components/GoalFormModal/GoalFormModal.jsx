@@ -1,15 +1,19 @@
 import React, { useContext, useEffect, useRef, useState } from "react"
 import "./GoalFormModal.css"
 import { GoalsContext } from "../../goalsContext.jsx"
+import { getTodayISO, getMaxDateISO, formatDateDisplay } from "../../../../../utils/dateRules.js"
 
 export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteRequest }) {
   const { createGoal, updateGoal, deleteGoal } = useContext(GoalsContext)
   const modalRef = useRef(null)
 
+  const todayStr = getTodayISO()
+  const maxDateStr = getMaxDateISO()
+
   const [name, setName] = useState(goalToEdit?.name || "")
   const [notes, setNotes] = useState(goalToEdit?.notes || "")
   const [target, setTarget] = useState(goalToEdit?.target ? String(goalToEdit.target) : "")
-  const [startDate, setStartDate] = useState(goalToEdit?.startDate || "")
+  const [startDate, setStartDate] = useState(goalToEdit?.startDate || todayStr)
   const [endDate, setEndDate] = useState(goalToEdit?.endDate || "")
   const [errors, setErrors] = useState({})
 
@@ -42,10 +46,16 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
 
     if (!startDate) {
       e.startDate = "Start date is required."
+    } else if (startDate < todayStr) {
+      e.startDate = "Start date cannot be in the past."
+    } else if (startDate > maxDateStr) {
+      e.startDate = `Start date cannot be later than ${formatDateDisplay(maxDateStr)}.`
     }
 
     if (!endDate) {
       e.endDate = "End date is required."
+    } else if (endDate > maxDateStr) {
+      e.endDate = `End date cannot be later than ${formatDateDisplay(maxDateStr)}.`
     } else if (startDate) {
       const start = new Date(startDate)
       const minEnd = new Date(start)
@@ -167,6 +177,8 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
               <label className="gf-label">START DATE</label>
               <input
                 type="date"
+                min={todayStr}
+                max={maxDateStr}
                 className={`gf-input ${errors.startDate ? "gf-input--error" : ""}`}
                 value={startDate}
                 onChange={(e) => {
@@ -183,6 +195,8 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
               <label className="gf-label">END DATE</label>
               <input
                 type="date"
+                min={startDate || todayStr}
+                max={maxDateStr}
                 className={`gf-input ${errors.endDate ? "gf-input--error" : ""}`}
                 value={endDate}
                 onChange={(e) => {

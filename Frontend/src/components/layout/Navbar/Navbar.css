@@ -98,6 +98,14 @@
   color: #fff;
   background: linear-gradient(140deg, var(--blue-bright), var(--blue));
   box-shadow: 0 0 0 2px rgba(79, 131, 255, 0.35);
+  overflow: hidden;
+}
+
+.navbar__avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .navbar__avatar--lg {

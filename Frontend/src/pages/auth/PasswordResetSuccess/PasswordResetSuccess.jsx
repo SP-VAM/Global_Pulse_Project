@@ -7,6 +7,8 @@ import success from "../../../assets/images/success.png";
 
 function PasswordResetSuccess() {
   const navigate = useNavigate();
+  const token = localStorage.getItem("access_token");
+  const isAuthenticated = token && token !== "null" && token !== "undefined" && token !== "demo_token";
 
   return (
     <div
@@ -27,22 +29,44 @@ function PasswordResetSuccess() {
 
         {/* TC-24: Heading */}
         <h1 className="password-success-title">
-          Password Reset Successful!
+          Password Changed Successfully!
         </h1>
 
         {/* TC-24: Subtitle confirmation text */}
         <p className="password-success-subtitle">
-          Your password has been updated successfully. You can now log in using your new password.
+          Your password has been updated in Railway PostgreSQL. You can now use your new password for all future logins.
         </p>
 
-        {/* TC-25: Back to Login button */}
-        <button
-          type="button"
-          className="password-success-btn"
-          onClick={() => navigate("/login")}
-        >
-          Back to Login
-        </button>
+        {isAuthenticated ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
+            <button
+              type="button"
+              className="password-success-btn"
+              onClick={() => navigate("/dashboard")}
+            >
+              Return to Dashboard
+            </button>
+            <button
+              type="button"
+              className="password-success-btn"
+              style={{ background: "rgba(255, 255, 255, 0.08)", color: "#cbd5e1" }}
+              onClick={() => {
+                localStorage.clear();
+                navigate("/login");
+              }}
+            >
+              Log Out & Test New Password
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="password-success-btn"
+            onClick={() => navigate("/login")}
+          >
+            Continue to Login
+          </button>
+        )}
       </div>
     </div>
   );

@@ -98,6 +98,7 @@ class StockPredictionService:
         self._snapshot_cache: List[Dict[str, Any]] = []
         self._snapshot_cache_timestamp: float = 0.0
         self._cache_ttl_seconds: float = 60.0
+        self._mcap_cache: Dict[str, float] = {}
 
     def normalize_symbol(self, raw_symbol: str) -> str:
         """
@@ -343,16 +344,21 @@ class StockPredictionService:
                 prev_close = round(current_close - change, 2) if len(prices_df) >= 2 else current_close
                 price_history = self.extract_price_history(prices_df, limit=30)
 
-                market_cap = None
-                try:
-                    ticker_symbol = f"{symbol}.NS"
-                    tk = yf.Ticker(ticker_symbol)
-                    fi = tk.fast_info
-                    raw_mcap = fi.get("marketCap") or fi.get("market_cap")
-                    if raw_mcap and isinstance(raw_mcap, (int, float)) and raw_mcap > 0:
-                        market_cap = float(raw_mcap)
-                except Exception as mcap_err:
-                    logger.debug("Failed to fetch market_cap for %s: %s", symbol, mcap_err)
+                market_cap = self._mcap_cache.get(symbol)
+                if market_cap is None:
+                    try:
+                        ticker_symbol = f"{symbol}.NS"
+                        loop = asyncio.get_event_loop()
+                        def _fetch_mcap_sync():
+                            tk = yf.Ticker(ticker_symbol)
+                            fi = tk.fast_info
+                            raw_mcap = fi.get("marketCap") or fi.get("market_cap")
+                            return float(raw_mcap) if raw_mcap and isinstance(raw_mcap, (int, float)) and raw_mcap > 0 else None
+                        market_cap = await loop.run_in_executor(None, _fetch_mcap_sync)
+                        if market_cap is not None:
+                            self._mcap_cache[symbol] = market_cap
+                    except Exception as mcap_err:
+                        logger.debug("Failed to fetch market_cap for %s: %s", symbol, mcap_err)
 
                 return {
                     "symbol": symbol,

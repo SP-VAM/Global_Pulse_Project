@@ -4,11 +4,12 @@ pytest configuration and shared fixtures for GlobalPulse test suite.
 import os
 
 # ---------------------------------------------------------------------------
-# Override DATABASE_URL to SQLite BEFORE any app module is imported.
-# This prevents asyncpg (a C-extension) from being loaded during tests,
-# allowing the suite to run without a live PostgreSQL server or a C compiler.
+# Set DATABASE_URL to authoritative PostgreSQL database 'railway'.
 # ---------------------------------------------------------------------------
-os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test_globalpulse.db")
+os.environ.setdefault(
+    "DATABASE_URL",
+    "postgresql+asyncpg://postgres:GCaYlRkYnYQvReCFmHguNrHtMkwiiQZi@altaria.proxy.rlwy.net:31962/railway",
+)
 
 import pytest
 import pytest_asyncio

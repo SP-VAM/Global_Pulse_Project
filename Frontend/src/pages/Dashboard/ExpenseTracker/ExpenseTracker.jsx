@@ -28,6 +28,15 @@ import {
   monthLabel,
 } from "./data.js";
 import {
+  MIN_YEAR,
+  MAX_YEAR,
+  getAllowedYears,
+  isPrevMonthDisabled,
+  isNextMonthDisabled,
+  getMinDateISO,
+  getMaxDateISO,
+} from "../../../utils/dateRules.js";
+import {
   getExpenseSummary,
   createExpense,
   deleteExpense,
@@ -266,17 +275,23 @@ export default function ExpenseTracker() {
         newYr += 1;
         newMo = 0;
       }
+      if (dir < 0 && isPrevMonthDisabled(v.year, v.month)) return v;
+      if (dir > 0 && isNextMonthDisabled(v.year, v.month)) return v;
       setSelected(dateKey(newYr, newMo, 1));
       return { year: newYr, month: newMo };
     });
   };
 
   /* ----- Backend Mutations ----- */
+  const isSavingRef = useRef(false);
+
   const saveTx = async (payload) => {
+    if (isSavingRef.current) return;
     try {
+      isSavingRef.current = true;
       if (txModal.type === "expense") {
         const catObj = CATEGORY_MAP[payload.category];
-        const categoryName = catObj ? catObj.label : payload.category || "Other";
+        const categoryName = payload.category === "other" && payload.notes ? payload.notes : (catObj ? catObj.label : payload.category || "Other");
         await createExpense({
           amount: Number(payload.amount),
           expenseDate: payload.date,
@@ -298,17 +313,22 @@ export default function ExpenseTracker() {
       await loadSummary(view.year, view.month);
     } catch (err) {
       alert(`Error saving transaction: ${err.message}`);
+    } finally {
+      isSavingRef.current = false;
     }
   };
 
   const deleteTx = async (tx) => {
+    if (!tx) return;
     try {
+      const rawId = tx.rawId || (typeof tx.id === "string" ? tx.id.replace(/^(exp_|inc_)/, "") : tx.id);
       if (tx.type === "expense") {
-        await deleteExpense(tx.rawId);
+        await deleteExpense(rawId);
       } else {
-        await deleteIncome(tx.rawId);
+        await deleteIncome(rawId);
       }
       setDetailTx(null);
+      // Refetch authoritative backend summary to update UI
       await loadSummary(view.year, view.month);
     } catch (err) {
       alert(`Error deleting transaction: ${err.message}`);
@@ -318,7 +338,7 @@ export default function ExpenseTracker() {
   const saveBudget = async (payload) => {
     try {
       const catObj = CATEGORY_MAP[payload.category];
-      const categoryName = catObj ? catObj.label : payload.category || "General";
+      const categoryName = payload.category === "other" && payload.label ? payload.label : (catObj ? catObj.label : payload.category || "General");
       await saveBudgetApi({
         categoryName: categoryName,
         budgetAmount: Number(payload.limit),
@@ -490,42 +510,92 @@ export default function ExpenseTracker() {
       <div className="goal-main-grid">
         {/* LEFT COLUMN: Calendar Navigation Panel */}
         <div className="goal-panel">
-          <div className="goal-panel__head">
-            {/* Direct Native Month Calendar Picker Trigger */}
-            <div
-              style={{ position: "relative", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
-              onClick={openNativeMonthPicker}
-              title="Click to open Month Calendar"
-            >
+          <div className="goal-panel__head" style={{ gap: "8px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <CalendarIcon size={16} className="goal-panel__head-icon" />
-              <h3 className="goal-panel__title">
-                {monthLabel(view.year, view.month)} <span style={{ fontSize: "11px", color: "var(--text-3, #6b7385)" }}>▾</span>
-              </h3>
-              <input
-                ref={monthInputRef}
-                type="month"
+              <select
+                aria-label="Select month"
+                className="et-cal__select"
                 style={{
-                  position: "absolute",
-                  opacity: 0,
-                  pointerEvents: "none",
-                  width: 0,
-                  height: 0,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "#ffffff",
+                  borderRadius: "6px",
+                  padding: "4px 8px",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  outline: "none",
                 }}
-                value={`${view.year}-${String(view.month + 1).padStart(2, "0")}`}
+                value={view.month}
                 onChange={(e) => {
-                  if (!e.target.value) return;
-                  const [y, m] = e.target.value.split("-").map(Number);
-                  setView({ year: y, month: m - 1 });
-                  setSelected(dateKey(y, m - 1, 1));
+                  const m = Number(e.target.value);
+                  setView({ year: view.year, month: m });
+                  setSelected(dateKey(view.year, m, 1));
                 }}
-              />
+              >
+                {[
+                  "January", "February", "March", "April", "May", "June",
+                  "July", "August", "September", "October", "November", "December"
+                ].map((name, idx) => (
+                  <option key={name} value={idx} style={{ background: "#0f131f", color: "#fff" }}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Select year"
+                className="et-cal__select"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "#ffffff",
+                  borderRadius: "6px",
+                  padding: "4px 8px",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  outline: "none",
+                }}
+                value={view.year}
+                onChange={(e) => {
+                  const y = Number(e.target.value);
+                  setView({ year: y, month: view.month });
+                  setSelected(dateKey(y, view.month, 1));
+                }}
+              >
+                {getAllowedYears().map((y) => (
+                  <option key={y} value={y} style={{ background: "#0f131f", color: "#fff" }}>
+                    {y}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="et-cal__nav" style={{ marginLeft: "auto" }}>
-              <button type="button" aria-label="Previous month" onClick={() => changeMonth(-1)}>
+              <button
+                type="button"
+                aria-label="Previous month"
+                onClick={() => changeMonth(-1)}
+                disabled={isPrevMonthDisabled(view.year, view.month)}
+                style={{
+                  opacity: isPrevMonthDisabled(view.year, view.month) ? 0.3 : 1,
+                  cursor: isPrevMonthDisabled(view.year, view.month) ? "not-allowed" : "pointer",
+                }}
+              >
                 <ChevronLeft size={16} />
               </button>
-              <button type="button" aria-label="Next month" onClick={() => changeMonth(1)}>
+              <button
+                type="button"
+                aria-label="Next month"
+                onClick={() => changeMonth(1)}
+                disabled={isNextMonthDisabled(view.year, view.month)}
+                style={{
+                  opacity: isNextMonthDisabled(view.year, view.month) ? 0.3 : 1,
+                  cursor: isNextMonthDisabled(view.year, view.month) ? "not-allowed" : "pointer",
+                }}
+              >
                 <ChevronRight size={16} />
               </button>
             </div>
@@ -827,6 +897,7 @@ export default function ExpenseTracker() {
           type={txModal.type}
           initial={txModal.initial}
           selectedDate={selected}
+          selectedMonthView={view}
           onClose={() => setTxModal(null)}
           onSave={saveTx}
         />
@@ -842,7 +913,7 @@ export default function ExpenseTracker() {
             setDetailTx(null);
             setTxModal({ mode: "edit", type: txToEdit.type, initial: txToEdit });
           }}
-          onDelete={() => deleteTx(detailTx)}
+          onDelete={(targetTx) => deleteTx(targetTx || detailTx)}
         />
       )}
 

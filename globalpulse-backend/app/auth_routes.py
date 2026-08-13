@@ -51,6 +51,8 @@ def serialize_user_entity(user: User) -> dict:
         return {}
     return {
         "user_id": user.user_id,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "username": user.username,
         "email": user.email,
         "mobile_number": user.mobile_number,
@@ -88,7 +90,7 @@ def send_real_sms_otp(mobile_number: str, otp_code: str):
     }
 
     try:
-        response = requests.post(url, json=payload_otp, headers=headers, timeout=10)
+        response = requests.post(url, json=payload_otp, headers=headers, timeout=3)
         res_data = response.json()
         print(f"[FAST2SMS POST OTP RESULT]: {res_data}")
 
@@ -96,7 +98,7 @@ def send_real_sms_otp(mobile_number: str, otp_code: str):
             print(f"[FAST2SMS SUCCESS] Real SMS OTP delivered successfully to {clean_number}")
             return True
 
-        # 2. Try Quick SMS Route ('q') if OTP route fails (e.g. status 996 domain verification needed)
+        # 2. Try Quick SMS Route ('q') if OTP route fails
         print(f"[FAST2SMS FALLBACK] Trying Quick SMS route ('q')...")
         payload_quick = {
             "route": "q",
@@ -105,7 +107,7 @@ def send_real_sms_otp(mobile_number: str, otp_code: str):
             "flash": 0,
             "numbers": clean_number,
         }
-        q_response = requests.post(url, json=payload_quick, headers=headers, timeout=10)
+        q_response = requests.post(url, json=payload_quick, headers=headers, timeout=3)
         q_res_data = q_response.json()
         print(f"[FAST2SMS QUICK SMS RESULT]: {q_res_data}")
 
@@ -118,7 +120,7 @@ def send_real_sms_otp(mobile_number: str, otp_code: str):
         import urllib.parse
         encoded_msg = urllib.parse.quote(f"Your OTP code is {otp_code}. Valid for 10 minutes.")
         get_url = f"https://www.fast2sms.com/dev/bulkV2?authorization={fast2sms_key}&route=q&message={encoded_msg}&language=english&flash=0&numbers={clean_number}"
-        get_resp = requests.get(get_url, timeout=10)
+        get_resp = requests.get(get_url, timeout=3)
         get_res = get_resp.json()
         print(f"[FAST2SMS GET DISPATCH RESULT]: {get_res}")
         if get_res.get("return") is True or get_res.get("status_code") == 200:
@@ -180,11 +182,31 @@ def send_real_email_otp(to_email: str, otp_code: str, purpose: str = "Verificati
 
 
 # ==========================================================
+# HELPER: CHECK RAILWAY POSTGRESQL FOR USER BY MOBILE
+# ==========================================================
+
+async def check_pg_user_by_mobile(clean_digits: str):
+    if not clean_digits or len(clean_digits) != 10:
+        return None
+    try:
+        from app.db.session import async_engine
+        from sqlalchemy import text
+        async with async_engine.connect() as conn:
+            res = await conn.execute(
+                text("SELECT user_id, username, email, mobile_number FROM users WHERE mobile_number LIKE :mob LIMIT 1;"),
+                {"mob": f"%{clean_digits}"}
+            )
+            return res.fetchone()
+    except Exception:
+        return None
+
+
+# ==========================================================
 # 1. SEND SIGNUP OTP
 # ==========================================================
 
 @router.post("/send-signup-otp")
-def send_signup_otp(
+async def send_signup_otp(
     request: SendOTPRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -193,20 +215,28 @@ def send_signup_otp(
 
     # Check if mobile already exists in users table (TC-20)
     existing_user = None
-    if clean_digits:
+    if clean_digits and len(clean_digits) == 10:
         existing_user = (
             db.query(User)
             .filter(
                 or_(
                     User.mobile_number == request.mobile_number,
                     User.mobile_number == clean_digits,
-                    User.mobile_number.like(f"%{clean_digits}"),
+                    User.mobile_number == f"+91{clean_digits}",
+                    User.mobile_number.endswith(clean_digits),
                 )
             )
             .first()
         )
 
-    if existing_user:
+    pg_user = None
+    if clean_digits and len(clean_digits) == 10:
+        try:
+            pg_user = await check_pg_user_by_mobile(clean_digits)
+        except Exception:
+            pass
+
+    if existing_user or pg_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Mobile number already exists. Please log in."
@@ -247,11 +277,87 @@ def send_signup_otp(
 
 
 # ==========================================================
+# 1B. USERNAME / EMAIL & PASSWORD LOGIN
+# ==========================================================
+
+@router.post("/login")
+def login_with_password(
+    request: LoginRequest,
+    db: Session = Depends(get_db),
+):
+    identifier = (
+        request.identity
+        or request.email
+        or request.identifier
+        or request.username
+        or ""
+    ).strip()
+    password = request.password or ""
+
+    if not identifier or not password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username/email and password are required.",
+        )
+
+    clean_id = identifier.replace("+91", "").replace("+", "").strip()
+    full_id = f"+91{clean_id}"
+
+    user = (
+        db.query(User)
+        .filter(
+            or_(
+                func.lower(User.username) == identifier.lower(),
+                func.lower(User.email) == identifier.lower(),
+                User.mobile_number == identifier,
+                User.mobile_number == full_id,
+                User.mobile_number == clean_id,
+            )
+        )
+        .first()
+    )
+
+    if not user or not user.password_hash or not verify_password(password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username/email or password.",
+        )
+
+    if user.account_status != "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is inactive or suspended.",
+        )
+
+    user.last_login_at = datetime.now(timezone.utc)
+
+    # Generate JWT Token
+    access_token = create_access_token(
+        {"user_id": user.user_id, "email": user.email}
+    )
+
+    # Create active session in user_sessions DB table
+    session = UserSession(
+        user_id=user.user_id,
+        access_token=access_token,
+        is_active=True,
+    )
+    db.add(session)
+    db.commit()
+
+    return {
+        "message": "Login Successful",
+        "access_token": access_token,
+        "user": serialize_user_entity(user),
+    }
+
+
+# ==========================================================
 # 2. SEND LOGIN OTP
 # ==========================================================
 
 @router.post("/send-login-otp")
-def send_login_otp(
+async def send_login_otp(
     request: SendOTPRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -260,26 +366,34 @@ def send_login_otp(
 
     # Check if mobile exists in users table
     user = None
-    if clean_digits:
+    if clean_digits and len(clean_digits) == 10:
         user = (
             db.query(User)
             .filter(
                 or_(
                     User.mobile_number == request.mobile_number,
                     User.mobile_number == clean_digits,
-                    User.mobile_number.like(f"%{clean_digits}"),
+                    User.mobile_number == f"+91{clean_digits}",
+                    User.mobile_number.endswith(clean_digits),
                 )
             )
             .first()
         )
 
-    if not user:
+    pg_user = None
+    if not user and clean_digits and len(clean_digits) == 10:
+        try:
+            pg_user = await check_pg_user_by_mobile(clean_digits)
+        except Exception:
+            pass
+
+    if not user and not pg_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Mobile number is not registered. Please sign up first.",
         )
 
-    user_id = user.user_id
+    user_id = user.user_id if user else (pg_user[0] if pg_user else None)
 
     # Delete previous unverified OTPs
     db.query(OTPVerification).filter(
@@ -1122,6 +1236,29 @@ def reset_password(
             detail="User account not found.",
         )
 
+    # Verify recent verified OTP exists
+    fifteen_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=15)
+    verified_otp = (
+        db.query(OTPVerification)
+        .filter(
+            or_(
+                OTPVerification.email == user.email,
+                OTPVerification.mobile_number == user.mobile_number,
+                OTPVerification.user_id == user.user_id,
+            ),
+            OTPVerification.otp_type == "PASSWORD_RESET",
+            OTPVerification.is_verified == True,
+        )
+        .order_by(OTPVerification.otp_id.desc())
+        .first()
+    )
+
+    if not verified_otp or (verified_otp.verified_at and (datetime.now(timezone.utc) if verified_otp.verified_at.tzinfo else datetime.utcnow()) - verified_otp.verified_at > timedelta(minutes=15)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code required before resetting password.",
+        )
+
     # TC-20: Check if new password is same as old password
     if user.password_hash and verify_password(request.new_password, user.password_hash):
         raise HTTPException(
@@ -1130,6 +1267,19 @@ def reset_password(
         )
 
     user.password_hash = hash_password(request.new_password)
+
+    # Record Audit Log
+    try:
+        audit = AuditLog(
+            user_id=user.user_id,
+            table_name="users",
+            action="PASSWORD_CHANGED",
+            description=f"Password reset successfully for user_id={user.user_id}"
+        )
+        db.add(audit)
+    except Exception as audit_err:
+        print("[reset_password] Audit log warning:", audit_err)
+
     db.commit()
 
     # TC-32: Send confirmation email notification after reset

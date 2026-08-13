@@ -2,6 +2,8 @@
   position: relative;
   min-height: 100vh;
   width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Content sits to the right of the collapsed sidebar and below the navbar.
@@ -9,10 +11,13 @@
 .shell__content {
   position: relative;
   z-index: 1;
-  min-height: 100vh;
-  padding-top: var(--navbar-h);
+  min-height: calc(100vh - var(--navbar-h, 60px));
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--navbar-h, 60px);
   margin-left: var(--sidebar-w);
   transition: margin-left 250ms var(--ease);
+  flex: 1 0 auto;
 }
 
 .shell--sidebar-open .shell__content {
@@ -20,9 +25,27 @@
 }
 
 .shell__content-inner {
-  max-width: 1360px;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 24px 28px 40px;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Dynamic Responsive Zoom Scaling Rules (70%, 80%, 90%, 100%, 110%, 125%, 150%) */
+@media (min-width: 1920px) {
+  .shell__content-inner {
+    max-width: 1800px;
+    padding: 32px 40px 48px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .shell__content-inner {
+    padding: 20px 20px 36px;
+  }
 }
 
 @media (max-width: 900px) {

@@ -94,7 +94,7 @@ export const verifyFirebasePhoneOTP = async (otpCode) => {
 };
 
 export const authenticateWithBackend = async (idToken, username = null) => {
-  const API_BASE_URL = window.location.hostname === "localhost" ? "http://localhost:8000" : "";
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === "localhost" ? "http://localhost:8000" : "");
   const response = await fetch(`${API_BASE_URL}/api/auth/firebase-login`, {
     method: "POST",
     headers: {

@@ -27,7 +27,6 @@ build/
 *.sqlite3
 
 # Large Binary ML Models & Datasets
-*.pkl
 *.bin
 *.onnx
 *.h5
@@ -49,7 +48,12 @@ commands.md
 legacy_archive/
 _legacy_archive/
 _project_cleanup_archive/
-STOCKS Nifty 50/
 
-# Large ML model artifacts
-globalpulse-backend/app/data/stocks/models/*.pkl
+# Large ML model files exceeding GitHub 100MB limit — store these externally
+**/models/xgboost_model.pkl
+**/models/model_1d_3class.pkl
+**/models/model_10d_3class.pkl
+**/models/model_5d_3class.pkl
+**/models/model_10d_binary_sector.pkl
+**/models/model_1d_binary.pkl
+**/models/model_10d_binary.pkl

@@ -17,7 +17,12 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL or "sqlite+aiosqlite:///./globalpulse.db")
+if not settings.DATABASE_URL or "sqlite" in settings.DATABASE_URL.lower():
+    raise RuntimeError(
+        "Alembic Database Error: DATABASE_URL must be configured with PostgreSQL 'railway'. "
+        "Silent fallback to SQLite is disabled."
+    )
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 
 def run_migrations_offline() -> None:

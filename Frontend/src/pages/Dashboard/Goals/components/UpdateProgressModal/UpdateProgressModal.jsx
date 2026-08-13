@@ -1,14 +1,19 @@
 import React, { useContext, useEffect, useRef, useState } from "react"
 import "./UpdateProgressModal.css"
 import { GoalsContext } from "../../goalsContext.jsx"
+import { getContributionDateBounds, formatDateDisplay as formatDisplay } from "../../../../../utils/dateRules.js"
 
 export default function UpdateProgressModal({ onClose }) {
-  const { selected, updateProgress } = useContext(GoalsContext)
+  const { selected, addProgress } = useContext(GoalsContext)
+  const bounds = getContributionDateBounds(selected?.startDate, selected?.endDate)
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const initialDate = todayStr >= bounds.min && todayStr <= bounds.max ? todayStr : bounds.min
+
   const [goalName, setGoalName] = useState(selected?.name || "Investment Goal")
   const [notes, setNotes] = useState("")
   const [amount, setAmount] = useState("")
   const [asset, setAsset] = useState("")
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0])
+  const [date, setDate] = useState(initialDate)
   const [error, setError] = useState("")
   const modalRef = useRef(null)
 
@@ -34,10 +39,18 @@ export default function UpdateProgressModal({ onClose }) {
       setError("Please enter a valid amount.")
       return
     }
+    if (!date || date < bounds.min || date > bounds.max) {
+      setError(`Contribution date must be between ${formatDisplay(bounds.min)} and ${formatDisplay(bounds.max)}.`)
+      return
+    }
 
-    const title = notes.trim() || "Monthly Deposit"
-    const subtitle = asset.trim() ? `Auto-transfer from ${asset}` : "Goal progress contribution"
-    updateProgress(selected.id, num, date, title, subtitle)
+    addProgress(selected.id, {
+      name: goalName,
+      amount: num,
+      assetType: asset || "Gold",
+      date,
+      notes: notes.trim(),
+    })
     onClose()
   }
 
@@ -107,6 +120,8 @@ export default function UpdateProgressModal({ onClose }) {
             <label className="up-label">DATE</label>
             <input
               type="date"
+              min={bounds.min}
+              max={bounds.max}
               className="up-input"
               value={date}
               onChange={(e) => setDate(e.target.value)}

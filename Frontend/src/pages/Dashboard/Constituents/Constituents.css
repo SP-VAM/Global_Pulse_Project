@@ -66,6 +66,7 @@
   border-radius: var(--radius);
   overflow-x: auto;
   backdrop-filter: blur(10px);
+  min-height: 520px;
 }
 .constituents__table {
   width: 100%;

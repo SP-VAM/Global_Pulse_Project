@@ -6,6 +6,7 @@ import {
   formatINR,
   formatDateDisplay,
 } from "../../goalsContext.jsx";
+import { getContributionDateBounds, formatDateDisplay as formatDisplay } from "../../../../../utils/dateRules.js";
 import "./UpdateProgressDrawer.css";
 
 export default function UpdateProgressDrawer({
@@ -14,10 +15,13 @@ export default function UpdateProgressDrawer({
   onAddProgress,
 }) {
   const todayStr = getTodayString();
+  const bounds = getContributionDateBounds(goal?.startDate, goal?.endDate);
+  const initialDate = todayStr >= bounds.min && todayStr <= bounds.max ? todayStr : bounds.min;
 
+  const [goalName, setGoalName] = useState(goal?.name || "");
   const [amountRaw, setAmountRaw] = useState("");
   const [assetType, setAssetType] = useState("Gold");
-  const [date, setDate] = useState(todayStr);
+  const [date, setDate] = useState(initialDate);
 
   const [errors, setErrors] = useState({});
 
@@ -39,8 +43,8 @@ export default function UpdateProgressDrawer({
 
     if (!date) {
       newErrors.date = "Date is required.";
-    } else if (date < todayStr) {
-      newErrors.date = "Past dates are disabled. Select today or a future date.";
+    } else if (date < bounds.min || date > bounds.max) {
+      newErrors.date = `Contribution date must be between ${formatDisplay(bounds.min)} and ${formatDisplay(bounds.max)}.`;
     }
 
     setErrors(newErrors);
@@ -52,6 +56,7 @@ export default function UpdateProgressDrawer({
     if (!validate()) return;
 
     onAddProgress({
+      name: goalName,
       amount: Number(amountRaw),
       assetType,
       date,
@@ -67,7 +72,10 @@ export default function UpdateProgressDrawer({
         {/* Header */}
         <div className="drawer-panel__head">
           <div className="drawer-panel__head-text">
-            <h2 className="drawer-panel__title">Update Progress</h2>
+            <h2 className="drawer-panel__title">Update Goal Progress</h2>
+            <p className="drawer-panel__subtitle">
+              Record a new asset deposit or investment contribution.
+            </p>
           </div>
           <button
             type="button"
@@ -83,13 +91,16 @@ export default function UpdateProgressDrawer({
         <form className="drawer-panel__form" onSubmit={handleSubmit} noValidate>
           {/* Goal Name */}
           <div className="drawer-panel__field">
-            <label className="drawer-panel__label">Goal Name</label>
+            <label className="drawer-panel__label" htmlFor="progress-goal-name">
+              Goal Name
+            </label>
             <div className="drawer-panel__input-wrapper drawer-panel__input-wrapper--disabled">
               <Target size={16} className="drawer-panel__icon" />
               <input
+                id="progress-goal-name"
                 type="text"
                 className="drawer-panel__input"
-                value={goal.name}
+                value={goalName}
                 disabled
               />
             </div>
@@ -111,11 +122,11 @@ export default function UpdateProgressDrawer({
             </div>
           )}
 
-          {/* Add Amount */}
+          {/* Contribution Amount */}
           <div className="drawer-panel__field">
             <div className="drawer-panel__label-row">
-              <label className="drawer-panel__label" htmlFor="add-amount">
-                Add Amount <span className="goal-creation__req">*</span>
+              <label className="drawer-panel__label" htmlFor="progress-amount">
+                Contribution Amount <span className="goal-creation__req">*</span>
               </label>
               {amountRaw ? (
                 <span className="drawer-panel__preview-badge">
@@ -126,14 +137,15 @@ export default function UpdateProgressDrawer({
             <div className="drawer-panel__input-wrapper">
               <IndianRupee size={16} className="drawer-panel__icon" />
               <input
-                id="add-amount"
+                id="progress-amount"
                 type="text"
                 inputMode="numeric"
                 className={`drawer-panel__input ${errors.amount ? "has-error" : ""}`}
-                placeholder="Enter deposit amount e.g. ₹5,000"
+                placeholder="Enter deposit amount e.g. 5000"
                 value={amountRaw ? formatINR(Number(amountRaw)) : ""}
                 onChange={handleAmountChange}
                 onFocus={(e) => e.target.select()}
+                autoFocus
                 required
               />
             </div>
@@ -172,7 +184,8 @@ export default function UpdateProgressDrawer({
               <input
                 id="progress-date"
                 type="date"
-                min={todayStr}
+                min={bounds.min}
+                max={bounds.max}
                 className={`drawer-panel__input ${errors.date ? "has-error" : ""}`}
                 value={date}
                 onChange={(e) => {

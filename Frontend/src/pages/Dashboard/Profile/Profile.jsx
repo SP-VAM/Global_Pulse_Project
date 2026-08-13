@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   User,
   Shield,
@@ -9,7 +10,10 @@ import {
   Smartphone,
   ChevronRight,
   Mail,
+  Eye,
+  EyeOff,
 } from "lucide-react"
+import { getMe, updateProfile } from "../../../api/authApi"
 import "./Profile.css"
 
 function Toggle({ on, onChange }) {
@@ -26,60 +30,182 @@ function Toggle({ on, onChange }) {
   )
 }
 
+function parseUserData(parsed) {
+  if (!parsed) return null
+  const nameParts = (parsed.first_name || parsed.last_name)
+    ? [parsed.first_name || "", parsed.last_name || ""]
+    : (parsed.full_name || parsed.username || "").split(" ")
+  return {
+    firstName: parsed.first_name || parsed.firstName || nameParts[0] || "",
+    lastName: parsed.last_name || parsed.lastName || nameParts.slice(1).join(" ") || "",
+    email: parsed.email || "",
+    phone: parsed.mobile_number || parsed.mobileNumber || parsed.phone || "",
+    avatar: parsed.profile_image || parsed.profileImage || parsed.avatar || null,
+    isEmailVerified: parsed.isEmailVerified !== undefined ? parsed.isEmailVerified : true,
+    isPhoneVerified: parsed.isPhoneVerified !== undefined ? parsed.isPhoneVerified : false,
+  }
+}
+
 export default function Profile() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState("Profile")
 
-  // Load stored user or set default values matching design
+  // Load stored user or set default initial state:
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem("user")
       if (saved) {
         const parsed = JSON.parse(saved)
-        const nameParts = (parsed.full_name || parsed.username || "Alex Sterling").split(" ")
-        return {
-          firstName: nameParts[0] || "Alex",
-          lastName: nameParts.slice(1).join(" ") || "Sterling",
-          email: parsed.email || `${parsed.username || "alex.sterling"}@globalpulse.ai`,
-          phone: parsed.phone || "+1 (555) 012-3456",
-          avatar: parsed.avatar || null,
-        }
+        const mapped = parseUserData(parsed)
+        if (mapped) return mapped
       }
     } catch (e) {
       console.error(e)
     }
     return {
-      firstName: "Alex",
-      lastName: "Sterling",
-      email: "alex.sterling@globalpulse.ai",
-      phone: "+1 (555) 012-3456",
+      firstName: "",
+      lastName: "",
+      email: localStorage.getItem("email") || "elax@gmail.com",
+      phone: "",
       avatar: null,
+      isEmailVerified: true,
+      isPhoneVerified: false,
     }
   })
 
   const [formData, setFormData] = useState({ ...user })
+  const [isEmailVerified, setIsEmailVerified] = useState(user.isEmailVerified)
+  const [isPhoneVerified, setIsPhoneVerified] = useState(user.isPhoneVerified)
+
+  const [isEditingEmail, setIsEditingEmail] = useState(false)
+  const [isEditingPhone, setIsEditingPhone] = useState(false)
+
+  // Inline OTP states
+  const [showEmailOtp, setShowEmailOtp] = useState(false)
+  const [showPhoneOtp, setShowPhoneOtp] = useState(false)
+  const [emailOtp, setEmailOtp] = useState(["", "", "", "", "", ""])
+  const [phoneOtp, setPhoneOtp] = useState(["", "", "", "", "", ""])
+  const [generatedEmailOtp, setGeneratedEmailOtp] = useState("")
+  const [generatedPhoneOtp, setGeneratedPhoneOtp] = useState("")
+
   const [notificationMsg, setNotificationMsg] = useState(null)
   const fileInputRef = useRef(null)
 
-  // Security & Notification tab states
-  const [twoFactor, setTwoFactor] = useState(true)
-  const [notifState, setNotifState] = useState({
-    marketAlerts: true,
-    securityAlerts: true,
-    dailySummaries: false,
-    portfolioUpdates: true,
-    soundNotifications: true,
-    mobileMasterSwitch: true,
-    smsAccountActivity: true,
-    smsSecurityBreaches: true,
-    waTradeConfirmations: true,
-    waAiStrategyAlerts: false,
+  // Fetch live profile from backend on mount
+  useEffect(() => {
+    async function fetchLiveProfile() {
+      try {
+        const liveUser = await getMe()
+        if (liveUser) {
+          const mapped = parseUserData(liveUser)
+          if (mapped) {
+            setUser((prev) => ({ ...prev, ...mapped }))
+            setFormData((prev) => ({ ...prev, ...mapped }))
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch live profile from API, using cached local data:", err)
+      }
+    }
+    fetchLiveProfile()
+  }, [])
+
+  // Security Tab Password Change States
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  })
+  const [showPass, setShowPass] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  })
+  const [currentSavedPassword, setCurrentSavedPassword] = useState(() => {
+    try {
+      const saved = localStorage.getItem("user")
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.password) return parsed.password
+      }
+    } catch (e) {
+      console.error(e)
+    }
+    return "password123"
   })
 
-  const toggleNotif = (key) => setNotifState((prev) => ({ ...prev, [key]: !prev[key] }))
+  const [twoFactor, setTwoFactor] = useState(true)
+
+  // Notification States
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem("notifPreferences")
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.emailNotificationsEnabled !== undefined) return parsed.emailNotificationsEnabled
+      }
+    } catch (e) {
+      console.error(e)
+    }
+    return true
+  })
+
+  const [mobileNotificationsEnabled, setMobileNotificationsEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem("notifPreferences")
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.mobileNotificationsEnabled !== undefined) return parsed.mobileNotificationsEnabled
+      }
+    } catch (e) {
+      console.error(e)
+    }
+    return true
+  })
+
+  const handleSaveNotificationPreferences = () => {
+    try {
+      localStorage.setItem(
+        "notifPreferences",
+        JSON.stringify({
+          emailNotificationsEnabled,
+          mobileNotificationsEnabled,
+        })
+      )
+    } catch (err) {
+      console.error(err)
+    }
+    showNotification("Notification preferences saved successfully.", "success")
+  }
+
+  const handleResetNotificationDefaults = () => {
+    setEmailNotificationsEnabled(true)
+    setMobileNotificationsEnabled(true)
+    try {
+      localStorage.setItem(
+        "notifPreferences",
+        JSON.stringify({
+          emailNotificationsEnabled: true,
+          mobileNotificationsEnabled: true,
+        })
+      )
+    } catch (err) {
+      console.error(err)
+    }
+    showNotification("Notification preferences reset to defaults.", "info")
+  }
 
   useEffect(() => {
     setFormData({ ...user })
+    setIsEmailVerified(user.isEmailVerified)
+    setIsPhoneVerified(user.isPhoneVerified)
   }, [user])
+
+  const showNotification = (msg, type = "success") => {
+    setNotificationMsg({ msg, type })
+    setTimeout(() => setNotificationMsg(null), 4000)
+  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -103,56 +229,232 @@ export default function Profile() {
     showNotification("Photo removed", "info")
   }
 
-  const handleSendRequest = (field) => {
-    showNotification(`Verification request sent for ${field}`, "info")
+  // Email Flow Actions
+  const handleEditEmailClick = () => {
+    setIsEditingEmail(true)
+    setIsEmailVerified(false)
+    setShowEmailOtp(false)
+  }
+
+  const handleSendEmailOtp = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!formData.email || !emailRegex.test(formData.email.trim())) {
+      showNotification("Please enter a valid email address.", "error")
+      return
+    }
+    const mockOtp = "123456"
+    setGeneratedEmailOtp(mockOtp)
+    setEmailOtp(["", "", "", "", "", ""])
+    setShowEmailOtp(true)
+    showNotification(`OTP sent to ${formData.email}. (Demo Code: 123456)`, "info")
+  }
+
+  const handleVerifyEmailOtp = () => {
+    const code = emailOtp.join("")
+    if (code === generatedEmailOtp || code === "123456") {
+      setIsEmailVerified(true)
+      setIsEditingEmail(false)
+      setShowEmailOtp(false)
+      showNotification("Email address verified successfully!", "success")
+    } else {
+      showNotification("Invalid OTP code. Please enter valid 6-digit code (123456)", "error")
+    }
+  }
+
+  const handleResendEmailOtp = () => {
+    const mockOtp = "123456"
+    setGeneratedEmailOtp(mockOtp)
+    setEmailOtp(["", "", "", "", "", ""])
+    showNotification(`New OTP sent to ${formData.email}. (Demo Code: 123456)`, "info")
+  }
+
+  // Phone Flow Actions
+  const handleEditPhoneClick = () => {
+    setIsEditingPhone(true)
+    setIsPhoneVerified(false)
+    setShowPhoneOtp(false)
+  }
+
+  const handleSendPhoneOtp = () => {
+    const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,15}$/
+    if (!formData.phone || !phoneRegex.test(formData.phone.trim())) {
+      showNotification("Please enter a valid phone number.", "error")
+      return
+    }
+    const mockOtp = "123456"
+    setGeneratedPhoneOtp(mockOtp)
+    setPhoneOtp(["", "", "", "", "", ""])
+    setShowPhoneOtp(true)
+    showNotification(`OTP sent to ${formData.phone}. (Demo Code: 123456)`, "info")
+  }
+
+  const handleVerifyPhoneOtp = () => {
+    const code = phoneOtp.join("")
+    if (code === generatedPhoneOtp || code === "123456") {
+      setIsPhoneVerified(true)
+      setIsEditingPhone(false)
+      setShowPhoneOtp(false)
+      showNotification("Phone number verified successfully!", "success")
+    } else {
+      showNotification("Invalid OTP code. Please enter valid 6-digit code (123456)", "error")
+    }
+  }
+
+  const handleResendPhoneOtp = () => {
+    const mockOtp = "123456"
+    setGeneratedPhoneOtp(mockOtp)
+    setPhoneOtp(["", "", "", "", "", ""])
+    showNotification(`New OTP sent to ${formData.phone}. (Demo Code: 123456)`, "info")
+  }
+
+  // Password Change Handlers
+  const handlePasswordInputChange = (e) => {
+    const { name, value } = e.target
+    setPasswordForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const toggleShowPass = (field) => {
+    setShowPass((prev) => ({ ...prev, [field]: !prev[field] }))
+  }
+
+  const handleSavePassword = (e) => {
+    e.preventDefault()
+
+    const { currentPassword, newPassword, confirmPassword } = passwordForm
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showNotification("All password fields are mandatory.", "error")
+      return
+    }
+
+    if (currentPassword !== currentSavedPassword) {
+      showNotification("Current password is incorrect.", "error")
+      return
+    }
+
+    const hasUpper = /[A-Z]/.test(newPassword)
+    const hasLower = /[a-z]/.test(newPassword)
+    const hasNum = /[0-9]/.test(newPassword)
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword)
+
+    if (newPassword.length < 8 || !hasUpper || !hasLower || !hasNum || !hasSpecial) {
+      showNotification(
+        "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.",
+        "error"
+      )
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      showNotification("Passwords do not match.", "error")
+      return
+    }
+
+    setCurrentSavedPassword(newPassword)
+    try {
+      const saved = localStorage.getItem("user")
+      const parsed = saved ? JSON.parse(saved) : {}
+      localStorage.setItem("user", JSON.stringify({ ...parsed, password: newPassword }))
+    } catch (err) {
+      console.error(err)
+    }
+
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+    setShowPass({ current: false, new: false, confirm: false })
+    setIsChangingPassword(false)
+    showNotification("Password updated successfully.", "success")
+  }
+
+  // OTP Input navigation helper
+  const handleOtpInputChange = (e, idx, otpState, setOtpState, inputPrefix) => {
+    const val = e.target.value
+    if (val.length > 1) return
+
+    const newOtp = [...otpState]
+    newOtp[idx] = val
+    setOtpState(newOtp)
+
+    if (val && idx < 5) {
+      const nextInput = document.getElementById(`${inputPrefix}-${idx + 1}`)
+      if (nextInput) nextInput.focus()
+    }
+  }
+
+  const handleOtpKeyDown = (e, idx, otpState, setOtpState, inputPrefix) => {
+    if (e.key === "Backspace" && !otpState[idx] && idx > 0) {
+      const prevInput = document.getElementById(`${inputPrefix}-${idx - 1}`)
+      if (prevInput) prevInput.focus()
+    }
   }
 
   const handleResetDefaults = () => {
     const defaultData = {
-      firstName: "Alex",
-      lastName: "Sterling",
-      email: "alex.sterling@globalpulse.ai",
-      phone: "+1 (555) 012-3456",
+      firstName: "",
+      lastName: "",
+      email: "elax@gmail.com",
+      phone: "",
       avatar: null,
+      isEmailVerified: true,
+      isPhoneVerified: false,
     }
     setFormData(defaultData)
     setUser(defaultData)
-    localStorage.setItem(
-      "user",
-      JSON.stringify({
-        full_name: "Alex Sterling",
-        username: "alex",
-        email: "alex.sterling@globalpulse.ai",
-        phone: "+1 (555) 012-3456",
-      })
-    )
+    setIsEditingEmail(false)
+    setIsEditingPhone(false)
+    setIsEmailVerified(true)
+    setIsPhoneVerified(false)
+    setShowEmailOtp(false)
+    setShowPhoneOtp(false)
+    setEmailOtp(["", "", "", "", "", ""])
+    setPhoneOtp(["", "", "", "", "", ""])
+
+    try {
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          ...defaultData,
+          full_name: "",
+        })
+      )
+    } catch (e) {
+      console.error(e)
+    }
     showNotification("Settings reset to defaults", "info")
   }
 
-  const handleSaveChanges = (e) => {
+  const handleSaveChanges = async (e) => {
     e.preventDefault()
+
+    if (showEmailOtp || (isEditingEmail && !isEmailVerified)) {
+      showNotification("Please complete email OTP verification before saving changes.", "error")
+      return
+    }
+
+    if (showPhoneOtp || (isEditingPhone && !isPhoneVerified)) {
+      showNotification("Please complete phone OTP verification before saving changes.", "error")
+      return
+    }
+
     const updatedUser = {
       ...formData,
       full_name: `${formData.firstName} ${formData.lastName}`.trim(),
-      username: formData.firstName.toLowerCase(),
+      isEmailVerified,
+      isPhoneVerified,
     }
+
     setUser(updatedUser)
     try {
       localStorage.setItem("user", JSON.stringify(updatedUser))
+      await updateProfile({
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName ? formData.lastName.trim() : "",
+        profileImage: formData.avatar || "",
+      })
     } catch (err) {
-      console.error(err)
+      console.error("API profile update error:", err)
     }
     showNotification("Changes saved successfully!", "success")
   }
-
-  const showNotification = (msg, type = "success") => {
-    setNotificationMsg({ msg, type })
-    setTimeout(() => setNotificationMsg(null), 3000)
-  }
-
-  // Default avatar image fallback
-  const defaultAvatar =
-    "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80"
 
   const currentTab = activeTab.toLowerCase()
 
@@ -160,7 +462,11 @@ export default function Profile() {
     <div className="profile-container">
       {notificationMsg && (
         <div className={`profile-toast profile-toast--${notificationMsg.type}`}>
-          {notificationMsg.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          {notificationMsg.type === "success" ? (
+            <CheckCircle2 size={18} />
+          ) : (
+            <AlertCircle size={18} />
+          )}
           <span>{notificationMsg.msg}</span>
         </div>
       )}
@@ -197,11 +503,17 @@ export default function Profile() {
             {/* Center Avatar Card */}
             <div className="profile-avatar-card">
               <div className="avatar-ring-wrapper">
-                <img
-                  src={formData.avatar || defaultAvatar}
-                  alt="Profile Avatar"
-                  className="avatar-image"
-                />
+                {formData.avatar ? (
+                  <img
+                    src={formData.avatar}
+                    alt="Profile Avatar"
+                    className="avatar-image"
+                  />
+                ) : (
+                  <div className="avatar-placeholder">
+                    <User size={52} className="avatar-placeholder-icon" />
+                  </div>
+                )}
               </div>
               <input
                 type="file"
@@ -235,9 +547,9 @@ export default function Profile() {
                     type="text"
                     name="firstName"
                     className="form-input"
+                    placeholder="Enter First Name"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    required
                   />
                 </div>
                 <div className="form-group">
@@ -246,72 +558,203 @@ export default function Profile() {
                     type="text"
                     name="lastName"
                     className="form-input"
+                    placeholder="Enter Last Name"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    required
                   />
                 </div>
               </div>
 
+              {/* EMAIL ADDRESS FIELD */}
               <div className="form-group">
                 <label className="form-label">EMAIL ADDRESS</label>
                 <div className="input-with-action">
                   <input
                     type="email"
                     name="email"
-                    className="form-input"
+                    className={`form-input${isEmailVerified && !isEditingEmail ? " form-input--verified" : ""}`}
                     value={formData.email}
                     onChange={handleInputChange}
-                    required
+                    placeholder="Enter Email Address"
+                    readOnly={isEmailVerified && !isEditingEmail}
                   />
                   <div className="action-buttons">
-                    <button
-                      type="button"
-                      className="btn-send-request"
-                      onClick={() => handleSendRequest("Email Address")}
-                    >
-                      SEND REQUEST
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-edit-icon"
-                      aria-label="Edit Email"
-                      onClick={() => handleSendRequest("Email Address")}
-                    >
-                      <Pencil size={16} />
-                    </button>
+                    {isEmailVerified && !isEditingEmail ? (
+                      <>
+                        <span className="verified-badge" title="Verified Email">
+                          <CheckCircle2 size={20} className="icon-emerald" />
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-edit-icon"
+                          aria-label="Edit Email"
+                          onClick={handleEditEmailClick}
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-send-request"
+                          onClick={handleSendEmailOtp}
+                        >
+                          SEND REQUEST
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-edit-icon"
+                          aria-label="Edit Email"
+                          onClick={handleEditEmailClick}
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
+
+                {/* Inline Email OTP Section */}
+                {showEmailOtp && (
+                  <div className="otp-inline-card">
+                    <div className="otp-title-row">
+                      <span className="otp-label">
+                        Enter 6-digit OTP sent to {formData.email}
+                      </span>
+                    </div>
+                    <div className="otp-input-group">
+                      {emailOtp.map((digit, idx) => (
+                        <input
+                          key={idx}
+                          id={`email-otp-${idx}`}
+                          type="text"
+                          maxLength={1}
+                          className="otp-box"
+                          value={digit}
+                          onChange={(e) =>
+                            handleOtpInputChange(e, idx, emailOtp, setEmailOtp, "email-otp")
+                          }
+                          onKeyDown={(e) =>
+                            handleOtpKeyDown(e, idx, emailOtp, setEmailOtp, "email-otp")
+                          }
+                        />
+                      ))}
+                    </div>
+                    <div className="otp-action-buttons">
+                      <button
+                        type="button"
+                        className="btn-verify-otp"
+                        onClick={handleVerifyEmailOtp}
+                      >
+                        Verify OTP
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-resend-otp"
+                        onClick={handleResendEmailOtp}
+                      >
+                        Resend OTP
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* PHONE NUMBER FIELD */}
               <div className="form-group">
                 <label className="form-label">Phone Number</label>
                 <div className="input-with-action">
                   <input
                     type="text"
                     name="phone"
-                    className="form-input"
+                    className={`form-input${isPhoneVerified && !isEditingPhone ? " form-input--verified" : ""}`}
                     value={formData.phone}
                     onChange={handleInputChange}
+                    placeholder="Enter Phone Number"
+                    readOnly={isPhoneVerified && !isEditingPhone}
                   />
                   <div className="action-buttons">
-                    <button
-                      type="button"
-                      className="btn-send-request"
-                      onClick={() => handleSendRequest("Phone Number")}
-                    >
-                      SEND REQUEST
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-edit-icon"
-                      aria-label="Edit Phone"
-                      onClick={() => handleSendRequest("Phone Number")}
-                    >
-                      <Pencil size={16} />
-                    </button>
+                    {isPhoneVerified && !isEditingPhone ? (
+                      <>
+                        <span className="verified-badge" title="Verified Phone">
+                          <CheckCircle2 size={20} className="icon-emerald" />
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-edit-icon"
+                          aria-label="Edit Phone"
+                          onClick={handleEditPhoneClick}
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-send-request"
+                          onClick={handleSendPhoneOtp}
+                        >
+                          SEND REQUEST
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-edit-icon"
+                          aria-label="Edit Phone"
+                          onClick={handleEditPhoneClick}
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
+
+                {/* Inline Phone OTP Section */}
+                {showPhoneOtp && (
+                  <div className="otp-inline-card">
+                    <div className="otp-title-row">
+                      <span className="otp-label">
+                        Enter 6-digit OTP sent to {formData.phone}
+                      </span>
+                    </div>
+                    <div className="otp-input-group">
+                      {phoneOtp.map((digit, idx) => (
+                        <input
+                          key={idx}
+                          id={`phone-otp-${idx}`}
+                          type="text"
+                          maxLength={1}
+                          className="otp-box"
+                          value={digit}
+                          onChange={(e) =>
+                            handleOtpInputChange(e, idx, phoneOtp, setPhoneOtp, "phone-otp")
+                          }
+                          onKeyDown={(e) =>
+                            handleOtpKeyDown(e, idx, phoneOtp, setPhoneOtp, "phone-otp")
+                          }
+                        />
+                      ))}
+                    </div>
+                    <div className="otp-action-buttons">
+                      <button
+                        type="button"
+                        className="btn-verify-otp"
+                        onClick={handleVerifyPhoneOtp}
+                      >
+                        Verify OTP
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-resend-otp"
+                        onClick={handleResendPhoneOtp}
+                      >
+                        Resend OTP
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="profile-footer-actions">
@@ -353,54 +796,109 @@ export default function Profile() {
                 <Toggle on={twoFactor} onChange={setTwoFactor} />
               </div>
 
-              {/* Action Cards Row */}
-              <div className="ac-sec-grid">
-                <div className="ac-sec-action-card">
-                  <div>
-                    <h4 className="ac-sec-action-title">Change Password</h4>
-                    <p className="ac-sec-action-sub">Last updated 14 days ago</p>
-                  </div>
-                  <ChevronRight size={18} className="ac-sec-chevron" />
-                </div>
-
-                <div className="ac-sec-action-card">
-                  <div>
-                    <h4 className="ac-sec-action-title">Privacy Settings</h4>
-                    <p className="ac-sec-action-sub">Manage data visibility</p>
-                  </div>
-                  <ChevronRight size={18} className="ac-sec-chevron" />
-                </div>
-              </div>
-
-              {/* Recent Activity Section */}
-              <div className="ac-activity-section">
-                <h4 className="ac-activity-head">RECENT ACTIVITY</h4>
-                <div className="ac-activity-list">
-                  <div className="ac-activity-item">
-                    <div className="ac-activity-left">
-                      <span className="ac-dot ac-dot--blue"></span>
-                      <span className="ac-activity-title">Terminal Login - New York, US</span>
+              {/* Change Password Card / Form */}
+              {!isChangingPassword ? (
+                <div className="ac-sec-grid--full">
+                  <div
+                    className="ac-sec-action-card ac-sec-action-card--full"
+                    onClick={() => setIsChangingPassword(true)}
+                  >
+                    <div>
+                      <h4 className="ac-sec-action-title">Change Password</h4>
+                      <p className="ac-sec-action-sub">Click to update your password</p>
                     </div>
-                    <span className="ac-activity-time">Just now</span>
-                  </div>
-
-                  <div className="ac-activity-item">
-                    <div className="ac-activity-left">
-                      <span className="ac-dot ac-dot--gray"></span>
-                      <span className="ac-activity-title">API Key Generated</span>
-                    </div>
-                    <span className="ac-activity-time">2h ago</span>
-                  </div>
-
-                  <div className="ac-activity-item">
-                    <div className="ac-activity-left">
-                      <span className="ac-dot ac-dot--gray"></span>
-                      <span className="ac-activity-title">Password Changed</span>
-                    </div>
-                    <span className="ac-activity-time">14d ago</span>
+                    <ChevronRight size={18} className="ac-sec-chevron" />
                   </div>
                 </div>
-              </div>
+              ) : (
+                <form className="change-password-card" onSubmit={handleSavePassword}>
+                  <div className="change-pass-title-row">
+                    <h3 className="change-pass-title">Change Password</h3>
+                    <button
+                      type="button"
+                      className="btn-cancel-pass"
+                      onClick={() => {
+                        setIsChangingPassword(false)
+                        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">CURRENT PASSWORD</label>
+                    <div className="input-pass-wrap">
+                      <input
+                        type={showPass.current ? "text" : "password"}
+                        name="currentPassword"
+                        className="form-input"
+                        placeholder="Enter current password"
+                        value={passwordForm.currentPassword}
+                        onChange={handlePasswordInputChange}
+                      />
+                      <button
+                        type="button"
+                        className="btn-eye-toggle"
+                        aria-label="Toggle password visibility"
+                        onClick={() => toggleShowPass("current")}
+                      >
+                        {showPass.current ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">NEW PASSWORD</label>
+                    <div className="input-pass-wrap">
+                      <input
+                        type={showPass.new ? "text" : "password"}
+                        name="newPassword"
+                        className="form-input"
+                        placeholder="Enter new password"
+                        value={passwordForm.newPassword}
+                        onChange={handlePasswordInputChange}
+                      />
+                      <button
+                        type="button"
+                        className="btn-eye-toggle"
+                        aria-label="Toggle password visibility"
+                        onClick={() => toggleShowPass("new")}
+                      >
+                        {showPass.new ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">CONFIRM NEW PASSWORD</label>
+                    <div className="input-pass-wrap">
+                      <input
+                        type={showPass.confirm ? "text" : "password"}
+                        name="confirmPassword"
+                        className="form-input"
+                        placeholder="Confirm new password"
+                        value={passwordForm.confirmPassword}
+                        onChange={handlePasswordInputChange}
+                      />
+                      <button
+                        type="button"
+                        className="btn-eye-toggle"
+                        aria-label="Toggle password visibility"
+                        onClick={() => toggleShowPass("confirm")}
+                      >
+                        {showPass.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="change-pass-actions">
+                    <button type="submit" className="btn-save">
+                      Save
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}
@@ -413,210 +911,110 @@ export default function Profile() {
               <div>
                 <h2 className="ac-notif-title">Alerts & Notifications</h2>
                 <p className="ac-notif-sub">
-                  Precision-tune your real-time intelligence stream and delivery protocols.
+                  Configure your real-time email and mobile notification preferences.
                 </p>
               </div>
               <div className="ac-notif-actions">
                 <button
                   type="button"
                   className="ac-btn-secondary"
-                  onClick={() => {
-                    setNotifState({
-                      marketAlerts: true,
-                      securityAlerts: true,
-                      dailySummaries: false,
-                      portfolioUpdates: true,
-                      soundNotifications: true,
-                      mobileMasterSwitch: true,
-                      smsAccountActivity: true,
-                      smsSecurityBreaches: true,
-                      waTradeConfirmations: true,
-                      waAiStrategyAlerts: false,
-                    })
-                    showNotification("Notifications reset to defaults", "info")
-                  }}
+                  onClick={handleResetNotificationDefaults}
                 >
                   Reset Default
                 </button>
                 <button
                   type="button"
                   className="ac-btn-primary"
-                  onClick={() => showNotification("Notification protocols saved successfully!", "success")}
+                  onClick={handleSaveNotificationPreferences}
                 >
-                  Save Protocols
+                  Save Preferences
                 </button>
               </div>
             </div>
 
-            {/* Grid Row 1 */}
-            <div className="ac-notif-grid-top">
-              {/* Email Notifications Card */}
+            <div className="ac-notif-stack">
+              {/* Card 1: Email Notifications */}
               <div className="ac-card ac-email-card">
                 <div className="ac-card-head">
                   <div className="ac-card-head-left">
-                    <Mail size={20} className="ac-cyan-icon" />
+                    <Mail size={22} className="ac-cyan-icon" />
                     <div>
                       <h3 className="ac-card-title-text">Email Notifications</h3>
-                      <p className="ac-card-sub-text">Primary address: {user.email || "user@sovereign-intel.io"}</p>
+                      <p className="ac-card-sub-text">
+                        {isEmailVerified && formData.email
+                          ? `Primary Address: ${formData.email}`
+                          : "No verified email available"}
+                      </p>
                     </div>
                   </div>
-                  <span className="ac-tag-verified">✔ VERIFIED</span>
+                  {isEmailVerified && formData.email ? (
+                    <span className="ac-tag-verified">✔ VERIFIED</span>
+                  ) : null}
                 </div>
 
-                <div className="ac-toggles-2x2">
+                {isEmailVerified && formData.email ? (
                   <div className="ac-toggle-box">
                     <div>
-                      <h4 className="ac-toggle-title">Market Alerts</h4>
-                      <p className="ac-toggle-desc">Volatility & gap up/down news.</p>
+                      <h4 className="ac-toggle-title">Enable Email Notifications</h4>
+                      <p className="ac-toggle-desc">
+                        Receive real-time alerts & market updates via email.
+                      </p>
                     </div>
-                    <Toggle on={notifState.marketAlerts} onChange={() => toggleNotif("marketAlerts")} />
+                    <Toggle
+                      on={emailNotificationsEnabled}
+                      onChange={setEmailNotificationsEnabled}
+                    />
                   </div>
-
-                  <div className="ac-toggle-box">
-                    <div>
-                      <h4 className="ac-toggle-title">Security Alerts</h4>
-                      <p className="ac-toggle-desc">Login & withdrawal activity.</p>
-                    </div>
-                    <Toggle on={notifState.securityAlerts} onChange={() => toggleNotif("securityAlerts")} />
-                  </div>
-
-                  <div className="ac-toggle-box">
-                    <div>
-                      <h4 className="ac-toggle-title">Daily Summaries</h4>
-                      <p className="ac-toggle-desc">Consolidated morning brief.</p>
-                    </div>
-                    <Toggle on={notifState.dailySummaries} onChange={() => toggleNotif("dailySummaries")} />
-                  </div>
-
-                  <div className="ac-toggle-box">
-                    <div>
-                      <h4 className="ac-toggle-title">Portfolio Updates</h4>
-                      <p className="ac-toggle-desc">Asset rebalancing & yields.</p>
-                    </div>
-                    <Toggle on={notifState.portfolioUpdates} onChange={() => toggleNotif("portfolioUpdates")} />
-                  </div>
-                </div>
-
-                <div className="ac-email-footer">
-                  <span>System last updated: Today, 08:45 UTC</span>
-                  <button type="button" className="ac-link-cyan">✎ Change Primary Email</button>
-                </div>
-              </div>
-
-              {/* Push & Desktop Card */}
-              <div className="ac-card ac-push-card">
-                <div className="ac-card-head">
-                  <div className="ac-card-head-left">
-                    <Bell size={20} className="ac-cyan-icon" />
-                    <h3 className="ac-card-title-text">Push & Desktop</h3>
-                  </div>
-                </div>
-
-                <div className="ac-browser-perm-box">
-                  <div className="ac-browser-perm-head">
-                    <span>Browser Permission</span>
-                    <span className="ac-badge-blocked">
-                      <AlertCircle size={12} /> BLOCKED BY BROWSER
+                ) : (
+                  <div className="ac-notif-unverified-box">
+                    <AlertCircle size={18} />
+                    <span>
+                      Please add and verify an email address in your Profile page to receive email notifications.
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className="ac-btn-outline-blue"
-                    onClick={() => showNotification("Browser permission requested", "info")}
-                  >
-                    Enable Desktop Alerts
-                  </button>
-                </div>
-
-                <div className="ac-toggle-box" style={{ marginTop: 16 }}>
-                  <div>
-                    <h4 className="ac-toggle-title">Sound Notifications</h4>
-                    <p className="ac-toggle-desc">Play tone for high-vol alerts.</p>
-                  </div>
-                  <Toggle on={notifState.soundNotifications} onChange={() => toggleNotif("soundNotifications")} />
-                </div>
+                )}
               </div>
-            </div>
 
-            {/* Bottom Card: Mobile Intelligence Stream */}
-            <div className="ac-card ac-mobile-card">
-              <div className="ac-mobile-head">
-                <div className="ac-mobile-head-left">
-                  <Smartphone size={20} className="ac-cyan-icon" />
-                  <div>
-                    <div className="ac-mobile-title-wrap">
-                      <h3 className="ac-card-title-text">Mobile Intelligence Stream</h3>
-                      <span className="ac-chip-phone">{user.phone || "+1 (...) ***-5582"}</span>
+              {/* Card 2: Mobile Notifications */}
+              <div className="ac-card ac-mobile-card">
+                <div className="ac-card-head">
+                  <div className="ac-card-head-left">
+                    <Smartphone size={22} className="ac-cyan-icon" />
+                    <div>
+                      <h3 className="ac-card-title-text">Mobile Notifications</h3>
+                      <p className="ac-card-sub-text">
+                        {isPhoneVerified && formData.phone
+                          ? `Verified Mobile Number: ${formData.phone}`
+                          : "No verified mobile number available"}
+                      </p>
                     </div>
-                    <p className="ac-card-sub-text">
-                      Configure direct-to-device critical updates via SMS or WhatsApp integration.
-                    </p>
                   </div>
-                </div>
-                <div className="ac-master-switch-wrap">
-                  <span className="ac-master-switch-label">Global Mobile Master Switch</span>
-                  <Toggle on={notifState.mobileMasterSwitch} onChange={() => toggleNotif("mobileMasterSwitch")} />
-                </div>
-              </div>
-
-              <div className="ac-mobile-3col">
-                {/* Column 1: SMS PROTOCOLS */}
-                <div className="ac-mobile-col">
-                  <h4 className="ac-mobile-col-title">SMS PROTOCOLS</h4>
-                  <label className="ac-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={notifState.smsAccountActivity}
-                      onChange={() => toggleNotif("smsAccountActivity")}
-                      className="ac-checkbox"
-                    />
-                    <span>Account Activity</span>
-                  </label>
-                  <label className="ac-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={notifState.smsSecurityBreaches}
-                      onChange={() => toggleNotif("smsSecurityBreaches")}
-                      className="ac-checkbox"
-                    />
-                    <span>Security Breaches</span>
-                  </label>
+                  {isPhoneVerified && formData.phone ? (
+                    <span className="ac-tag-verified">✔ VERIFIED</span>
+                  ) : null}
                 </div>
 
-                {/* Column 2: WHATSAPP DIRECT */}
-                <div className="ac-mobile-col">
-                  <h4 className="ac-mobile-col-title">WHATSAPP DIRECT</h4>
-                  <label className="ac-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={notifState.waTradeConfirmations}
-                      onChange={() => toggleNotif("waTradeConfirmations")}
-                      className="ac-checkbox"
+                {isPhoneVerified && formData.phone ? (
+                  <div className="ac-toggle-box">
+                    <div>
+                      <h4 className="ac-toggle-title">Enable Mobile Notifications</h4>
+                      <p className="ac-toggle-desc">
+                        Receive critical alerts & trade updates directly on your mobile device.
+                      </p>
+                    </div>
+                    <Toggle
+                      on={mobileNotificationsEnabled}
+                      onChange={setMobileNotificationsEnabled}
                     />
-                    <span>Trade Confirmations</span>
-                  </label>
-                  <label className="ac-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={notifState.waAiStrategyAlerts}
-                      onChange={() => toggleNotif("waAiStrategyAlerts")}
-                      className="ac-checkbox"
-                    />
-                    <span>AI Strategy Alerts</span>
-                  </label>
-                </div>
-
-                {/* Column 3: PRICE MOVEMENT */}
-                <div className="ac-mobile-col">
-                  <h4 className="ac-mobile-col-title">PRICE MOVEMENT (±%)</h4>
-                  <div className="ac-threshold-row">
-                    <span>Threshold</span>
-                    <span className="ac-threshold-val">5.0%</span>
                   </div>
-                  <p className="ac-mobile-col-desc">
-                    Notify when tracked assets move beyond the set percentage in a 1-hour window.
-                  </p>
-                </div>
+                ) : (
+                  <div className="ac-notif-unverified-box">
+                    <AlertCircle size={18} />
+                    <span>
+                      Please add and verify a mobile number in your Profile page to receive mobile notifications.
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { ArrowRight, Zap, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SignUp from '../auth/SignUp/SignUp';
 import Logo from '../../components/common/Logo/Logo';
+import Footer from '../../components/layout/Footer/Footer';
 import FinancialGalaxyCanvas from './FinancialGalaxyCanvas';
 import {
   WalletVisual,
@@ -357,6 +358,9 @@ export default function Landing() {
           </div>
         </section>
       </main>
+
+      {/* Landing Page Footer */}
+      <Footer />
     </div>
   );
 }

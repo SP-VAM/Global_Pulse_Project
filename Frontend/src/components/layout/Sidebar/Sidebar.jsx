@@ -15,8 +15,6 @@ import "./Sidebar.css"
 
 const MAIN_LINKS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/dashboard/constituents", label: "NIFTY 50", icon: BarChart2 },
-  { to: "/dashboard/investments", label: "Investments", icon: TrendingUp },
   { to: "/dashboard/market-analysis", label: "Market Analysis", icon: Globe },
   { to: "/dashboard/learning-hub", label: "Learning Hub", icon: GraduationCap },
   { to: "/dashboard/expense-tracker", label: "Expense Tracker", icon: Wallet },
@@ -29,7 +27,7 @@ const MAIN_LINKS = [
  * - Expands to 260px on hover (icons + labels), reporting state to the layout.
  * - Active item: blue glow, white icon, left indicator bar.
  */
-export default function Sidebar({ onHoverChange }) {
+export default function Sidebar({ onHoverChange, onLogoutClick }) {
   return (
     <aside
       className="sidebar"
@@ -64,13 +62,13 @@ export default function Sidebar({ onHoverChange }) {
           <span className="sidebar__label">Upgrade to Pro</span>
         </NavLink>
 
-        <NavLink to="/login" className="sidebar__link">
+        <button type="button" className="sidebar__link" onClick={onLogoutClick}>
           <span className="sidebar__indicator" />
           <span className="sidebar__icon">
             <LogOut size={22} />
           </span>
           <span className="sidebar__label">Logout</span>
-        </NavLink>
+        </button>
       </div>
     </aside>
   )

@@ -4,7 +4,7 @@
 
 function getAuthHeader() {
   const token = localStorage.getItem("access_token")
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  return (token && token !== "demo_token") ? { Authorization: `Bearer ${token}` } : {}
 }
 
 async function handleResponse(res, fallbackErrorMsg) {

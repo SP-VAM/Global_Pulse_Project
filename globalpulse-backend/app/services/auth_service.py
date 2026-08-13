@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 from app.core.config import get_settings
-from app.core.exceptions import GlobalPulseError, ValidationError
+from app.core.exceptions import GlobalPulseError, ValidationError, AuthenticationError
 from app.core.security import create_access_token, create_refresh_token, decode_token, hash_password, verify_password
 from sqlalchemy import select
 from app.db.models.user_model import UserModel, UserSessionModel, UserSettingsModel
@@ -113,14 +113,7 @@ class AuthService:
 
     async def signup(self, req: SignupRequest, ip: Optional[str] = None, device: Optional[str] = None) -> TokenResponse:
         """Register new user account, create session, and issue JWT tokens."""
-        # Check duplicate username/email
-        if await self.user_repo.get_by_username(req.username):
-            raise ValidationError(f"Username '{req.username}' is already taken.")
-        if await self.user_repo.get_by_email(req.email):
-            raise ValidationError(f"Email '{req.email}' is already registered.")
-
-        # If verification_token present and mobile_number is missing, extract mobile/target from token
-        mobile_num = req.mobile_number
+        mobile_num = req.mobile_number or getattr(req, "mobileNumber", None)
         if req.verification_token:
             try:
                 payload = decode_token(req.verification_token)
@@ -130,6 +123,18 @@ class AuthService:
             except Exception:
                 pass
 
+        final_email = req.email
+        if not final_email:
+            if mobile_num:
+                clean_m = "".join(filter(str.isdigit, mobile_num))[-10:]
+                final_email = f"{clean_m}@mobile.globalpulse"
+            else:
+                final_email = f"{req.username.lower()}@user.globalpulse"
+
+        if await self.user_repo.get_by_username(req.username):
+            raise ValidationError(f"Username '{req.username}' is already taken.")
+        if req.email and await self.user_repo.get_by_email(req.email):
+            raise ValidationError(f"Email '{req.email}' is already registered.")
         if mobile_num and await self.user_repo.get_by_mobile(mobile_num):
             raise ValidationError(f"Mobile number '{mobile_num}' is already registered.")
 
@@ -137,7 +142,7 @@ class AuthService:
         user = await self.user_repo.create(
             {
                 "username": req.username,
-                "email": req.email,
+                "email": final_email,
                 "mobile_number": mobile_num,
                 "password_hash": pw_hash,
                 "auth_provider": req.auth_provider,
@@ -178,7 +183,7 @@ class AuthService:
         """Authenticate user credentials and issue active session tokens."""
         user = await self.user_repo.get_by_identity(req.identity)
         if not user or not user.password_hash or not verify_password(req.password, user.password_hash):
-            raise ValidationError("Invalid username/email or password.")
+            raise AuthenticationError("Invalid username/email or password.")
 
         if user.account_status != "ACTIVE":
             raise ValidationError("Account is inactive or suspended.")
@@ -312,6 +317,15 @@ class AuthService:
                 raise ValidationError(f"Mobile number '{req.mobile_number}' is already registered.")
             updates["mobile_number"] = req.mobile_number
             updates["is_mobile_verified"] = True
+
+        if req.first_name is not None and req.first_name != user.first_name:
+            updates["first_name"] = req.first_name
+
+        if req.last_name is not None and req.last_name != user.last_name:
+            updates["last_name"] = req.last_name
+
+        if req.profile_image is not None and req.profile_image != user.profile_image:
+            updates["profile_image"] = req.profile_image
 
         if updates:
             updated_user = await self.user_repo.update(user_id, updates)

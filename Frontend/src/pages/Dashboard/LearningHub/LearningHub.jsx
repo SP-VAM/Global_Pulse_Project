@@ -127,7 +127,12 @@ export default function LearningHub() {
         {activeModules.length > 0 ? (
           <div className="lh-active-list">
             {activeModules.map((course) => (
-              <ActiveModuleCard key={`active-${course.id}`} course={course} openCourse={openCourse} />
+              <ActiveModuleCard
+                key={`active-${course.id}`}
+                course={course}
+                openCourse={openCourse}
+                isPlaying={selectedCourse && String(selectedCourse.id) === String(course.id)}
+              />
             ))}
           </div>
         ) : (

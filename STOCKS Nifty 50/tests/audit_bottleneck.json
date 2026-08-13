@@ -1,0 +1,50 @@
+{
+  "total_rows": 53986,
+  "companies": 49,
+  "date_range": [
+    "2022-01-03 00:00:00",
+    "2026-06-29 00:00:00"
+  ],
+  "n_features_total_cols": 101,
+  "target_distribution": {
+    "0": 0.2093,
+    "1": 0.5623,
+    "2": 0.2284
+  },
+  "target_autocorr_lag1": -0.001,
+  "prev_day_direction_accuracy": 0.4363,
+  "static_columns": [],
+  "near_constant_columns": [
+    "Year",
+    "Target_Multi",
+    "NIFTY_Trend_Direction",
+    "Regime_Strong_Bull",
+    "Regime_Bull",
+    "Regime_Neutral",
+    "Regime_Bear",
+    "Regime_Strong_Bear",
+    "Valuation_Category_Overvalued",
+    "Valuation_Category_Undervalued",
+    "Valuation_Category_Correct"
+  ],
+  "PE_Ratio_const_per_company": 1.0,
+  "PB_Ratio_const_per_company": 1.0,
+  "Market_Cap_const_per_company": 1.0,
+  "Dividend_Yield_const_per_company": 1.0,
+  "train_rows": 45888,
+  "test_rows": 8098,
+  "train_years": 4,
+  "median_rows_per_company_year": 246,
+  "Sentiment_Mean_nonzero_frac": 0.0172,
+  "Sentiment_Count_nonzero_frac": 0.0413,
+  "Sentiment_Positive_nonzero_frac": 0.0084,
+  "best_model_acc": 0.5618671276858483,
+  "direction_acc": 0.06380607411535247,
+  "per_class_recall": {
+    "DOWN": 0.0115,
+    "FLAT": 0.9583,
+    "UP": 0.1176
+  },
+  "predicted_flat_fraction": 0.93,
+  "verdict": "LOW target persistence -> next-day direction is near-random (noise floor)"
+}

@@ -20,9 +20,10 @@ export default function TransactionDetailModal({ open, tx, onClose, onEdit, onDe
     onClose();
   };
  
-  const handleDelete = () => {
-    onDelete(tx.id);
+  const handleDelete = async () => {
+    await onDelete(tx);
     setShowConfirmDelete(false);
+    onClose();
   };
  
   return (

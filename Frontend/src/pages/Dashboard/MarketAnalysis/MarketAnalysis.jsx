@@ -317,6 +317,18 @@ export default function MarketAnalysis() {
     return Math.round(v * 100) / 100
   }
 
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (!searchQuery.trim()) return;
+    const q = searchQuery.trim().toLowerCase();
+    const match = activeCompanies.find(
+      (c) => c.symbol.toLowerCase() === q || c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
+    );
+    if (match) {
+      setSelectedSymbol(match.symbol);
+    }
+  };
+
   return (
     <div className="smp-layout">
       {/* ----------------- LEFT SIDEBAR CONTROLS ----------------- */}
@@ -326,19 +338,33 @@ export default function MarketAnalysis() {
           <span>Stock Predictor</span>
         </div>
 
-        <div className="smp-sidebar__group">
+        <form className="smp-sidebar__group" onSubmit={handleSearchSubmit}>
           <label className="smp-sidebar__label">
             <Search size={14} /> Search Any Company
           </label>
           <div className="smp-sidebar__hint">Direct in Company Name or NSE Symbol</div>
-          <input
-            type="text"
-            placeholder="Type name, ticker, or symbol (e.g. TCS)"
-            className="smp-sidebar__input"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+          <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+            <input
+              type="text"
+              placeholder="Type symbol (e.g. TCS)"
+              className="smp-sidebar__input"
+              style={{ flex: 1 }}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearchSubmit(e);
+              }}
+            />
+            <button
+              type="submit"
+              onClick={handleSearchSubmit}
+              className="smp-tab-btn smp-tab-btn--active"
+              style={{ padding: "0 12px", height: "36px", borderRadius: "6px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+            >
+              <Search size={13} /> Search
+            </button>
+          </div>
+        </form>
 
         <div className="smp-sidebar__group">
           <label className="smp-sidebar__label">Supported Nifty 50 Companies ({activeCompanies.length})</label>
@@ -748,7 +774,7 @@ export default function MarketAnalysis() {
                 News Sentiment Analysis - {currentCompany.name}
               </h2>
 
-              <div className="smp-pred-stats-grid" style={{ marginTop: 10 }}>
+              <div className="smp-pred-stats-grid--4col" style={{ marginTop: 10 }}>
                 <div className="smp-pred-stat-card">
                   <div style={{ fontSize: 11, color: "#64748b" }}>Live Net Sentiment</div>
                   <div className="smp-pred-stat-card__val" style={{ color: "#22c55e" }}>

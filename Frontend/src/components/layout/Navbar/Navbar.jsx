@@ -25,7 +25,7 @@ function formatRelativeTime(isoString) {
   }
 }
 
-export default function Navbar() {
+export default function Navbar({ onLogoutClick }) {
   const [openMenu, setOpenMenu] = useState(null) // "notif" | "profile" | null
   const navRef = useRef(null)
   const navigate = useNavigate()
@@ -47,11 +47,26 @@ export default function Navbar() {
     function onClick(e) {
       if (navRef.current && !navRef.current.contains(e.target)) setOpenMenu(null)
     }
+    function refreshUser() {
+      try {
+        const saved = localStorage.getItem("user")
+        if (saved) setCurrentUser(JSON.parse(saved))
+      } catch (e) {
+        console.error("Failed to refresh user in Navbar", e)
+      }
+    }
+    refreshUser()
     document.addEventListener("mousedown", onClick)
-    return () => document.removeEventListener("mousedown", onClick)
+    window.addEventListener("user-updated", refreshUser)
+    window.addEventListener("storage", refreshUser)
+    return () => {
+      document.removeEventListener("mousedown", onClick)
+      window.removeEventListener("user-updated", refreshUser)
+      window.removeEventListener("storage", refreshUser)
+    }
   }, [])
 
-  // Fetch live market movers and news feed when notification dropdown opens
+  // Fetch live market movers and news feed dynamically when notification dropdown opens
   useEffect(() => {
     if (openMenu !== "notif") return
 
@@ -61,40 +76,55 @@ export default function Navbar() {
 
     Promise.all([
       getMarketSnapshot().catch(() => null),
-      getLatestNews(3).catch(() => null),
+      getLatestNews(50).catch(() => null), // Fetch all relevant news (no artificial limit of 3)
     ])
       .then(([snapshotRes, newsRes]) => {
         if (!isMounted) return
 
         const items = []
+        const seenIds = new Set()
 
         // 1. Process market movers (change_percent >= 1.5% or <= -1.5%)
         if (snapshotRes && snapshotRes.items) {
           const movers = snapshotRes.items.filter(
             (item) => Math.abs(item.change_percent || 0) >= 1.5
           )
-          movers.slice(0, 3).forEach((item) => {
+          movers.forEach((item) => {
             const isPos = (item.change_percent || 0) >= 0
-            items.push({
-              id: `mover-${item.symbol}`,
-              title: `${item.symbol} ${isPos ? "up +" : "down "}${item.change_percent.toFixed(2)}%`,
-              meta: `${item.company_name} · ${isPos ? "Top NIFTY Gainer" : "Top NIFTY Decliner"}`,
-              time: "Today",
-            })
+            const id = `mover-${item.symbol}`
+            if (!seenIds.has(id)) {
+              seenIds.add(id)
+              items.push({
+                id,
+                title: `${item.symbol} ${isPos ? "up +" : "down "}${item.change_percent.toFixed(2)}%`,
+                meta: `${item.company_name} · ${isPos ? "Top NIFTY Gainer" : "Top NIFTY Decliner"}`,
+                time: "Today",
+                timestamp: Date.now(),
+              })
+            }
           })
         }
 
-        // 2. Process live news articles
+        // 2. Process live news articles (dynamic window: today & yesterday)
         if (newsRes && newsRes.articles) {
-          newsRes.articles.slice(0, 3).forEach((art) => {
-            items.push({
-              id: `news-${art.id}`,
-              title: art.headline,
-              meta: `${art.source_name || "Market News"} · ${art.primary_category || "General"}`,
-              time: formatRelativeTime(art.published_at_utc || art.published_at_ist),
-            })
+          newsRes.articles.forEach((art) => {
+            const id = `news-${art.id}`
+            if (!seenIds.has(id)) {
+              seenIds.add(id)
+              const pubTime = art.published_at_utc || art.published_at_ist
+              items.push({
+                id,
+                title: art.headline,
+                meta: `${art.source_name || "Market News"} · ${art.primary_category || "General"}`,
+                time: formatRelativeTime(pubTime),
+                timestamp: pubTime ? new Date(pubTime).getTime() : Date.now(),
+              })
+            }
           })
         }
+
+        // Sort items descending by publication/received timestamp (most recent first)
+        items.sort((a, b) => b.timestamp - a.timestamp)
 
         setFeedItems(items)
         setLoading(false)
@@ -113,7 +143,9 @@ export default function Navbar() {
 
   const toggle = (menu) => setOpenMenu((cur) => (cur === menu ? null : menu))
 
-  const displayName = currentUser?.full_name || currentUser?.username || "John"
+  const userAvatar = currentUser?.profile_image || currentUser?.profileImage || currentUser?.avatar
+  const fullName = [currentUser?.first_name || currentUser?.firstName, currentUser?.last_name || currentUser?.lastName].filter(Boolean).join(" ")
+  const displayName = fullName || currentUser?.full_name || currentUser?.username || "John"
   const displayEmail = currentUser?.email || (currentUser?.username ? `${currentUser.username}@globalpulse.io` : "john.abc@gmail.com")
 
   return (
@@ -153,7 +185,11 @@ export default function Navbar() {
             aria-expanded={openMenu === "profile"}
           >
             <span className="navbar__avatar">
-              <User size={18} />
+              {userAvatar ? (
+                <img src={userAvatar} alt="Avatar" />
+              ) : (
+                <User size={18} />
+              )}
             </span>
             <ChevronDown size={16} className="navbar__chevron" />
           </button>
@@ -162,7 +198,11 @@ export default function Navbar() {
             <div className="navbar__dropdown navbar__dropdown--profile" role="menu">
               <div className="navbar__profile-head">
                 <span className="navbar__avatar navbar__avatar--lg">
-                  <User size={22} />
+                  {userAvatar ? (
+                    <img src={userAvatar} alt="Avatar" />
+                  ) : (
+                    <User size={22} />
+                  )}
                 </span>
                 <div>
                   <p className="navbar__profile-name">{displayName}</p>
@@ -175,12 +215,11 @@ export default function Navbar() {
                 </Link>
               </div>
               <button
+                type="button"
                 className="navbar__menu-item navbar__menu-item--danger"
                 onClick={() => {
                   setOpenMenu(null)
-                  localStorage.removeItem("access_token")
-                  localStorage.removeItem("token")
-                  navigate("/login")
+                  if (onLogoutClick) onLogoutClick()
                 }}
               >
                 <LogOut size={16} /> Logout

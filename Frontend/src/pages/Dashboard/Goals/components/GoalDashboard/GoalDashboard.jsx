@@ -80,9 +80,18 @@ export default function GoalDashboard({
   const saved = goal.progress || 0;
   const target = goal.target || 10000;
   const remaining = Math.max(0, target - saved);
+  const extraSaved = saved > target ? saved - target : 0;
   const progressPercent = Math.min(100, Math.round((saved / target) * 100));
   const daysLeft = calculateDaysLeft(goal.endDate);
-  const isCompleted = progressPercent >= 100;
+  const isCompleted = saved >= target;       // amount-first check
+  const isExpired = !isCompleted && daysLeft === 0;  // date expired, not yet achieved
+
+  // Priority-based status
+  const goalStatus = isCompleted
+    ? "completed"
+    : isExpired
+    ? "expired"
+    : "in-progress";
 
   const allocations = getAssetAllocation(goal);
   const health = calculateGoalHealth(goal);
@@ -197,7 +206,30 @@ export default function GoalDashboard({
             />
           </div>
           <div className="goal-hero__progress-sub">
-            <span>Remaining: <strong style={{ color: "#f5a524" }}>{formatINR(remaining)}</strong></span>
+            {goalStatus === "completed" && (
+              <span>
+                {extraSaved > 0 ? (
+                  <>
+                    Extra Saved:{" "}
+                    <strong style={{ color: "#2ec27e" }}>{formatINR(extraSaved)}</strong>
+                  </>
+                ) : (
+                  <strong style={{ color: "#2ec27e" }}>🎉 Target Reached!</strong>
+                )}
+              </span>
+            )}
+            {goalStatus === "expired" && (
+              <span style={{ color: "#ef4b5b" }}>
+                Not Achieved — Short by{" "}
+                <strong style={{ color: "#ef4b5b" }}>{formatINR(remaining)}</strong>
+              </span>
+            )}
+            {goalStatus === "in-progress" && (
+              <span>
+                Remaining:{" "}
+                <strong style={{ color: "#f5a524" }}>{formatINR(remaining)}</strong>
+              </span>
+            )}
             <span>Target Date: <strong>{formatDateDisplay(goal.endDate)}</strong></span>
           </div>
         </div>
@@ -218,17 +250,43 @@ export default function GoalDashboard({
           </span>
         </div>
 
-        {/* KPI 2: Remaining */}
-        <div className="kpi-card kpi-card--amber">
-          <div className="kpi-card__icon">
-            <Target size={16} />
+        {/* KPI 2: Status Card — Priority: Completed > Expired > In Progress */}
+        {goalStatus === "completed" ? (
+          <div className="kpi-card kpi-card--green">
+            <div className="kpi-card__icon">
+              <Check size={16} />
+            </div>
+            <span className="kpi-card__label">Goal Completed ✓</span>
+            <div className="kpi-card__val">
+              {extraSaved > 0 ? formatINR(extraSaved) : "Target Reached"}
+            </div>
+            <span className="kpi-card__sub gp-pos">
+              <span>{extraSaved > 0 ? "Extra saved beyond target" : "🎉 100% achieved!"}</span>
+            </span>
           </div>
-          <span className="kpi-card__label">Remaining Amount</span>
-          <div className="kpi-card__val">{formatINR(remaining)}</div>
-          <span className="kpi-card__sub" style={{ color: "#f5a524" }}>
-            <span>To reach goal</span>
-          </span>
-        </div>
+        ) : goalStatus === "expired" ? (
+          <div className="kpi-card" style={{ borderColor: "rgba(239,75,91,0.3)" }}>
+            <div className="kpi-card__icon" style={{ color: "#ef4b5b" }}>
+              <Target size={16} />
+            </div>
+            <span className="kpi-card__label">Goal Expired</span>
+            <div className="kpi-card__val" style={{ color: "#ef4b5b" }}>{formatINR(remaining)}</div>
+            <span className="kpi-card__sub" style={{ color: "#ef4b5b" }}>
+              <span>Not achieved by deadline</span>
+            </span>
+          </div>
+        ) : (
+          <div className="kpi-card kpi-card--amber">
+            <div className="kpi-card__icon">
+              <Target size={16} />
+            </div>
+            <span className="kpi-card__label">Remaining Amount</span>
+            <div className="kpi-card__val">{formatINR(remaining)}</div>
+            <span className="kpi-card__sub" style={{ color: "#f5a524" }}>
+              <span>To reach goal</span>
+            </span>
+          </div>
+        )}
 
         {/* KPI 3: Target Amount */}
         <div className="kpi-card">

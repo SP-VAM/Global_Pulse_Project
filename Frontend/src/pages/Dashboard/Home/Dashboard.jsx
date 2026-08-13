@@ -99,10 +99,8 @@ export default function Dashboard() {
   useEffect(() => {
     fetchExpenseSummary()
     window.addEventListener("expense-updated", fetchExpenseSummary)
-    window.addEventListener("focus", fetchExpenseSummary)
     return () => {
       window.removeEventListener("expense-updated", fetchExpenseSummary)
-      window.removeEventListener("focus", fetchExpenseSummary)
     }
   }, [fetchExpenseSummary])
 

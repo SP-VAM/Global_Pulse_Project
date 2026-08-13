@@ -1,6 +1,6 @@
 /**
  * Authentication API Client
- * Interacts with FastAPI /api/v1/auth endpoints
+ * Interacts with FastAPI /api/v1/auth and /api/auth endpoints
  */
 
 const API_BASE = '/api/v1/auth'
@@ -12,7 +12,7 @@ async function request(endpoint, options = {}) {
   }
 
   const token = localStorage.getItem('access_token')
-  if (token) {
+  if (token && token !== 'demo_token') {
     headers['Authorization'] = `Bearer ${token}`
   }
 
@@ -23,6 +23,7 @@ async function request(endpoint, options = {}) {
 
   if (response.status === 401 && !endpoint.includes('/login') && !endpoint.includes('/signup')) {
     localStorage.removeItem('access_token')
+    localStorage.removeItem('token')
     if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
       window.location.href = '/login'
     }
@@ -61,8 +62,10 @@ export async function signup(payload) {
     method: 'POST',
     body: JSON.stringify(payload),
   })
-  if (data.accessToken) {
-    localStorage.setItem('access_token', data.accessToken)
+  const token = data.access_token || data.accessToken
+  if (token && token !== 'demo_token') {
+    localStorage.setItem('access_token', token)
+    localStorage.setItem('token', token)
   }
   if (data.user) {
     localStorage.setItem('user', JSON.stringify(data.user))
@@ -77,8 +80,10 @@ export async function login(payload) {
     method: 'POST',
     body: JSON.stringify(payload),
   })
-  if (data.accessToken) {
-    localStorage.setItem('access_token', data.accessToken)
+  const token = data.access_token || data.accessToken
+  if (token && token !== 'demo_token') {
+    localStorage.setItem('access_token', token)
+    localStorage.setItem('token', token)
   }
   if (data.user) {
     localStorage.setItem('user', JSON.stringify(data.user))

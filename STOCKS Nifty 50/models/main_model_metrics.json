@@ -1,0 +1,36 @@
+{
+  "model": "ExtraTrees (400 trees, balanced, seed=42)",
+  "split": "corrected strict chronological (global Date sort, last 15% test)",
+  "retained_as_main": true,
+  "test_size": 8098,
+  "test_period": [
+    "2025-10-29 00:00:00",
+    "2026-06-29 00:00:00"
+  ],
+  "accuracy": 0.5618671276858483,
+  "mcc": 0.10302875474290206,
+  "f1_weighted": 0.44463771990501566,
+  "precision_weighted": 0.48557190930513927,
+  "recall_weighted": 0.5618671276858483,
+  "direction_accuracy": 0.06380607411535247,
+  "confusion_matrix": [
+    [
+      21,
+      1665,
+      134
+    ],
+    [
+      25,
+      4321,
+      163
+    ],
+    [
+      16,
+      1545,
+      208
+    ]
+  ],
+  "majority_class_accuracy": 0.5568041491726352,
+  "improvement_vs_majority": 0.005062978513213134,
+  "feature_count": 81
+}

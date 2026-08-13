@@ -6,6 +6,7 @@
  */
 
 import React from "react";
+import { Play } from "lucide-react";
 import "./LearningCard.css";
 
 /**
@@ -20,12 +21,17 @@ export default function LearningCard({ course, openCourse }) {
       className="learning-card"
       onClick={() => openCourse(course)}
     >
-      {/* Module Thumbnail Image */}
-      <img
-        src={course.image}
-        alt={course.title}
-        className="learning-image"
-      />
+      {/* Module Thumbnail Image with Play Hover Overlay */}
+      <div className="learning-image-wrap">
+        <img
+          src={course.image}
+          alt={course.title}
+          className="learning-image"
+        />
+        <div className="learning-play-overlay">
+          <Play size={20} fill="#ffffff" color="#ffffff" />
+        </div>
+      </div>
 
       {/* Module Content Info */}
       <div className="learning-content">

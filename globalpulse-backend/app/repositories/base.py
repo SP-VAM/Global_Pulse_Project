@@ -58,7 +58,7 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             await self.session.rollback()
             logger.error("Integrity error in create: %s", exc)
             raise DuplicateRecordError(
-                f"Record violates unique constraint for {self.model.__name__}."
+                f"Record violates constraint for {self.model.__name__}: {getattr(exc, 'orig', exc)}"
             ) from exc
 
     async def update(self, id: Any, obj_in: UpdateSchemaType | dict) -> Optional[ModelType]:

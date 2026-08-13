@@ -10,7 +10,6 @@ from app.db.models import Base
 from app.repositories.user_repository import UserRepository
 from app.schemas.expense import BudgetCreate, ExpenseCreate, IncomeCreate
 from app.services.expense_service import ExpenseService
-
 test_engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
 TestSessionLocal = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
 

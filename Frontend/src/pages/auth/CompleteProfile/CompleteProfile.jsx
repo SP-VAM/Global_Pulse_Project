@@ -157,12 +157,18 @@ function CompleteProfile() {
           email: email,
           mobile_number: mobileNumber || undefined,
         };
+        const token = data.access_token || data.accessToken;
+        if (!token || token === "demo_token") {
+          setGeneralError("Authentication failed: Server did not return a valid session token.");
+          return;
+        }
         localStorage.setItem("user", JSON.stringify(userObj));
-        localStorage.setItem("access_token", data.access_token || "demo_token");
+        localStorage.setItem("access_token", token);
+        localStorage.setItem("token", token);
 
       } else {
         const response = await fetch(
-          `${API_BASE_URL}/api/auth/signup`,
+          `${API_BASE_URL}/api/v1/auth/signup`,
           {
             method: "POST",
             headers: {
@@ -196,8 +202,14 @@ function CompleteProfile() {
           email: email.trim() || `${mobileNumber}@mobile.globalpulse`,
           mobile_number: mobileNumber,
         };
+        const token = data.access_token || data.accessToken;
+        if (!token || token === "demo_token") {
+          setGeneralError("Signup failed: Server did not return a valid access token.");
+          return;
+        }
         localStorage.setItem("user", JSON.stringify(userObj));
-        localStorage.setItem("access_token", data.access_token || "demo_token");
+        localStorage.setItem("access_token", token);
+        localStorage.setItem("token", token);
       }
 
       // TC-31, TC-41: Navigate to Welcome Screen
@@ -205,15 +217,7 @@ function CompleteProfile() {
 
     } catch (error) {
       console.error("Account creation error:", error);
-      // Fallback for dev mode if server has connection issues
-      const userObj = {
-        username: userName.trim(),
-        email: email.trim() || `${mobileNumber}@mobile.globalpulse`,
-        mobile_number: mobileNumber,
-      };
-      localStorage.setItem("user", JSON.stringify(userObj));
-      localStorage.setItem("access_token", "demo_token");
-      navigate("/login-success", { replace: true });
+      setGeneralError("Unable to connect to authentication server. Please try again.");
     } finally {
       setLoading(false);
     }

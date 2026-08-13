@@ -12,7 +12,7 @@ async function request(endpoint, options = {}) {
   }
 
   const token = localStorage.getItem('access_token')
-  if (token) {
+  if (token && token !== 'demo_token') {
     headers['Authorization'] = `Bearer ${token}`
   }
 

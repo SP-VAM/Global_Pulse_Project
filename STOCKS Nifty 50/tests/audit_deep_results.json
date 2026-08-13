@@ -1,0 +1,289 @@
+{
+  "saved_model": {
+    "acc": 0.42862435169177576,
+    "mcc": 0.07260494628476484,
+    "f1w": 0.4390854170194475,
+    "cm": [
+      [
+        617,
+        758,
+        445
+      ],
+      [
+        1355,
+        2455,
+        699
+      ],
+      [
+        657,
+        713,
+        399
+      ]
+    ]
+  },
+  "baselines": {
+    "majority": 0.5568041491726352,
+    "prev_day": 0.43135793266244254
+  },
+  "shuffled_label": {
+    "test_acc": 0.5517411706594221,
+    "majority": 0.5568041491726352
+  },
+  "per_year": {
+    "2025": {
+      "acc": 0.5570754716981132,
+      "n": 2120
+    },
+    "2026": {
+      "acc": 0.3830712612914018,
+      "n": 5978
+    }
+  },
+  "per_company": {
+    "Adani Enterprises Ltd": {
+      "acc": 0.3012,
+      "n": 166,
+      "train_present": true
+    },
+    "Adani Ports & Special Economic Zone Ltd": {
+      "acc": 0.3091,
+      "n": 165,
+      "train_present": true
+    },
+    "Apollo Hospitals Enterprise Ltd": {
+      "acc": 0.5697,
+      "n": 165,
+      "train_present": true
+    },
+    "Asian Paints Ltd": {
+      "acc": 0.5482,
+      "n": 166,
+      "train_present": true
+    },
+    "Axis Bank Ltd": {
+      "acc": 0.3818,
+      "n": 165,
+      "train_present": true
+    },
+    "Bajaj Auto Ltd": {
+      "acc": 0.4061,
+      "n": 165,
+      "train_present": true
+    },
+    "Bajaj Finance Ltd": {
+      "acc": 0.4061,
+      "n": 165,
+      "train_present": true
+    },
+    "Bajaj Finserv Ltd": {
+      "acc": 0.4667,
+      "n": 165,
+      "train_present": true
+    },
+    "Bharat Electronics Ltd": {
+      "acc": 0.2485,
+      "n": 165,
+      "train_present": true
+    },
+    "Bharti Airtel Ltd": {
+      "acc": 0.494,
+      "n": 166,
+      "train_present": true
+    },
+    "Cipla Ltd": {
+      "acc": 0.5273,
+      "n": 165,
+      "train_present": true
+    },
+    "Coal India Ltd": {
+      "acc": 0.4398,
+      "n": 166,
+      "train_present": true
+    },
+    "Dr. Reddy's Laboratories Ltd": {
+      "acc": 0.5333,
+      "n": 165,
+      "train_present": true
+    },
+    "Eicher Motors Ltd": {
+      "acc": 0.4303,
+      "n": 165,
+      "train_present": true
+    },
+    "Eternal Ltd": {
+      "acc": 0.3394,
+      "n": 165,
+      "train_present": true
+    },
+    "Grasim Industries Ltd": {
+      "acc": 0.4217,
+      "n": 166,
+      "train_present": true
+    },
+    "HCL Technologies Ltd": {
+      "acc": 0.4303,
+      "n": 165,
+      "train_present": true
+    },
+    "HDFC Bank Ltd": {
+      "acc": 0.5273,
+      "n": 165,
+      "train_present": true
+    },
+    "HDFC Life Insurance Ltd": {
+      "acc": 0.4364,
+      "n": 165,
+      "train_present": true
+    },
+    "Hero MotoCorp Ltd": {
+      "acc": 0.3212,
+      "n": 165,
+      "train_present": true
+    },
+    "Hindalco Industries Ltd": {
+      "acc": 0.3697,
+      "n": 165,
+      "train_present": true
+    },
+    "Hindustan Unilever Ltd": {
+      "acc": 0.5697,
+      "n": 165,
+      "train_present": true
+    },
+    "ICICI Bank Ltd": {
+      "acc": 0.5636,
+      "n": 165,
+      "train_present": true
+    },
+    "ITC Ltd": {
+      "acc": 0.5879,
+      "n": 165,
+      "train_present": true
+    },
+    "IndusInd Bank Ltd": {
+      "acc": 0.2545,
+      "n": 165,
+      "train_present": true
+    },
+    "Infosys Ltd": {
+      "acc": 0.3855,
+      "n": 166,
+      "train_present": true
+    },
+    "JSW Steel Ltd": {
+      "acc": 0.3939,
+      "n": 165,
+      "train_present": true
+    },
+    "Jio Financial Services Ltd": {
+      "acc": 0.3515,
+      "n": 165,
+      "train_present": true
+    },
+    "Kotak Mahindra Bank Ltd": {
+      "acc": 0.503,
+      "n": 165,
+      "train_present": true
+    },
+    "Larsen & Toubro Ltd": {
+      "acc": 0.4458,
+      "n": 166,
+      "train_present": true
+    },
+    "Mahindra & Mahindra Ltd": {
+      "acc": 0.3212,
+      "n": 165,
+      "train_present": true
+    },
+    "Maruti Suzuki India Ltd": {
+      "acc": 0.5152,
+      "n": 165,
+      "train_present": true
+    },
+    "NTPC Ltd": {
+      "acc": 0.3333,
+      "n": 165,
+      "train_present": true
+    },
+    "Nestle India Ltd": {
+      "acc": 0.5455,
+      "n": 165,
+      "train_present": true
+    },
+    "Oil & Natural Gas Corporation Ltd": {
+      "acc": 0.3193,
+      "n": 166,
+      "train_present": true
+    },
+    "Power Grid Corporation of India Ltd": {
+      "acc": 0.4157,
+      "n": 166,
+      "train_present": true
+    },
+    "Reliance Industries Ltd": {
+      "acc": 0.4909,
+      "n": 165,
+      "train_present": true
+    },
+    "SBI Life Insurance Ltd": {
+      "acc": 0.4578,
+      "n": 166,
+      "train_present": true
+    },
+    "Shriram Finance Ltd": {
+      "acc": 0.297,
+      "n": 165,
+      "train_present": true
+    },
+    "State Bank of India": {
+      "acc": 0.3012,
+      "n": 166,
+      "train_present": true
+    },
+    "Sun Pharmaceutical Industries Ltd": {
+      "acc": 0.6,
+      "n": 165,
+      "train_present": true
+    },
+    "Tata Consultancy Services Ltd": {
+      "acc": 0.4485,
+      "n": 165,
+      "train_present": true
+    },
+    "Tata Consumer Products Ltd": {
+      "acc": 0.4242,
+      "n": 165,
+      "train_present": true
+    },
+    "Tata Steel Ltd": {
+      "acc": 0.3394,
+      "n": 165,
+      "train_present": true
+    },
+    "Tech Mahindra Ltd": {
+      "acc": 0.4277,
+      "n": 166,
+      "train_present": true
+    },
+    "Titan Company Ltd": {
+      "acc": 0.4788,
+      "n": 165,
+      "train_present": true
+    },
+    "Trent Ltd": {
+      "acc": 0.3818,
+      "n": 165,
+      "train_present": true
+    },
+    "UltraTech Cement Ltd": {
+      "acc": 0.503,
+      "n": 165,
+      "train_present": true
+    },
+    "Wipro Ltd": {
+      "acc": 0.4398,
+      "n": 166,
+      "train_present": true
+    }
+  }
+}

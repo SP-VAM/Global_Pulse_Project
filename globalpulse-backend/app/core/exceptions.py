@@ -97,6 +97,13 @@ class ValidationError(GlobalPulseError):
     http_status = status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
+class AuthenticationError(GlobalPulseError):
+    """Raised when credentials or token fail authentication."""
+
+    error_code = "AUTHENTICATION_ERROR"
+    http_status = status.HTTP_401_UNAUTHORIZED
+
+
 class DuplicateRecordError(GlobalPulseError):
     """Raised when an operation violates a unique database constraint."""
 
@@ -206,7 +213,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return _error_response(
             code="VALIDATION_ERROR",
             message=clean_msg,
-            http_status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            http_status=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
 
     @app.exception_handler(Exception)

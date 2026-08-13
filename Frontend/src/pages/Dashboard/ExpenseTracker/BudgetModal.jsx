@@ -42,7 +42,7 @@ export default function BudgetModal({ open, mode, initial, onClose, onSave, onDe
     setForm((f) => ({
       ...f,
       category: catId,
-      label: f.label && isEdit ? f.label : catObj ? catObj.label : f.label,
+      label: catId === "other" ? (f.category === "other" ? f.label : "") : (f.label && isEdit ? f.label : catObj ? catObj.label : f.label),
     }));
   };
  

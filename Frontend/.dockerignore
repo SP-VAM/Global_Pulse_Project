@@ -1,0 +1,23 @@
+# Dependencies & Build output
+node_modules
+dist
+build
+.pytest_cache
+
+# Version control & IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Secrets & Environment
+.env
+.env.*
+*.env
+
+# System & Logs
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

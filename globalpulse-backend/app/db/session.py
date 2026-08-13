@@ -20,26 +20,22 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-# Configure engine parameters depending on driver (postgresql+asyncpg vs sqlite+aiosqlite)
-db_url = settings.DATABASE_URL or "sqlite+aiosqlite:///./globalpulse.db"
+db_url = settings.DATABASE_URL
+if not db_url or "sqlite" in db_url.lower():
+    raise RuntimeError(
+        "Database Error: Application MUST connect to PostgreSQL database 'railway'. "
+        "Silent fallback to SQLite is disabled. Please verify DATABASE_URL in .env."
+    )
 
 engine_kwargs = {
     "echo": False,
     "future": True,
+    "pool_size": 20,
+    "max_overflow": 10,
+    "pool_timeout": 30,
+    "pool_recycle": 1800,
+    "pool_pre_ping": True,
 }
-
-if "sqlite" in db_url:
-    engine_kwargs["connect_args"] = {"check_same_thread": False}
-else:
-    engine_kwargs.update(
-        {
-            "pool_size": 20,
-            "max_overflow": 10,
-            "pool_timeout": 30,
-            "pool_recycle": 1800,
-            "pool_pre_ping": True,
-        }
-    )
 
 async_engine: AsyncEngine = create_async_engine(db_url, **engine_kwargs)
 

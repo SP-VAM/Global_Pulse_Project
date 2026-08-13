@@ -1,0 +1,156 @@
+/* ============================================================
+   GlobalPulse Fintech Application Footer — Muted Bloomberg Style
+   ============================================================ */
+
+.gp-global-footer {
+  width: 100%;
+  min-height: 64px;
+  padding: 14px 28px;
+  background: rgba(11, 15, 25, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  margin-top: auto;
+  font-family: var(--font-sans, "Inter", -apple-system, BlinkMacSystemFont, sans-serif);
+  display: flex;
+  align-items: center;
+  z-index: 10;
+}
+
+.gp-global-footer__content {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+/* --- LEFT SECTION --- */
+.gp-global-footer__left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.gp-global-footer__brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gp-global-footer__icon {
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.gp-global-footer__brand {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: 0.4px;
+}
+
+.gp-global-footer__copyright {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* --- CENTER SECTION --- */
+.gp-global-footer__center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gp-global-footer__link {
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 160ms ease;
+  user-select: none;
+}
+
+.gp-global-footer__link:hover {
+  color: #38bdf8;
+}
+
+.gp-global-footer__link-dot {
+  font-size: 10px;
+  color: #334155;
+}
+
+/* --- RIGHT SECTION --- */
+.gp-global-footer__right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.gp-global-footer__status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2ec27e;
+  letter-spacing: 0.2px;
+}
+
+.gp-global-footer__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2ec27e;
+  box-shadow: 0 0 8px rgba(46, 194, 126, 0.7);
+  animation: gp-pulse-dot 2.5s infinite ease-in-out;
+}
+
+@keyframes gp-pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+}
+
+.gp-global-footer__divider {
+  color: #334155;
+  font-size: 10px;
+}
+
+.gp-global-footer__sec {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.gp-global-footer__sec-icon {
+  color: #64748b;
+}
+
+/* --- RESPONSIVE ADAPTATIONS --- */
+@media (max-width: 980px) {
+  .gp-global-footer__content {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .gp-global-footer__left,
+  .gp-global-footer__center,
+  .gp-global-footer__right {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}

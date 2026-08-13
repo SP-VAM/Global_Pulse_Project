@@ -304,7 +304,7 @@ export function GoalsProvider({ children }) {
   }, []);
 
   // Update Progress (Add investment amount)
-  const addProgress = useCallback((id, { amount, assetType, date }) => {
+  const addProgress = useCallback((id, { amount, assetType, date, name }) => {
     const addedAmt = Number(amount) || 0;
     if (addedAmt <= 0) return;
 
@@ -330,6 +330,7 @@ export function GoalsProvider({ children }) {
 
         return {
           ...g,
+          name: name && name.trim() ? name.trim() : g.name,
           progress: newProgress,
           history: updatedHistory,
         };

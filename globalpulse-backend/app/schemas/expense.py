@@ -5,7 +5,7 @@ Serializes fields to camelCase for frontend compatibility.
 from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -16,8 +16,15 @@ class ExpenseCategoryResponse(BaseModel):
     category_name: str
     description: Optional[str] = None
     icon_name: Optional[str] = None
-    color_code: Optional[str] = None
     is_active: bool
+
+
+def validate_max_13_digits(v: Optional[float]) -> Optional[float]:
+    if v is not None:
+        int_part = str(int(abs(v)))
+        if len(int_part) > 13 or abs(v) >= 1e13:
+            raise ValueError("Amount cannot exceed 13 digits.")
+    return v
 
 
 class ExpenseCreate(BaseModel):
@@ -25,10 +32,15 @@ class ExpenseCreate(BaseModel):
 
     category_id: Optional[int] = Field(None)
     category_name: Optional[str] = Field(None)
-    amount: float = Field(..., gt=0)
+    amount: float = Field(..., gt=0, lt=1e13)
     expense_date: date
     payment_method: Optional[str] = Field("UPI")
     notes: Optional[str] = Field(None)
+
+    @field_validator("amount")
+    @classmethod
+    def check_amount_digits(cls, v: float) -> float:
+        return validate_max_13_digits(v)
 
 
 class ExpenseResponse(BaseModel):
@@ -50,28 +62,43 @@ class ExpenseUpdate(BaseModel):
 
     category_id: Optional[int] = Field(None)
     category_name: Optional[str] = Field(None)
-    amount: Optional[float] = Field(None, gt=0)
+    amount: Optional[float] = Field(None, gt=0, lt=1e13)
     expense_date: Optional[date] = Field(None)
     payment_method: Optional[str] = Field(None)
     notes: Optional[str] = Field(None)
+
+    @field_validator("amount")
+    @classmethod
+    def check_amount_digits(cls, v: Optional[float]) -> Optional[float]:
+        return validate_max_13_digits(v)
 
 
 class IncomeCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    amount: float = Field(..., gt=0)
+    amount: float = Field(..., gt=0, lt=1e13)
     income_date: date
     payment_method: Optional[str] = Field("Salary")
     notes: Optional[str] = Field(None)
+
+    @field_validator("amount")
+    @classmethod
+    def check_amount_digits(cls, v: float) -> float:
+        return validate_max_13_digits(v)
 
 
 class IncomeUpdate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    amount: Optional[float] = Field(None, gt=0)
+    amount: Optional[float] = Field(None, gt=0, lt=1e13)
     income_date: Optional[date] = Field(None)
     payment_method: Optional[str] = Field(None)
     notes: Optional[str] = Field(None)
+
+    @field_validator("amount")
+    @classmethod
+    def check_amount_digits(cls, v: Optional[float]) -> Optional[float]:
+        return validate_max_13_digits(v)
 
 
 class IncomeResponse(BaseModel):

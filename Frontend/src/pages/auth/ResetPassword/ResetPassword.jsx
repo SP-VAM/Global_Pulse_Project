@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 
 import background from "../../../assets/images/space-background.png";
+import { API_BASE_URL } from "../../../config/api.js";
 
 function ResetPassword() {
   const navigate = useNavigate();
@@ -79,7 +80,7 @@ function ResetPassword() {
       setLoading(true);
 
       const response = await fetch(
-        "http://127.0.0.1:8000/api/auth/reset-password",
+        `${API_BASE_URL}/api/auth/reset-password`,
         {
           method: "POST",
           headers: {

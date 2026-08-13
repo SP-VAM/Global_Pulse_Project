@@ -85,7 +85,6 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="goals" element={<Goals />} />
           <Route path="constituents" element={<Constituents />} />
-          <Route path="investments" element={<Investments />} />
           <Route path="market-analysis" element={<MarketAnalysis />} />
           <Route path="learning-hub" element={<LearningHub />} />
           <Route path="expense-tracker" element={<ExpenseTracker />} />

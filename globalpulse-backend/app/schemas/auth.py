@@ -5,7 +5,7 @@ Serializes fields to camelCase for frontend compatibility.
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -51,7 +51,7 @@ class SignupRequest(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     username: str = Field(..., min_length=3, max_length=100)
-    email: EmailStr = Field(...)
+    email: Optional[EmailStr] = Field(None)
     mobile_number: Optional[str] = Field(None)
     password: str = Field(..., min_length=8)
     first_name: Optional[str] = Field(None)
@@ -63,8 +63,19 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    identity: str = Field(..., description="Username or email address")
+    identity: Optional[str] = Field(None, description="Username or email address")
+    username: Optional[str] = Field(None)
+    email: Optional[str] = Field(None)
+    identifier: Optional[str] = Field(None)
     password: str = Field(..., description="User password")
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "LoginRequest":
+        if not self.identity:
+            self.identity = self.username or self.email or self.identifier
+        if not self.identity:
+            raise ValueError("Username or email address is required.")
+        return self
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -88,6 +99,7 @@ class UpdateProfileRequest(BaseModel):
     mobile_number: Optional[str] = Field(None)
     first_name: Optional[str] = Field(None)
     last_name: Optional[str] = Field(None)
+    profile_image: Optional[str] = Field(None)
 
 
 class UserResponse(BaseModel):
@@ -114,6 +126,10 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+    @computed_field
+    def accessToken(self) -> str:
+        return self.access_token
 
 
 class UserSettingsResponse(BaseModel):

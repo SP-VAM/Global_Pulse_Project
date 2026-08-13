@@ -50,8 +50,22 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: str = ""
     EMAILS_FROM_NAME: str = "GlobalPulse"
 
-    # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/globalpulse"
+    # Database — PostgreSQL railway database configuration
+    DATABASE_URL: str = ""
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def validate_database_url(cls, v: str) -> str:
+        v_clean = (v or "").strip()
+        if not v_clean:
+            raise ValueError(
+                "DATABASE_URL environment variable is required. Production must use Railway PostgreSQL database 'railway'."
+            )
+        if "sqlite" in v_clean.lower():
+            raise ValueError(
+                "DATABASE_URL must point to PostgreSQL database 'railway'. SQLite is strictly not permitted for application persistence."
+            )
+        return v_clean
 
     # Security & Auth
     # JWT_SECRET_KEY MUST be set via environment variable / .env file.
