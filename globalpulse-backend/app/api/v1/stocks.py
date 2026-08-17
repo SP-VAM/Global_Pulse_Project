@@ -33,6 +33,73 @@ import logging
 
 router = APIRouter(prefix="/stocks", tags=["Stock ML Predictions & Indicators"])
 
+
+@router.get(
+    "/_diag/yfinance",
+    summary="Diagnostic: single yfinance fetch (internal use)",
+)
+async def diag_yfinance_fetch(
+    symbol: str = Query(..., description="Ticker symbol, e.g. RELIANCE"),
+    period: str = Query("1y", description="History period, e.g. 1y"),
+    prediction_service: StockPredictionService = Depends(get_prediction_service),
+) -> Dict:
+    """Diagnostic endpoint: performs a single provider.get_historical_prices() call and returns metadata.
+
+    Intended for debugging Render production issues (rate-limits, empty data). Do not expose secrets.
+    """
+    logger = logging.getLogger("app.stocks.diag")
+    normalized = prediction_service.normalize_symbol(symbol)
+    provider = prediction_service.provider
+    provider_name = getattr(provider, "__class__", type(provider)).__name__
+
+    try:
+        df = await provider.get_historical_prices(normalized, period=period)
+        rows = 0 if df is None else len(df)
+        first_date = str(df['Date'].iloc[0]) if rows > 0 and 'Date' in df.columns else None
+        last_date = str(df['Date'].iloc[-1]) if rows > 0 and 'Date' in df.columns else None
+        latest_close = float(df['Close'].iloc[-1]) if rows > 0 and 'Close' in df.columns else None
+
+        logger.info(
+            "diag_yfinance_success | provider=%s | requested=%s | normalized=%s | period=%s | rows=%d | first=%s | last=%s",
+            provider_name,
+            symbol,
+            normalized,
+            period,
+            rows,
+            first_date,
+            last_date,
+        )
+
+        return {
+            "provider": provider_name,
+            "requested_symbol": symbol,
+            "normalized_symbol": normalized,
+            "period": period,
+            "rows": rows,
+            "first_date": first_date,
+            "last_date": last_date,
+            "latest_close": latest_close,
+        }
+
+    except Exception as e:
+        logger.warning(
+            "diag_yfinance_error | provider=%s | requested=%s | normalized=%s | period=%s | error=%s",
+            provider_name,
+            symbol,
+            normalized,
+            period,
+            type(e).__name__ + ": " + str(e),
+        )
+        return {
+            "provider": provider_name,
+            "requested_symbol": symbol,
+            "normalized_symbol": normalized,
+            "period": period,
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+        }
+
+
 _settings = get_settings()
 
 _full_analysis_cache: Dict[str, Tuple[StockFullAnalysisResponse, float]] = {}
