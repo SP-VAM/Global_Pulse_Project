@@ -43,3 +43,33 @@ export const monthLabel = (year, month) => `${MONTHS[month]} ${year}`;
 
 let seq = 1000;
 export const nextId = () => ++seq;
+
+/** Add days to YYYY-MM-DD string and return YYYY-MM-DD. */
+export function addDaysISO(dateStr, days = 7) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  const yyyy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** Resolves any category name or id into a standard category key. */
+export function getCategoryKey(catNameOrId) {
+  if (!catNameOrId) return "other";
+  const str = String(catNameOrId).toLowerCase().trim();
+  if (str === "food" || str === "food & dining" || str === "dining") return "food";
+  if (str === "travel" || str === "transport" || str === "transportation") return "transport";
+  if (str === "shopping") return "shopping";
+  if (str === "rent") return "rent";
+  if (str === "entertainment") return "entertainment";
+  if (str === "health" || str === "healthcare" || str === "medical") return "health";
+  if (str === "bills" || str === "utilities") return "bills";
+  if (str === "other" || str === "others") return "other";
+  const matched = CATEGORIES.find((c) => c.id === str || c.label.toLowerCase() === str);
+  if (matched) return matched.id;
+  return "other";
+}

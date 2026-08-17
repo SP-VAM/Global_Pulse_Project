@@ -54,7 +54,9 @@ export default function TransactionDetailModal({ open, tx, onClose, onEdit, onDe
             }}
           >
             <div style={{ fontSize: "14px", fontWeight: 700, color: "#ffffff" }}>
-              {tx.notes || (cat ? cat.label : "Income")}
+              {tx.type === "expense" && tx.category === "other"
+                ? cat?.label || "Other"
+                : tx.notes || (cat ? cat.label : "Income")}
             </div>
             <div
               style={{

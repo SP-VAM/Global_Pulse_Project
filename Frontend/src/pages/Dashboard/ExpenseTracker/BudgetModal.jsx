@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Tag, IndianRupee, FileText, Trash2, AlertTriangle, Shapes } from "lucide-react";
 import Modal from "./Modal.jsx";
-import { CATEGORIES, formatINR } from "./data.js";
+import { CATEGORIES, formatINR, getCategoryKey } from "./data.js";
 import {
   sanitizeFinancialInput,
   validateFinancialAmount,
@@ -30,9 +30,11 @@ export default function BudgetModal({ open, mode, initial, onClose, onSave, onDe
   useEffect(() => {
     if (!open) return;
     if (initial) {
+      const initCat = getCategoryKey(initial.category || initial.categoryName);
+      const catObj = CATEGORIES.find((c) => c.id === initCat);
       setForm({
-        category: initial.category ?? "food",
-        label: initial.label ?? "",
+        category: initCat,
+        label: catObj ? catObj.label : "Other",
         limit: String(initial.limit ?? ""),
         notes: initial.notes ?? "",
       });
@@ -64,17 +66,8 @@ export default function BudgetModal({ open, mode, initial, onClose, onSave, onDe
   const submit = (e) => {
     e.preventDefault();
 
-    const labelVal = validateTextLength(form.label, MAX_NAME_LENGTH, "Category label", true);
-    if (!labelVal.isValid) {
-      setError(labelVal.error);
-      return;
-    }
-
-    const noteVal = validateTextLength(form.notes, MAX_NOTE_LENGTH, "Note", false);
-    if (!noteVal.isValid) {
-      setError(noteVal.error);
-      return;
-    }
+    const catObj = CATEGORIES.find((c) => c.id === form.category);
+    const categoryName = catObj ? catObj.label : (form.category || "General");
 
     const minAllowed = isEdit ? initialLimit : 1;
     const limitVal = validateFinancialAmount(form.limit, {
@@ -92,9 +85,9 @@ export default function BudgetModal({ open, mode, initial, onClose, onSave, onDe
  
     onSave({
       category: form.category,
-      label: form.label.trim(),
+      label: categoryName,
       limit: limitVal.numValue,
-      notes: form.notes.trim(),
+      notes: "",
     });
   };
  
@@ -150,26 +143,6 @@ export default function BudgetModal({ open, mode, initial, onClose, onSave, onDe
             </div>
           </div>
  
-          {/* NAME */}
-          <div className="drawer-panel__field">
-            <label className="drawer-panel__label" htmlFor="budget-label">
-              Category Label <span className="goal-creation__req">*</span>
-            </label>
-            <div className="drawer-panel__input-wrapper">
-              <Tag size={16} className="drawer-panel__icon" />
-              <input
-                id="budget-label"
-                type="text"
-                maxLength={MAX_NAME_LENGTH}
-                className={`drawer-panel__input ${error && !form.label ? "has-error" : ""}`}
-                placeholder="e.g. Food, Subscriptions"
-                value={form.label}
-                onChange={set("label")}
-                required
-              />
-            </div>
-          </div>
- 
           {/* MONTHLY LIMIT */}
           <div className="drawer-panel__field">
             <div className="drawer-panel__label-row">
@@ -202,26 +175,7 @@ export default function BudgetModal({ open, mode, initial, onClose, onSave, onDe
               </span>
             )}
           </div>
- 
-          {/* NOTE */}
-          <div className="drawer-panel__field">
-            <label className="drawer-panel__label" htmlFor="budget-notes">
-              Note <span className="goal-creation__opt">(Optional)</span>
-            </label>
-            <div className="drawer-panel__input-wrapper">
-              <FileText size={16} className="drawer-panel__icon" />
-              <input
-                id="budget-notes"
-                type="text"
-                maxLength={MAX_NOTE_LENGTH}
-                className="drawer-panel__input"
-                placeholder="Additional details about this category..."
-                value={form.notes}
-                onChange={set("notes")}
-              />
-            </div>
-          </div>
- 
+
           {error && <span className="drawer-panel__err-msg">{error}</span>}
  
           <div

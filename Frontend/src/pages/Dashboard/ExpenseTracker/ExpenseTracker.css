@@ -344,14 +344,28 @@ input[type="number"] {
 }
 
 /* ============================================================
-   Daily Transactions Panel — Fixed Frame with Internal Content Scroll
+   Calendar Panel — Fixed Container to maintain constant bottom size
+   ============================================================ */
+.et-cal-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 480px !important;
+  max-height: 480px !important;
+  min-height: 480px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+/* ============================================================
+   Daily Transactions Panel — Fixed Frame with 5 items visible + internal scroll
    ============================================================ */
 .et-tx-panel {
   display: flex !important;
   flex-direction: column !important;
-  height: 410px !important;
-  max-height: 410px !important;
-  min-height: 0 !important;
+  height: 480px !important;
+  max-height: 480px !important;
+  min-height: 480px !important;
+  box-sizing: border-box !important;
   overflow: hidden !important;
 }
 
@@ -466,14 +480,14 @@ input[type="number"] {
 }
 
 /* ============================================================
-   Category Breakdown Panel — Fixed Frame with Internal Content Scroll
+   Category Breakdown Panel — Compact & Space-Efficient
    ============================================================ */
 .et-cat-panel {
   display: flex !important;
   flex-direction: column !important;
-  height: 340px !important;
+  height: 100% !important;
+  min-height: 300px !important;
   max-height: 340px !important;
-  min-height: 0 !important;
   overflow: hidden !important;
 }
 
@@ -484,8 +498,8 @@ input[type="number"] {
 .et-cat__list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 10px;
   flex: 1 1 0% !important;
   min-height: 0 !important;
   overflow-y: auto !important;
@@ -496,11 +510,17 @@ input[type="number"] {
 .et-cat-row {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 6px;
+  padding: 8px 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
-  border-radius: 10px;
+  border-radius: 8px;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.et-cat-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .et-cat-row__header {
@@ -512,20 +532,20 @@ input[type="number"] {
 .et-cat-row__left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .et-cat-row__icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 
 .et-cat-row__name {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--text, #f4f6fb);
 }
@@ -537,27 +557,27 @@ input[type="number"] {
 }
 
 .et-cat-row__val {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--text, #f4f6fb);
 }
 
 .et-cat-row__pct {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-3, #6b7385);
 }
 
 .et-cat-row__track {
   width: 100%;
-  height: 5px;
+  height: 4px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .et-cat-row__fill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: 2px;
   transition: width 300ms ease;
 }
 
@@ -567,9 +587,9 @@ input[type="number"] {
 .et-budget-panel {
   display: flex !important;
   flex-direction: column !important;
-  height: 340px !important;
+  height: 100% !important;
+  min-height: 300px !important;
   max-height: 340px !important;
-  min-height: 0 !important;
   overflow: hidden !important;
 }
 
@@ -607,6 +627,12 @@ input[type="number"] {
 .et-budget__list::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 4px;
+}
+
+.et-tx__list::-webkit-scrollbar-thumb:hover,
+.et-cat__list::-webkit-scrollbar-thumb:hover,
+.et-budget__list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .et-tx__list::-webkit-scrollbar-thumb:hover,
@@ -808,10 +834,10 @@ input[type="number"] {
 }
 
 .et-filter-btn-reset {
-  background: transparent;
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-  color: var(--text-2, #aeb6c7);
-  padding: 4px 10px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--blue-bright, #38bdf8);
+  padding: 5px 12px;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
@@ -823,8 +849,29 @@ input[type="number"] {
 }
 
 .et-filter-btn-reset:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text, #f4f6fb);
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #ffffff;
+}
+
+.et-download-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  color: var(--text-2, #aeb6c7);
+  transition: all 160ms ease;
+  height: 38px;
+  width: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+.et-download-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  transform: translateY(-1px);
 }
 
 .et-filter-grid {

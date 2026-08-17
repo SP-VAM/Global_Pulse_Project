@@ -12,7 +12,8 @@ export const MAX_FINANCIAL_INT_DIGITS = 13;
 export const MAX_FINANCIAL_DECIMALS = 2;
 export const MAX_FINANCIAL_AMOUNT = 9999999999999.99;
 export const MAX_NAME_LENGTH = 100;
-export const MAX_NOTE_LENGTH = 500;
+export const MAX_NOTE_LENGTH = 30;
+export const MAX_EXPENSE_NOTE_LENGTH = 30;
 
 /**
  * Sanitizes user input string for monetary fields as they type or paste.

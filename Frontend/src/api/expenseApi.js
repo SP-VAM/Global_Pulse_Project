@@ -23,10 +23,22 @@ async function handleResponse(res, fallbackErrorMsg) {
   return await res.json()
 }
 
+const summaryCache = new Map();
+
+export function invalidateExpenseCache() {
+  summaryCache.clear();
+}
+
 export async function getExpenseSummary(year, month) {
-  const query = new URLSearchParams()
-  if (year) query.append("year", year)
-  if (month) query.append("month", month)
+  const cacheKey = `${year}_${month}`;
+  if (summaryCache.has(cacheKey)) {
+    // Return cached summary instantly in 0ms
+    return summaryCache.get(cacheKey);
+  }
+
+  const query = new URLSearchParams();
+  if (year) query.append("year", year);
+  if (month) query.append("month", month);
 
   const res = await fetch(`/api/v1/expenses/summary?${query.toString()}`, {
     method: "GET",
@@ -34,11 +46,14 @@ export async function getExpenseSummary(year, month) {
       "Content-Type": "application/json",
       ...getAuthHeader(),
     },
-  })
-  return handleResponse(res, "Failed to fetch expense summary.")
+  });
+  const data = await handleResponse(res, "Failed to fetch expense summary.");
+  summaryCache.set(cacheKey, data);
+  return data;
 }
 
 export async function createExpense(payload) {
+  invalidateExpenseCache();
   const res = await fetch("/api/v1/expenses", {
     method: "POST",
     headers: {
@@ -46,11 +61,12 @@ export async function createExpense(payload) {
       ...getAuthHeader(),
     },
     body: JSON.stringify(payload),
-  })
-  return handleResponse(res, "Failed to create expense.")
+  });
+  return handleResponse(res, "Failed to create expense.");
 }
 
 export async function updateExpense(expenseId, payload) {
+  invalidateExpenseCache();
   const res = await fetch(`/api/v1/expenses/${expenseId}`, {
     method: "PUT",
     headers: {
@@ -58,21 +74,23 @@ export async function updateExpense(expenseId, payload) {
       ...getAuthHeader(),
     },
     body: JSON.stringify(payload),
-  })
-  return handleResponse(res, "Failed to update expense.")
+  });
+  return handleResponse(res, "Failed to update expense.");
 }
 
 export async function deleteExpense(expenseId) {
+  invalidateExpenseCache();
   const res = await fetch(`/api/v1/expenses/${expenseId}`, {
     method: "DELETE",
     headers: {
       ...getAuthHeader(),
     },
-  })
-  return handleResponse(res, "Failed to delete expense.")
+  });
+  return handleResponse(res, "Failed to delete expense.");
 }
 
 export async function createIncome(payload) {
+  invalidateExpenseCache();
   const res = await fetch("/api/v1/expenses/income", {
     method: "POST",
     headers: {
@@ -80,11 +98,12 @@ export async function createIncome(payload) {
       ...getAuthHeader(),
     },
     body: JSON.stringify(payload),
-  })
-  return handleResponse(res, "Failed to create income.")
+  });
+  return handleResponse(res, "Failed to create income.");
 }
 
 export async function updateIncome(incomeId, payload) {
+  invalidateExpenseCache();
   const res = await fetch(`/api/v1/expenses/income/${incomeId}`, {
     method: "PUT",
     headers: {
@@ -92,21 +111,23 @@ export async function updateIncome(incomeId, payload) {
       ...getAuthHeader(),
     },
     body: JSON.stringify(payload),
-  })
-  return handleResponse(res, "Failed to update income.")
+  });
+  return handleResponse(res, "Failed to update income.");
 }
 
 export async function deleteIncome(incomeId) {
+  invalidateExpenseCache();
   const res = await fetch(`/api/v1/expenses/income/${incomeId}`, {
     method: "DELETE",
     headers: {
       ...getAuthHeader(),
     },
-  })
-  return handleResponse(res, "Failed to delete income.")
+  });
+  return handleResponse(res, "Failed to delete income.");
 }
 
 export async function saveBudget(payload) {
+  invalidateExpenseCache();
   const res = await fetch("/api/v1/expenses/budgets", {
     method: "POST",
     headers: {
@@ -114,18 +135,19 @@ export async function saveBudget(payload) {
       ...getAuthHeader(),
     },
     body: JSON.stringify(payload),
-  })
-  return handleResponse(res, "Failed to save budget.")
+  });
+  return handleResponse(res, "Failed to save budget.");
 }
 
 export async function deleteBudget(budgetId) {
+  invalidateExpenseCache();
   const res = await fetch(`/api/v1/expenses/budgets/${budgetId}`, {
     method: "DELETE",
     headers: {
       ...getAuthHeader(),
     },
-  })
-  return handleResponse(res, "Failed to delete budget.")
+  });
+  return handleResponse(res, "Failed to delete budget.");
 }
 
 export async function getFilteredTransactions(params = {}) {
