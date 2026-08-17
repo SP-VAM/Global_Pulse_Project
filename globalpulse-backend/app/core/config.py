@@ -87,7 +87,10 @@ class Settings(BaseSettings):
     # ── Security: Trusted Hosts ─────────────────────────────────────────
     # Used by TrustedHostMiddleware in staging/production.
     # In development, all hosts are allowed (["*"]).
-    ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1"]
+    # Default allowed hosts include local development hosts and the Render
+    # deployment hostname so TrustedHostMiddleware accepts requests from Render.
+    # Runtime can still override this via the ALLOWED_HOSTS environment variable.
+    ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1", "globalpulse-backend-xk54.onrender.com"]
 
     # ── Security: Rate Limiting (slowapi-compatible limit strings) ──────
     # AI explanation / LLM-backed endpoints (expensive per-request cost)
