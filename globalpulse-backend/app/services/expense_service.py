@@ -18,6 +18,7 @@ from app.schemas.expense import (
     BudgetResponse,
     ExpenseCategoryResponse,
     ExpenseCreate,
+    ExpenseUpdate,
     ExpenseResponse,
     ExpenseSummaryResponse,
     IncomeCreate,
