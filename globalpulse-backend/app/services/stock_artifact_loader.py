@@ -27,10 +27,57 @@ class StockArtifactLoader:
     def __init__(self, model_dir: Optional[str] = None) -> None:
         settings = get_settings()
         self._model_dir = model_dir or settings.STOCK_MODEL_DIR
+        # Ensure model_dir is normalized
+        if not os.path.isabs(self._model_dir):
+            # Resolve relative paths against the project root
+            self._model_dir = os.path.normpath(os.path.join(os.getcwd(), self._model_dir))
+
 
     @property
     def model_path(self) -> str:
-        return os.path.join(self._model_dir, "xgboost_model.pkl")
+        """Resolve the primary model file path.
+
+        Historically the project used `xgboost_model.pkl`. In some deployments
+        the trained artifact may be named differently (e.g. `model_5d_binary.pkl`).
+        Prefer `xgboost_model.pkl` when present; otherwise select a reasonable
+        fallback by scanning the models directory for a candidate .pkl model file
+        (excluding the encoder and features files).
+        """
+        preferred = os.path.join(self._model_dir, "xgboost_model.pkl")
+        if os.path.exists(preferred):
+            return preferred
+
+        # Candidate model filenames in preference order
+        candidates = [
+            "model_1d_binary.pkl",
+            "model_1d_3class.pkl",
+            "model_5d_binary.pkl",
+            "model_5d_3class.pkl",
+            "model_10d_binary.pkl",
+            "model_10d_3class.pkl",
+        ]
+
+        for name in candidates:
+            p = os.path.join(self._model_dir, name)
+            if os.path.exists(p):
+                logger.warning("Primary model file '%s' not found; falling back to '%s'", os.path.basename(preferred), name)
+                return p
+
+        # Fallback: pick the first .pkl file that isn't the encoder or features
+        try:
+            for fname in sorted(os.listdir(self._model_dir)):
+                low = fname.lower()
+                if not low.endswith('.pkl'):
+                    continue
+                # Exclude encoder/feature files
+                if 'encoder' in low or 'feature' in low or 'label_encoder' in low or 'model_features' in low:
+                    continue
+                return os.path.join(self._model_dir, fname)
+        except Exception:
+            pass
+
+        # Default (will trigger missing-artifact error later)
+        return preferred
 
     @property
     def encoder_path(self) -> str:
@@ -43,8 +90,12 @@ class StockArtifactLoader:
     def validate_artifacts_exist(self) -> bool:
         """Validate that all 3 required artifact files exist on disk."""
         missing = []
+        # Check model (allow fallback name)
+        model_exists = os.path.exists(self.model_path)
+        if not model_exists:
+            missing.append(os.path.basename(self.model_path))
+
         for path, name in [
-            (self.model_path, "xgboost_model.pkl"),
             (self.encoder_path, "label_encoder.pkl"),
             (self.features_path, "model_features.pkl"),
         ]:
@@ -54,6 +105,14 @@ class StockArtifactLoader:
         if missing:
             logger.error("Missing stock model artifacts in %s: %s", self._model_dir, missing)
             return False
+
+        # Log resolved model diagnostics
+        try:
+            size = os.path.getsize(self.model_path)
+            logger.info("Stock model resolved: %s (size=%d bytes)", self.model_path, size)
+        except Exception:
+            logger.info("Stock model resolved: %s", self.model_path)
+
         return True
 
     @lru_cache(maxsize=1)
@@ -61,7 +120,11 @@ class StockArtifactLoader:
         """Load and cache the trained XGBoost model."""
         if not os.path.exists(self.model_path):
             raise ModelArtifactsNotFoundError(f"XGBoost model file not found at '{self.model_path}'")
-        logger.info("Loading stock XGBoost model from %s", self.model_path)
+        try:
+            size = os.path.getsize(self.model_path)
+            logger.info("Loading stock model from %s (size=%d bytes)", self.model_path, size)
+        except Exception:
+            logger.info("Loading stock model from %s", self.model_path)
         return joblib.load(self.model_path)
 
     @lru_cache(maxsize=1)
