@@ -32,7 +32,7 @@ import {
   Upgrade,
   Settings,
   Profile,
-} from "./pages/dashboard";
+} from "./pages/Dashboard";
 
 const FlowContext = createContext(null);
 

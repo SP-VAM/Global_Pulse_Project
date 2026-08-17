@@ -41,6 +41,14 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
 
         ticker_symbol = symbol if symbol.endswith(".NS") else f"{symbol}.NS"
 
+        logger.info(
+            "YFinance fetch request | provider=yfinance | requested_symbol=%s | ticker_symbol=%s | period=%s | interval=%s",
+            symbol,
+            ticker_symbol,
+            period,
+            interval,
+        )
+
         def _fetch_sync() -> pd.DataFrame:
             try:
                 ticker = yf.Ticker(ticker_symbol)
@@ -51,13 +59,25 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
                     df = ticker_alt.history(period=period, interval=interval)
                 return df
             except Exception as e:
-                logger.warning("Error fetching yfinance data for %s: %s", ticker_symbol, e)
+                logger.warning(
+                    "YFinance fetch exception | provider=yfinance | requested_symbol=%s | ticker_symbol=%s | period=%s | error=%s",
+                    symbol,
+                    ticker_symbol,
+                    period,
+                    type(e).__name__ + ": " + str(e),
+                )
                 return pd.DataFrame()
 
         loop = asyncio.get_event_loop()
         df = await loop.run_in_executor(None, _fetch_sync)
 
         if df.empty:
+            logger.warning(
+                "YFinance returned empty price history | provider=yfinance | requested_symbol=%s | ticker_symbol=%s | period=%s",
+                symbol,
+                ticker_symbol,
+                period,
+            )
             raise NotFoundError(
                 f"No price history found for stock symbol '{symbol}' (ticker '{ticker_symbol}')."
             )
@@ -76,6 +96,23 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
                 )
 
         result_df = df[required_cols].copy()
+
+        # Diagnostic logging: rows and date range
+        try:
+            row_count = len(result_df)
+            first_date = result_df['Date'].iloc[0]
+            last_date = result_df['Date'].iloc[-1]
+            logger.info(
+                "YFinance fetch result | provider=yfinance | requested_symbol=%s | ticker_symbol=%s | rows=%d | first_date=%s | last_date=%s",
+                symbol,
+                ticker_symbol,
+                row_count,
+                str(first_date),
+                str(last_date),
+            )
+        except Exception:
+            logger.debug("YFinance fetch result metadata unavailable for %s", ticker_symbol)
+
         self._df_cache[cache_key] = (result_df, now)
         return result_df
 

@@ -29,8 +29,86 @@ from app.schemas.stocks import (
 from app.services.stock_artifact_loader import get_stock_artifact_loader
 from app.services.stock_prediction_service import TICKER_TO_COMPANY, StockPredictionService
 from app.services.technical_indicator_service import TechnicalIndicatorService
+import logging
 
 router = APIRouter(prefix="/stocks", tags=["Stock ML Predictions & Indicators"])
+
+
+def get_prediction_service(request: Request) -> StockPredictionService:
+    """Dependency helper to extract stock_prediction_service from app.state."""
+    return request.app.state.stock_prediction_service
+
+
+def get_indicator_service(request: Request) -> TechnicalIndicatorService:
+    """Dependency helper to extract technical_indicator_service from app.state."""
+    return request.app.state.technical_indicator_service
+
+
+@router.get(
+    "/_diag/yfinance",
+    summary="Diagnostic: single yfinance fetch (internal use)",
+)
+async def diag_yfinance_fetch(
+    symbol: str = Query(..., description="Ticker symbol, e.g. RELIANCE"),
+    period: str = Query("1y", description="History period, e.g. 1y"),
+    prediction_service: StockPredictionService = Depends(get_prediction_service),
+) -> Dict:
+    """Diagnostic endpoint: performs a single provider.get_historical_prices() call and returns metadata.
+
+    Intended for debugging Render production issues (rate-limits, empty data). Do not expose secrets.
+    """
+    logger = logging.getLogger("app.stocks.diag")
+    normalized = prediction_service.normalize_symbol(symbol)
+    provider = prediction_service.provider
+    provider_name = getattr(provider, "__class__", type(provider)).__name__
+
+    try:
+        df = await provider.get_historical_prices(normalized, period=period)
+        rows = 0 if df is None else len(df)
+        first_date = str(df['Date'].iloc[0]) if rows > 0 and 'Date' in df.columns else None
+        last_date = str(df['Date'].iloc[-1]) if rows > 0 and 'Date' in df.columns else None
+        latest_close = float(df['Close'].iloc[-1]) if rows > 0 and 'Close' in df.columns else None
+
+        logger.info(
+            "diag_yfinance_success | provider=%s | requested=%s | normalized=%s | period=%s | rows=%d | first=%s | last=%s",
+            provider_name,
+            symbol,
+            normalized,
+            period,
+            rows,
+            first_date,
+            last_date,
+        )
+
+        return {
+            "provider": provider_name,
+            "requested_symbol": symbol,
+            "normalized_symbol": normalized,
+            "period": period,
+            "rows": rows,
+            "first_date": first_date,
+            "last_date": last_date,
+            "latest_close": latest_close,
+        }
+
+    except Exception as e:
+        logger.warning(
+            "diag_yfinance_error | provider=%s | requested=%s | normalized=%s | period=%s | error=%s",
+            provider_name,
+            symbol,
+            normalized,
+            period,
+            type(e).__name__ + ": " + str(e),
+        )
+        return {
+            "provider": provider_name,
+            "requested_symbol": symbol,
+            "normalized_symbol": normalized,
+            "period": period,
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+        }
+
 
 _settings = get_settings()
 
@@ -45,15 +123,6 @@ _SYMBOL_PATH = Path(
     description="Stock symbol (e.g. RELIANCE, HDFCBANK, TCS)",
 )
 
-
-def get_prediction_service(request: Request) -> StockPredictionService:
-    """Dependency helper to extract stock_prediction_service from app.state."""
-    return request.app.state.stock_prediction_service
-
-
-def get_indicator_service(request: Request) -> TechnicalIndicatorService:
-    """Dependency helper to extract technical_indicator_service from app.state."""
-    return request.app.state.technical_indicator_service
 
 
 @router.get(
@@ -179,7 +248,21 @@ async def get_stock_indicators(
     for a supported stock. Rejects unsupported companies with HTTP 404.
     """
     normalized = prediction_service.normalize_symbol(symbol)
-    prices_df = await prediction_service.provider.get_historical_prices(normalized, period=period)
+    try:
+        prices_df = await prediction_service.provider.get_historical_prices(normalized, period=period)
+    except Exception as e:
+        # Diagnostic logging for provider failures (do not log secrets)
+        logger = logging.getLogger("app.stocks")
+        provider_name = getattr(prediction_service.provider, "__class__", type(prediction_service.provider)).__name__
+        logger.warning(
+            "Stock provider error | provider=%s | requested_symbol=%s | normalized=%s | period=%s | error=%s",
+            provider_name,
+            symbol,
+            normalized,
+            period,
+            type(e).__name__ + ": " + str(e),
+        )
+        raise
     enriched_df = indicator_service.compute_all_indicators(prices_df)
     summary_dict = indicator_service.extract_summary(enriched_df)
     as_of_date = str(enriched_df["Date"].iloc[-1].strftime("%Y-%m-%d")) if not enriched_df.empty else ""
@@ -225,7 +308,20 @@ async def get_stock_full_analysis(
     fetch_period = "1y" if period in ("1d", "5d", "1mo", "3mo", "6mo") else period
 
     # 1. Fetch Historical Prices
-    prices_df = await prediction_service.provider.get_historical_prices(normalized, period=fetch_period)
+    try:
+        prices_df = await prediction_service.provider.get_historical_prices(normalized, period=fetch_period)
+    except Exception as e:
+        logger = logging.getLogger("app.stocks")
+        provider_name = getattr(prediction_service.provider, "__class__", type(prediction_service.provider)).__name__
+        logger.warning(
+            "Stock provider error | provider=%s | requested_symbol=%s | normalized=%s | period=%s | error=%s",
+            provider_name,
+            symbol,
+            normalized,
+            fetch_period,
+            type(e).__name__ + ": " + str(e),
+        )
+        raise
 
     # 2. Prediction using fetched prices_df
     pred_res = await prediction_service.predict_stock_movement(

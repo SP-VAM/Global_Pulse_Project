@@ -17,10 +17,34 @@ async function handleResponse(res, fallbackErrorMsg) {
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
+    const ct = (res.headers.get("content-type") || "").toLowerCase()
+    let err = {}
+    if (ct.includes("application/json")) {
+      err = await res.json().catch(() => ({}))
+    } else {
+      const txt = await res.text().catch(() => "")
+      try {
+        err = txt ? JSON.parse(txt) : {}
+      } catch {
+        err = { detail: txt }
+      }
+    }
     throw new Error(err.error?.message || err.detail || fallbackErrorMsg)
   }
-  return await res.json()
+
+  // Successful response: handle empty or non-JSON bodies gracefully
+  const ct = (res.headers.get("content-type") || "").toLowerCase()
+  if (res.status === 204 || !ct.includes("application/json")) {
+    return null
+  }
+
+  const text = await res.text().catch(() => "")
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
 }
 
 const summaryCache = new Map();
