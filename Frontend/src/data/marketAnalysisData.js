@@ -89,7 +89,7 @@ export function getMLPredictionData(symbol) {
     bullish: 82.5,
     bearish: 17.5,
     expectedReturn: "+6.8%",
-    coreNewsSentiment: "0.78 (Positive)",
+    coreNewsSentiment: "Dynamic (Live Feed)",
     confidence: 88.4,
     influencingNews: [
       { title: `${symbol} posts strong Q3 earnings beating consensus estimates by 12%`, sourceDate: "Livemint • 2h ago", sentiment: "POSITIVE", confidence: "94%" },
@@ -125,47 +125,3 @@ export function getMLPredictionData(symbol) {
   return { livePrediction, marketPrediction, predictionVsActual, featureImportance };
 }
 
-export function getNewsSentimentData(symbol) {
-  return {
-    score: "+0.78 (Bullish)",
-    articlesTraced: 48,
-    positive: 38,
-    negative: 10,
-    newsList: [
-      {
-        id: 1,
-        title: `${symbol} reports record operating margins in latest fiscal quarter`,
-        sentiment: "POSITIVE",
-        confidence: "95%",
-        sourceDate: "Reuters • 3 hours ago",
-        excerpt: "The company reported higher-than-expected revenue driven by foreign order wins and improved cost optimization.",
-      },
-      {
-        id: 2,
-        title: `Strategic partnership announced by ${symbol} for green energy transition`,
-        sentiment: "POSITIVE",
-        confidence: "88%",
-        sourceDate: "CNBC TV18 • 6 hours ago",
-        excerpt: "Key alliance signed with global technology leaders to accelerate sustainable manufacturing goals.",
-      },
-      {
-        id: 3,
-        title: `Minor supply chain delays noticed in ${symbol} regional distribution hubs`,
-        sentiment: "NEUTRAL",
-        confidence: "65%",
-        sourceDate: "Business Standard • 1 day ago",
-        excerpt: "Management confirmed logistics adjustments are underway and full normalization is expected within two weeks.",
-      },
-    ],
-  };
-}
-
-export function getPredictionHistoryData(symbol) {
-  const basePrice = NIFTY_COMPANIES.find(c => c.symbol === symbol)?.price || 2500;
-  return [
-    { date: "2026-07-28", symbol, signal: "BUY", initialPrice: Math.round(basePrice * 0.94), targetPrice: Math.round(basePrice * 0.98), actualPrice: Math.round(basePrice * 0.985), accuracy: "98.8%", status: "SUCCESS" },
-    { date: "2026-07-14", symbol, signal: "BUY", initialPrice: Math.round(basePrice * 0.90), targetPrice: Math.round(basePrice * 0.95), actualPrice: Math.round(basePrice * 0.948), accuracy: "97.5%", status: "SUCCESS" },
-    { date: "2026-06-30", symbol, signal: "STRONG BUY", initialPrice: Math.round(basePrice * 0.86), targetPrice: Math.round(basePrice * 0.91), actualPrice: Math.round(basePrice * 0.915), accuracy: "99.2%", status: "SUCCESS" },
-    { date: "2026-06-15", symbol, signal: "BUY", initialPrice: Math.round(basePrice * 0.84), targetPrice: Math.round(basePrice * 0.88), actualPrice: Math.round(basePrice * 0.875), accuracy: "96.4%", status: "SUCCESS" },
-  ];
-}

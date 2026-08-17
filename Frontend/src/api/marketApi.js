@@ -205,6 +205,31 @@ export async function getStockPrediction(symbol) {
 }
 
 // ---------------------------------------------------------
+// Stock News Sentiment
+// ---------------------------------------------------------
+
+/**
+ * Get real dynamic news sentiment for a stock symbol.
+ *
+ * @param {string} symbol
+ */
+export async function getStockSentiment(symbol) {
+  const cleanSymbol = String(symbol || "")
+    .replace(".NS", "")
+    .trim()
+    .toUpperCase();
+
+  if (!cleanSymbol) {
+    throw new Error("Stock symbol is required.");
+  }
+
+  return request(
+    `/stocks/${encodeURIComponent(cleanSymbol)}/sentiment`
+  );
+}
+
+
+// ---------------------------------------------------------
 // Live Quote
 // ---------------------------------------------------------
 

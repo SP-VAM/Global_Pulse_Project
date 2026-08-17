@@ -20,7 +20,6 @@ import {
   TrendingDown,
   BrainCircuit,
   Newspaper,
-  History,
   BarChart2,
   AlertTriangle,
   Zap,
@@ -28,12 +27,8 @@ import {
   RefreshCw,
 } from "lucide-react"
 
-import { getStockAnalysis, getSupportedCompanies } from "../../../api/marketApi.js"
-import {
-  DATE_RANGES,
-  getNewsSentimentData,
-  getPredictionHistoryData,
-} from "../../../data/marketAnalysisData.js"
+import { getStockAnalysis, getSupportedCompanies, getStockSentiment } from "../../../api/marketApi.js"
+import { DATE_RANGES } from "../../../data/marketAnalysisData.js"
 
 import "./MarketAnalysis.css"
 
@@ -142,6 +137,7 @@ export default function MarketAnalysis() {
 
   // Client-side in-memory analysis cache for instant sub-millisecond tab/symbol switching
   const analysisCacheRef = useRef(new Map())
+  const sentimentCacheRef = useRef(new Map())
 
   // Company List fetched directly from backend GET /api/v1/stocks/companies
   const [companies, setCompanies] = useState([])
@@ -191,6 +187,11 @@ export default function MarketAnalysis() {
   const [loading, setLoading] = useState(true)
   const [apiError, setApiError] = useState(null)
 
+  // Live News Sentiment API State
+  const [sentimentData, setSentimentData] = useState(null)
+  const [sentimentLoading, setSentimentLoading] = useState(true)
+  const [sentimentError, setSentimentError] = useState(null)
+
   // Fetch full analysis with in-memory client-side cache
   useEffect(() => {
     let isMounted = true
@@ -238,6 +239,48 @@ export default function MarketAnalysis() {
       isMounted = false
     }
   }, [selectedSymbol, selectedRange])
+
+  // Fetch dynamic news sentiment from backend API
+  useEffect(() => {
+    let isMounted = true
+    const cacheKey = selectedSymbol
+
+    if (sentimentCacheRef.current.has(cacheKey)) {
+      setSentimentData(sentimentCacheRef.current.get(cacheKey))
+      setSentimentLoading(false)
+      setSentimentError(null)
+      return
+    }
+
+    setSentimentLoading(true)
+    setSentimentError(null)
+    setSentimentData(null)
+
+    getStockSentiment(selectedSymbol)
+      .then((res) => {
+        if (isMounted && res) {
+          sentimentCacheRef.current.set(cacheKey, res)
+          setSentimentData(res)
+          setSentimentError(null)
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          console.warn("[MarketAnalysis] Dynamic news sentiment fetch error:", err)
+          setSentimentError("Failed to load news sentiment data")
+          setSentimentData(null)
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setSentimentLoading(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedSymbol])
 
   // Derived Historical Chart Data Series
   const chartData = useMemo(() => {
@@ -322,10 +365,6 @@ export default function MarketAnalysis() {
       importance: parseFloat((f.importance * 100).toFixed(2)),
     }))
   }, [liveApiData])
-
-  // News & History Data
-  const newsSentiment = useMemo(() => getNewsSentimentData(selectedSymbol), [selectedSymbol])
-  const predictionHistory = useMemo(() => getPredictionHistoryData(selectedSymbol), [selectedSymbol])
 
   function roundVal(v) {
     return Math.round(v * 100) / 100
@@ -506,12 +545,6 @@ export default function MarketAnalysis() {
             onClick={() => setActiveTab("news")}
           >
             News Sentiment
-          </button>
-          <button
-            className={`smp-tab-btn ${activeTab === "history" ? "smp-tab-btn--active" : ""}`}
-            onClick={() => setActiveTab("history")}
-          >
-            Prediction History
           </button>
         </nav>
 
@@ -821,127 +854,136 @@ export default function MarketAnalysis() {
           )
         )}
 
-        {/* TAB 4: NEWS SENTIMENT — Rendered immediately without blocking on market analysis */}
+        {/* TAB 4: NEWS SENTIMENT */}
         {activeTab === "news" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div className="smp-card">
-              <h2 className="smp-card__title" style={{ fontSize: 18 }}>
-                News Sentiment Analysis - {currentCompany.name}
-              </h2>
-
-              <div className="smp-pred-stats-grid--4col" style={{ marginTop: 10 }}>
-                <div className="smp-pred-stat-card">
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Live Net Sentiment</div>
-                  <div className="smp-pred-stat-card__val" style={{ color: "#22c55e" }}>
-                    {newsSentiment.score}
-                  </div>
-                </div>
-                <div className="smp-pred-stat-card">
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Articles Traced</div>
-                  <div className="smp-pred-stat-card__val">{newsSentiment.articlesTraced}</div>
-                </div>
-                <div className="smp-pred-stat-card">
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Positive Articles</div>
-                  <div className="smp-pred-stat-card__val" style={{ color: "#22c55e" }}>
-                    {newsSentiment.positive}
-                  </div>
-                </div>
-                <div className="smp-pred-stat-card">
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Negative Articles</div>
-                  <div className="smp-pred-stat-card__val" style={{ color: "#ef4444" }}>
-                    {newsSentiment.negative}
-                  </div>
+          sentimentLoading && !sentimentData ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div className="smp-card">
+                <div className="smp-skeleton smp-skeleton-bar" style={{ width: "35%", height: 24, marginBottom: 16 }} />
+                <div className="smp-pred-stats-grid--4col">
+                  <div className="smp-skeleton smp-skeleton-bar" style={{ height: 60 }} />
+                  <div className="smp-skeleton smp-skeleton-bar" style={{ height: 60 }} />
+                  <div className="smp-skeleton smp-skeleton-bar" style={{ height: 60 }} />
+                  <div className="smp-skeleton smp-skeleton-bar" style={{ height: 60 }} />
                 </div>
               </div>
+              <div className="smp-card">
+                <div className="smp-skeleton smp-skeleton-bar" style={{ width: "40%", height: 20, marginBottom: 16 }} />
+                <div className="smp-skeleton smp-skeleton-chart" style={{ height: 180 }} />
+              </div>
             </div>
+          ) : sentimentError && !sentimentData ? (
+            <div className="smp-card text-center p-8 flex flex-col items-center justify-center gap-3 border border-red-500/30">
+              <AlertTriangle size={32} className="text-red-400" />
+              <div style={{ color: "#f87171", fontSize: 16, fontWeight: 600 }}>News sentiment unavailable</div>
+              <div style={{ color: "#94a3b8", fontSize: 13 }}>Failed to retrieve dynamic news sentiment for {currentCompany.symbol}.</div>
+              <button
+                className="smp-tab-btn smp-tab-btn--active"
+                style={{ marginTop: 8 }}
+                onClick={() => {
+                  sentimentCacheRef.current.delete(selectedSymbol)
+                  setSelectedSymbol((s) => s)
+                }}
+              >
+                <RefreshCw size={14} /> Retry Sentiment Fetch
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div className="smp-card">
+                <h2 className="smp-card__title" style={{ fontSize: 18 }}>
+                  News Sentiment Analysis - {currentCompany.name}
+                </h2>
 
-            <div className="smp-card">
-              <h3 className="smp-card__title">
-                <Newspaper size={18} /> Live News Articles & Sentiment Scores
-              </h3>
-
-              <div className="smp-news-grid">
-                {newsSentiment.newsList.map((item) => (
-                  <div key={item.id} className="smp-news-card">
-                    <div className="smp-news-card__head">
-                      <div className="smp-news-card__title">{item.title}</div>
-                      <span className={item.sentiment === "POSITIVE" ? "smp-badge--pos" : "gp-chip"}>
-                        {item.sentiment} ({item.confidence})
-                      </span>
+                <div className="smp-pred-stats-grid--4col" style={{ marginTop: 10 }}>
+                  <div className="smp-pred-stat-card">
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Live Net Sentiment</div>
+                    <div
+                      className="smp-pred-stat-card__val"
+                      style={{
+                        color:
+                          (sentimentData?.net_sentiment || 0) > 0
+                            ? "#22c55e"
+                            : (sentimentData?.net_sentiment || 0) < 0
+                            ? "#ef4444"
+                            : "#eab308",
+                      }}
+                    >
+                      {sentimentData?.net_sentiment !== undefined
+                        ? `${sentimentData.net_sentiment >= 0 ? "+" : ""}${sentimentData.net_sentiment.toFixed(2)} (${sentimentData.sentiment_label})`
+                        : "0.00 (Neutral)"}
                     </div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>{item.sourceDate}</div>
-                    <div className="smp-news-card__snippet">{item.excerpt}</div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 5: PREDICTION HISTORY — Rendered immediately without blocking on market analysis */}
-        {activeTab === "history" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div className="smp-card">
-              <h2 className="smp-card__title" style={{ fontSize: 18 }}>
-                <History size={18} /> Prediction History & Backtest Logs
-              </h2>
-
-              <div className="smp-pred-stats-grid" style={{ marginTop: 10 }}>
-                <div className="smp-pred-stat-card">
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Model Accuracy</div>
-                  <div className="smp-pred-stat-card__val" style={{ color: "#22c55e" }}>84.2%</div>
-                </div>
-                <div className="smp-pred-stat-card">
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Win Rate</div>
-                  <div className="smp-pred-stat-card__val" style={{ color: "#38bdf8" }}>78.5%</div>
-                </div>
-                <div className="smp-pred-stat-card">
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Total Predictions</div>
-                  <div className="smp-pred-stat-card__val">142</div>
+                  <div className="smp-pred-stat-card">
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Articles Traced</div>
+                    <div className="smp-pred-stat-card__val">{sentimentData?.articles_traced || 0}</div>
+                  </div>
+                  <div className="smp-pred-stat-card">
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Positive Articles</div>
+                    <div className="smp-pred-stat-card__val" style={{ color: "#22c55e" }}>
+                      {sentimentData?.positive_articles || 0}
+                    </div>
+                  </div>
+                  <div className="smp-pred-stat-card">
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Negative Articles</div>
+                    <div className="smp-pred-stat-card__val" style={{ color: "#ef4444" }}>
+                      {sentimentData?.negative_articles || 0}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="smp-card">
-              <h3 className="smp-card__title">Signal Log History</h3>
-              <div className="smp-table-wrapper">
-                <table className="smp-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Symbol</th>
-                      <th>Signal</th>
-                      <th>Initial Price</th>
-                      <th>Target Price</th>
-                      <th>Actual Price</th>
-                      <th>Accuracy</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {predictionHistory.map((row, idx) => (
-                      <tr key={idx}>
-                        <td style={{ color: "#94a3b8" }}>{row.date}</td>
-                        <td style={{ fontWeight: 600 }}>{row.symbol}</td>
-                        <td>
-                          <span className="smp-badge--pos">{row.signal}</span>
-                        </td>
-                        <td>₹{row.initialPrice}</td>
-                        <td>₹{row.targetPrice}</td>
-                        <td>₹{row.actualPrice}</td>
-                        <td style={{ fontWeight: 600, color: "#22c55e" }}>{row.accuracy}</td>
-                        <td>
-                          <span className="smp-badge--pos">{row.status}</span>
-                        </td>
-                      </tr>
+              <div className="smp-card">
+                <h3 className="smp-card__title">
+                  <Newspaper size={18} /> Live News Articles & Sentiment Scores
+                </h3>
+
+                {!sentimentData?.news_list || sentimentData.news_list.length === 0 ? (
+                  <div style={{ padding: 24, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
+                    No recent news articles traced for {currentCompany.name}.
+                  </div>
+                ) : (
+                  <div className="smp-news-grid">
+                    {sentimentData.news_list.map((item) => (
+                      <div key={item.id} className="smp-news-card">
+                        <div className="smp-news-card__head">
+                          {item.url ? (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="smp-news-card__title"
+                              style={{ textDecoration: "none", color: "inherit" }}
+                            >
+                              {item.title}
+                            </a>
+                          ) : (
+                            <div className="smp-news-card__title">{item.title}</div>
+                          )}
+                          <span
+                            className={
+                              item.sentiment === "POSITIVE"
+                                ? "smp-badge--pos"
+                                : item.sentiment === "NEGATIVE"
+                                ? "smp-badge--neg"
+                                : "gp-chip"
+                            }
+                          >
+                            {item.sentiment} ({item.confidence})
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11, color: "#64748b" }}>{item.source_date}</div>
+                        <div className="smp-news-card__snippet">{item.excerpt}</div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )
         )}
       </main>
     </div>
   )
 }
+

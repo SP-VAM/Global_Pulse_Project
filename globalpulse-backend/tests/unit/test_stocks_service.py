@@ -417,3 +417,134 @@ async def test_stocks_analysis_endpoint_valid_single_fetch(stocks_app):
     assert len(data["price_history"]) > 0
     # Verify price data was fetched exactly ONCE for the analysis call
     assert provider.fetch_count == initial_fetch_count + 1
+
+
+# ---------------------------------------------------------------------------
+# 7. News Sentiment Dynamic Data Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_service_get_stock_news_sentiment_calculates_counts_and_formula(prediction_service):
+    """Verifies service method calculates positive, negative, net_sentiment and sentiment_label correctly."""
+    res = await prediction_service.get_stock_news_sentiment("RELIANCE")
+    assert res["symbol"] == "RELIANCE"
+    assert res["company_name"] == "Reliance Industries Ltd"
+    assert "net_sentiment" in res
+    assert "sentiment_label" in res
+    assert res["sentiment_label"] in ("Bullish", "Neutral", "Bearish")
+    assert "articles_traced" in res
+    assert "positive_articles" in res
+    assert "negative_articles" in res
+    assert "neutral_articles" in res
+    assert res["articles_traced"] == res["positive_articles"] + res["negative_articles"] + res["neutral_articles"]
+    if res["articles_traced"] > 0:
+        expected_net = round((res["positive_articles"] - res["negative_articles"]) / float(res["articles_traced"]), 2)
+        assert res["net_sentiment"] == expected_net
+
+
+@pytest.mark.asyncio
+async def test_stocks_sentiment_endpoint_valid(stocks_app):
+    """Verifies GET /api/v1/stocks/{symbol}/sentiment returns dynamic fields matching Pydantic contract."""
+    async with AsyncClient(
+        transport=ASGITransport(app=stocks_app), base_url="http://test"
+    ) as ac:
+        resp = await ac.get("/api/v1/stocks/INFY/sentiment")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["symbol"] == "INFY"
+    assert data["company_name"] == "Infosys Ltd"
+    assert "net_sentiment" in data
+    assert data["sentiment_label"] in ("Bullish", "Neutral", "Bearish")
+    assert data["articles_traced"] == data["positive_articles"] + data["negative_articles"] + data["neutral_articles"]
+    assert isinstance(data["news_list"], list)
+
+
+@pytest.mark.asyncio
+async def test_stocks_sentiment_endpoint_unsupported_returns_404(stocks_app):
+    """Verifies unsupported stock ticker returns 404."""
+    async with AsyncClient(
+        transport=ASGITransport(app=stocks_app), base_url="http://test"
+    ) as ac:
+        resp = await ac.get("/api/v1/stocks/UNKNOWNCOMPANY/sentiment")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_stocks_sentiment_empty_article_dataset_returns_zero_neutral_state(prediction_service):
+    """Verifies empty dataset returns 0 counts and 0.0 Neutral state without failing."""
+    with patch("os.path.exists", return_value=False):
+        res = await prediction_service.get_stock_news_sentiment("INFY")
+    assert res["symbol"] == "INFY"
+    assert res["articles_traced"] == 0
+    assert res["positive_articles"] == 0
+    assert res["negative_articles"] == 0
+    assert res["neutral_articles"] == 0
+    assert res["net_sentiment"] == 0.0
+    assert res["sentiment_label"] == "Neutral"
+    assert res["news_list"] == []
+
+
+@pytest.mark.asyncio
+async def test_stocks_sentiment_ticker_isolation(prediction_service):
+    """Verifies that different tickers return company-specific sentiment response."""
+    res_rel = await prediction_service.get_stock_news_sentiment("RELIANCE")
+    res_tcs = await prediction_service.get_stock_news_sentiment("TCS")
+    assert res_rel["symbol"] == "RELIANCE"
+    assert res_tcs["symbol"] == "TCS"
+    assert res_rel["company_name"] != res_tcs["company_name"]
+
+
+@pytest.mark.asyncio
+async def test_predict_stock_movement_unseen_label_encoder_fallback(prediction_service):
+    """Verifies that company names absent from label_encoder classes (e.g. BPCL) fall back to 0 without raising ValidationError."""
+    res = await prediction_service.predict_stock_movement("BPCL")
+    assert res["symbol"] == "BPCL"
+    assert res["company_name"] == "Bharat Petroleum Corporation Ltd"
+    assert "prediction" in res
+
+
+@pytest.mark.parametrize("symbol", ["RELIANCE", "TCS", "INFY", "BRITANNIA", "M&M", "DIVISLAB", "ITC"])
+@pytest.mark.asyncio
+async def test_market_analysis_pipeline_seven_companies(stocks_app, symbol):
+    """
+    Regression test for DIVISLAB, M&M, BRITANNIA, RELIANCE, TCS, INFY, ITC.
+    Verifies live market data, indicators, prediction, and sentiment endpoints return HTTP 200 with valid non-zero prices.
+    """
+    from urllib.parse import quote
+    encoded = quote(symbol)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=stocks_app), base_url="http://test"
+    ) as ac:
+        # 1. Full Analysis Endpoint
+        resp_analysis = await ac.get(f"/api/v1/stocks/{encoded}/analysis")
+        assert resp_analysis.status_code == 200
+        data_analysis = resp_analysis.json()
+        assert data_analysis["symbol"] == symbol.upper().replace(".NS", "")
+        assert data_analysis["current_close"] > 0.0
+        assert len(data_analysis["historical_chart_data"]) > 0
+
+        # 2. Prediction Endpoint
+        resp_pred = await ac.get(f"/api/v1/stocks/{encoded}/prediction")
+        assert resp_pred.status_code == 200
+        data_pred = resp_pred.json()
+        assert data_pred["symbol"] == symbol.upper().replace(".NS", "")
+        assert "prediction" in data_pred
+
+        # 3. Indicators Endpoint
+        resp_ind = await ac.get(f"/api/v1/stocks/{encoded}/indicators")
+        assert resp_ind.status_code == 200
+        data_ind = resp_ind.json()
+        assert data_ind["symbol"] == symbol.upper().replace(".NS", "")
+        assert "summary" in data_ind
+
+        # 4. Sentiment Endpoint
+        resp_sent = await ac.get(f"/api/v1/stocks/{encoded}/sentiment")
+        assert resp_sent.status_code == 200
+        data_sent = resp_sent.json()
+        assert data_sent["symbol"] == symbol.upper().replace(".NS", "")
+        assert "net_sentiment" in data_sent
+
+
+

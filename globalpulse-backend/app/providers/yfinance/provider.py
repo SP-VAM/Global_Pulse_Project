@@ -316,6 +316,9 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
 
                 return result_df
 
+            except ProviderUnavailableError:
+                raise
+
             except NotFoundError:
 
                 last_error = None

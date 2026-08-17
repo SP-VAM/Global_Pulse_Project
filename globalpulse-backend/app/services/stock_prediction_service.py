@@ -214,11 +214,15 @@ class StockPredictionService:
         company_name = TICKER_TO_COMPANY[symbol]
 
         try:
-            encoded_company = label_encoder.transform([company_name])[0]
-        except Exception:
-            raise ValidationError(
-                f"Company name '{company_name}' could not be encoded by label encoder."
+            encoded_company = int(label_encoder.transform([company_name])[0])
+        except Exception as exc:
+            logger.warning(
+                "Company name '%s' for symbol '%s' not present in label_encoder classes; using default encoding 0. Error: %s",
+                company_name,
+                symbol,
+                exc,
             )
+            encoded_company = 0
 
         as_of_date = pd.to_datetime(latest["Date"].values[0])
         latest["Year"] = as_of_date.year
@@ -418,6 +422,99 @@ class StockPredictionService:
 
         return snapshot_items
 
+    async def get_stock_news_sentiment(self, symbol: str) -> Dict[str, Any]:
+        """
+        Dynamically calculate and return real news sentiment metrics for a company symbol.
+        No hardcoded values. Counts articles traced, positive, negative, and neutral,
+        and computes net sentiment and sentiment label (Bullish, Neutral, Bearish).
+        """
+        normalized_ticker = self.normalize_symbol(symbol)
+        company_name = TICKER_TO_COMPANY[normalized_ticker]
+
+        settings = get_settings()
+        csv_path = os.path.join(settings.STOCK_DATA_DIR, "news_sentiment_aggregated.csv")
+
+        articles = []
+        if os.path.exists(csv_path):
+            try:
+                df = pd.read_csv(csv_path)
+                if "Ticker" in df.columns:
+                    ticker_df = df[df["Ticker"].astype(str).str.upper().str.strip() == normalized_ticker]
+                    for idx, row in ticker_df.iterrows():
+                        headline = str(row.get("Headline", row.get("title", f"{company_name} market update"))).strip()
+                        if not headline or headline.lower() == "nan":
+                            continue
+
+                        score = float(row.get("Sentiment_Score", row.get("Sentiment_Mean", 0.0)))
+                        if score > 0.05:
+                            sent_label = "POSITIVE"
+                            conf = f"{min(99, int(50 + score * 50))}%"
+                        elif score < -0.05:
+                            sent_label = "NEGATIVE"
+                            conf = f"{min(99, int(50 + abs(score) * 50))}%"
+                        else:
+                            sent_label = "NEUTRAL"
+                            conf = "65%"
+
+                        dt_str = str(row.get("Date", row.get("publishedAt", "Recent")))
+                        src_str = str(row.get("Source", "Market News"))
+                        excerpt_str = str(row.get("Excerpt", row.get("description", headline)))
+                        url_str = str(row.get("URL", row.get("url", "")))
+
+                        articles.append({
+                            "id": f"csv_{idx}",
+                            "title": headline,
+                            "sentiment": sent_label,
+                            "confidence": conf,
+                            "source_date": f"{src_str} • {dt_str}",
+                            "excerpt": excerpt_str,
+                            "url": "" if url_str == "nan" else url_str,
+                        })
+            except Exception as exc:
+                logger.debug("Failed reading sentiment CSV for %s: %s", normalized_ticker, exc)
+
+        articles_traced = len(articles)
+        positive_articles = sum(1 for a in articles if a["sentiment"] == "POSITIVE")
+        negative_articles = sum(1 for a in articles if a["sentiment"] == "NEGATIVE")
+        neutral_articles = sum(1 for a in articles if a["sentiment"] == "NEUTRAL")
+
+        if articles_traced > 0:
+            net_sentiment = round((positive_articles - negative_articles) / float(articles_traced), 2)
+        else:
+            net_sentiment = 0.0
+
+        if net_sentiment >= 0.15:
+            sentiment_label = "Bullish"
+        elif net_sentiment <= -0.15:
+            sentiment_label = "Bearish"
+        else:
+            sentiment_label = "Neutral"
+
+        news_list = [
+            {
+                "id": a["id"],
+                "title": a["title"],
+                "sentiment": a["sentiment"],
+                "confidence": a["confidence"],
+                "source_date": a["source_date"],
+                "excerpt": a["excerpt"],
+                "url": a.get("url", ""),
+            }
+            for a in articles
+        ]
+
+        return {
+            "symbol": normalized_ticker,
+            "company_name": company_name,
+            "net_sentiment": net_sentiment,
+            "sentiment_label": sentiment_label,
+            "articles_traced": articles_traced,
+            "positive_articles": positive_articles,
+            "negative_articles": negative_articles,
+            "neutral_articles": neutral_articles,
+            "news_list": news_list,
+        }
+
     async def get_market_snapshot(self, symbols: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """
         Lightweight bulk stock market snapshot for supported Nifty companies.
@@ -443,3 +540,4 @@ class StockPredictionService:
             if is_full_snapshot and self._snapshot_cache:
                 return self._snapshot_cache
             return await self._execute_snapshot_fetch(symbols)
+

@@ -22,6 +22,7 @@ from app.schemas.stocks import (
     StockHealthResponse,
     StockMarketSnapshotItemSchema,
     StockMarketSnapshotResponse,
+    StockNewsSentimentResponse,
     StockPredictionResponse,
     TechnicalIndicatorsResponse,
     TechnicalSummarySchema,
@@ -119,8 +120,8 @@ _SYMBOL_PATH = Path(
     ...,
     min_length=1,
     max_length=40,
-    pattern=r"^[\w\.\-]+$",
-    description="Stock symbol (e.g. RELIANCE, HDFCBANK, TCS)",
+    pattern=r"^[\w\.\-&]+$",
+    description="Stock symbol (e.g. RELIANCE, HDFCBANK, TCS, M&M)",
 )
 
 
@@ -228,6 +229,27 @@ async def get_stock_prediction(
     result = await prediction_service.predict_stock_movement(symbol=normalized)
     result.pop("prices_df", None)
     return StockPredictionResponse(**result)
+
+
+@router.get(
+    "/{symbol}/sentiment",
+    response_model=StockNewsSentimentResponse,
+    summary="Get Dynamic News Sentiment Analysis for Stock",
+)
+@limiter.limit(_settings.RATE_LIMIT_DATA)
+async def get_stock_sentiment(
+    request: Request,
+    symbol: str = _SYMBOL_PATH,
+    prediction_service: StockPredictionService = Depends(get_prediction_service),
+) -> StockNewsSentimentResponse:
+    """
+    Get dynamic news sentiment analysis for a supported stock company.
+    Calculates net sentiment score, articles traced, positive/negative/neutral article breakdown,
+    and returns sentiment label (Bullish, Neutral, Bearish).
+    """
+    normalized = prediction_service.normalize_symbol(symbol)
+    result = await prediction_service.get_stock_news_sentiment(symbol=normalized)
+    return StockNewsSentimentResponse(**result)
 
 
 @router.get(

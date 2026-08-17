@@ -103,6 +103,30 @@ class HistoricalCandleSchema(BaseModel):
     lower_band: Optional[float] = None
 
 
+class StockNewsArticleSchema(BaseModel):
+    id: str = Field(..., description="Unique article ID or hash")
+    title: str = Field(..., description="Article title/headline")
+    sentiment: str = Field(..., description="'POSITIVE', 'NEGATIVE', or 'NEUTRAL'")
+    confidence: str = Field(..., description="Confidence percentage string e.g. '95%'")
+    source_date: str = Field(..., description="Source & publication date string e.g. 'Reuters • 3 hours ago'")
+    excerpt: str = Field(..., description="Article snippet or summary")
+    url: Optional[str] = Field(default="", description="Source article URL")
+
+
+class StockNewsSentimentResponse(BaseModel):
+    symbol: str = Field(..., description="Stock symbol (e.g. RELIANCE)")
+    company_name: str = Field(..., description="Full company name")
+    net_sentiment: float = Field(..., description="Calculated net sentiment score in range [-1.0, 1.0]")
+    sentiment_label: str = Field(..., description="'Bullish', 'Neutral', or 'Bearish'")
+    articles_traced: int = Field(..., description="Total count of articles analyzed")
+    positive_articles: int = Field(..., description="Count of positive articles")
+    negative_articles: int = Field(..., description="Count of negative articles")
+    neutral_articles: int = Field(..., description="Count of neutral articles")
+    news_list: List[StockNewsArticleSchema] = Field(
+        default_factory=list, description="List of analyzed news items"
+    )
+
+
 class StockFullAnalysisResponse(BaseModel):
     symbol: str
     company_name: str
@@ -120,6 +144,9 @@ class StockFullAnalysisResponse(BaseModel):
     )
     historical_chart_data: List[HistoricalCandleSchema] = Field(
         default_factory=list, description="Full historical OHLCV candles with technical indicators for range charting"
+    )
+    news_sentiment: Optional[StockNewsSentimentResponse] = Field(
+        default=None, description="Dynamic news sentiment analysis for the company"
     )
 
 
@@ -149,3 +176,4 @@ class StockHealthResponse(BaseModel):
     feature_count: int
     supported_companies_count: int
     timestamp_utc: str
+

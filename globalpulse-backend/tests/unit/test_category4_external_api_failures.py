@@ -401,10 +401,7 @@ class TestYFinanceProviderFailures:
         from app.providers.yfinance.provider import YFinanceMarketDataProvider
         p = YFinanceMarketDataProvider()
         incomplete_df = pd.DataFrame({"Date": ["2026-01-01"], "Open": [100.0]})
-        with patch("app.providers.yfinance.provider.yf.Ticker") as mock_cls:
-            mock_t = MagicMock()
-            mock_t.history = MagicMock(return_value=incomplete_df)
-            mock_cls.return_value = mock_t
+        with patch("app.providers.yfinance.provider.yf.download", return_value=incomplete_df):
             with pytest.raises(ProviderUnavailableError, match="missing"):
                 await p.get_historical_prices("RELIANCE.NS")
 
