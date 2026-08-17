@@ -29,6 +29,7 @@ from app.schemas.stocks import (
 from app.services.stock_artifact_loader import get_stock_artifact_loader
 from app.services.stock_prediction_service import TICKER_TO_COMPANY, StockPredictionService
 from app.services.technical_indicator_service import TechnicalIndicatorService
+import logging
 
 router = APIRouter(prefix="/stocks", tags=["Stock ML Predictions & Indicators"])
 
@@ -179,7 +180,21 @@ async def get_stock_indicators(
     for a supported stock. Rejects unsupported companies with HTTP 404.
     """
     normalized = prediction_service.normalize_symbol(symbol)
-    prices_df = await prediction_service.provider.get_historical_prices(normalized, period=period)
+    try:
+        prices_df = await prediction_service.provider.get_historical_prices(normalized, period=period)
+    except Exception as e:
+        # Diagnostic logging for provider failures (do not log secrets)
+        logger = logging.getLogger("app.stocks")
+        provider_name = getattr(prediction_service.provider, "__class__", type(prediction_service.provider)).__name__
+        logger.warning(
+            "Stock provider error | provider=%s | requested_symbol=%s | normalized=%s | period=%s | error=%s",
+            provider_name,
+            symbol,
+            normalized,
+            period,
+            type(e).__name__ + ": " + str(e),
+        )
+        raise
     enriched_df = indicator_service.compute_all_indicators(prices_df)
     summary_dict = indicator_service.extract_summary(enriched_df)
     as_of_date = str(enriched_df["Date"].iloc[-1].strftime("%Y-%m-%d")) if not enriched_df.empty else ""
@@ -225,7 +240,20 @@ async def get_stock_full_analysis(
     fetch_period = "1y" if period in ("1d", "5d", "1mo", "3mo", "6mo") else period
 
     # 1. Fetch Historical Prices
-    prices_df = await prediction_service.provider.get_historical_prices(normalized, period=fetch_period)
+    try:
+        prices_df = await prediction_service.provider.get_historical_prices(normalized, period=fetch_period)
+    except Exception as e:
+        logger = logging.getLogger("app.stocks")
+        provider_name = getattr(prediction_service.provider, "__class__", type(prediction_service.provider)).__name__
+        logger.warning(
+            "Stock provider error | provider=%s | requested_symbol=%s | normalized=%s | period=%s | error=%s",
+            provider_name,
+            symbol,
+            normalized,
+            fetch_period,
+            type(e).__name__ + ": " + str(e),
+        )
+        raise
 
     # 2. Prediction using fetched prices_df
     pred_res = await prediction_service.predict_stock_movement(
