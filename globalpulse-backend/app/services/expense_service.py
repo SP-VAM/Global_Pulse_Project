@@ -318,7 +318,7 @@ class ExpenseService:
         income = await self.income_repo.get_by_id(income_id)
         if not income or income.user_id != user_id:
             raise ValidationError("Income record not found.")
-
+    
         updates = req.model_dump(exclude_unset=True)
         updated = await self.income_repo.update(income_id, updates)
         return IncomeResponse.model_validate(updated)
