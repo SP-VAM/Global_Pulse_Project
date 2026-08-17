@@ -5,6 +5,7 @@ Business logic for managing user expenses, incomes, budgets, and monthly totals.
 
 import logging
 from typing import List, Optional
+from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
