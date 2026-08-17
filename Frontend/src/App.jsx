@@ -17,7 +17,7 @@ import {
   GoogleLogin,
   LoginSuccess,
   CompleteProfile,
-} from "./pages/Auth";
+} from "./pages/auth";
 
 // Dashboard Pages (Clean Modular Barrel Export)
 import {
