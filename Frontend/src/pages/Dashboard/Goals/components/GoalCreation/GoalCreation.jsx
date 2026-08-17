@@ -6,9 +6,9 @@ import {
   sanitizeFinancialInput,
   validateFinancialAmount,
   validateTextLength,
-  MAX_NAME_LENGTH,
-  MAX_NOTE_LENGTH,
-  MAX_FINANCIAL_INT_DIGITS,
+  MAX_GOAL_NAME_LENGTH,
+  MAX_GOAL_NOTE_LENGTH,
+  MAX_GOAL_TARGET_AMOUNT,
   formatSafeINR,
 } from "../../../../../utils/financialValidation.js";
 import "../UpdateGoalDrawer/UpdateGoalDrawer.css";
@@ -38,7 +38,7 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
   const [errors, setErrors] = useState({});
 
   const handleTargetChange = (e) => {
-    const clean = sanitizeFinancialInput(e.target.value, false);
+    const clean = sanitizeFinancialInput(e.target.value, false, 9);
     setTargetRaw(clean);
     if (errors.target) {
       setErrors((prev) => ({ ...prev, target: null }));
@@ -71,20 +71,34 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
   const validate = () => {
     const newErrors = {};
 
-    const nameVal = validateTextLength(name, MAX_NAME_LENGTH, "Goal name", true);
+    const nameVal = validateTextLength(
+      name,
+      MAX_GOAL_NAME_LENGTH,
+      "Goal Name",
+      true,
+      "Goal Name cannot exceed 100 characters."
+    );
     if (!nameVal.isValid) {
       newErrors.name = nameVal.error;
     }
 
-    const noteVal = validateTextLength(note, MAX_NOTE_LENGTH, "Note", false);
+    const noteVal = validateTextLength(
+      note,
+      MAX_GOAL_NOTE_LENGTH,
+      "Note",
+      false,
+      "Note cannot exceed 500 characters."
+    );
     if (!noteVal.isValid) {
       newErrors.note = noteVal.error;
     }
 
     const targetVal = validateFinancialAmount(targetRaw, {
-      fieldName: "Target amount",
+      fieldName: "Target Amount",
       min: 10000,
       minError: "Target amount must be at least ₹10,000.",
+      max: MAX_GOAL_TARGET_AMOUNT,
+      maxError: "Target Amount cannot exceed ₹99,99,99,999.",
     });
     if (!targetVal.isValid) {
       newErrors.target = targetVal.error;
@@ -155,15 +169,20 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
         <form className="drawer-panel__form" onSubmit={handleSubmit} noValidate>
           {/* Goal Name */}
           <div className="drawer-panel__field">
-            <label className="drawer-panel__label" htmlFor="create-goal-name">
-              Goal Name <span className="goal-creation__req">*</span>
-            </label>
+            <div className="drawer-panel__label-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label className="drawer-panel__label" htmlFor="create-goal-name">
+                Goal Name <span className="goal-creation__req">*</span>
+              </label>
+              <span style={{ fontSize: "11px", color: "var(--text-3, #6b7385)", fontWeight: 600 }}>
+                {name.length}/100
+              </span>
+            </div>
             <div className="drawer-panel__input-wrapper">
               <Target size={16} className="drawer-panel__icon" />
               <input
                 id="create-goal-name"
                 type="text"
-                maxLength={MAX_NAME_LENGTH}
+                maxLength={MAX_GOAL_NAME_LENGTH}
                 className={`drawer-panel__input ${errors.name ? "has-error" : ""}`}
                 placeholder="e.g. Dream Vacation, House Downpayment..."
                 value={name}
@@ -180,19 +199,27 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
 
           {/* Note */}
           <div className="drawer-panel__field">
-            <label className="drawer-panel__label" htmlFor="create-goal-note">
-              Note <span className="goal-creation__opt">(Optional)</span>
-            </label>
+            <div className="drawer-panel__label-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label className="drawer-panel__label" htmlFor="create-goal-note">
+                Note <span className="goal-creation__opt">(Optional)</span>
+              </label>
+              <span style={{ fontSize: "11px", color: "var(--text-3, #6b7385)", fontWeight: 600 }}>
+                {note.length}/500
+              </span>
+            </div>
             <div className="drawer-panel__input-wrapper">
               <FileText size={16} className="drawer-panel__icon" />
               <input
                 id="create-goal-note"
                 type="text"
-                maxLength={MAX_NOTE_LENGTH}
-                className="drawer-panel__input"
+                maxLength={MAX_GOAL_NOTE_LENGTH}
+                className={`drawer-panel__input ${errors.note ? "has-error" : ""}`}
                 placeholder="Add notes or specific strategy..."
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onChange={(e) => {
+                  setNote(e.target.value);
+                  if (errors.note) setErrors((prev) => ({ ...prev, note: null }));
+                }}
               />
             </div>
             {errors.note && <span className="drawer-panel__err-msg">{errors.note}</span>}
@@ -216,9 +243,9 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
                 id="create-goal-target"
                 type="text"
                 inputMode="numeric"
-                maxLength={MAX_FINANCIAL_INT_DIGITS}
+                maxLength={14}
                 className={`drawer-panel__input ${errors.target ? "has-error" : ""}`}
-                placeholder="Minimum value is ₹10,000 (Max 13 digits)"
+                placeholder="Minimum ₹10,000 (Max ₹99,99,99,999)"
                 value={targetRaw ? formatINR(Number(targetRaw)) : ""}
                 onChange={handleTargetChange}
                 onFocus={(e) => e.target.select()}

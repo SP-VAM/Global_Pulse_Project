@@ -27,11 +27,12 @@ class FeatureImportanceSchema(BaseModel):
 
 
 class PredictionDetailSchema(BaseModel):
-    predicted_direction: str = Field(..., description="'UP' or 'DOWN'")
+    predicted_direction: str = Field(..., description="'UP', 'DOWN', or 'HOLD'")
     confidence_percent: float = Field(..., description="Percentage confidence e.g. 78.4")
     prob_up: float
     prob_down: float
-    signal: str = Field(..., description="'BULLISH' or 'BEARISH'")
+    prob_hold: float = Field(0.0, description="Probability of neutral/hold price movement (Class 2)")
+    signal: str = Field(..., description="'BULLISH', 'BEARISH', or 'NEUTRAL'")
 
 
 class StockPredictionResponse(BaseModel):

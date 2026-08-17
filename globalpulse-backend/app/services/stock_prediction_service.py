@@ -284,14 +284,27 @@ class StockPredictionService:
         )
 
         preds = model.predict(X)
-        proba = model.predict_proba(X)[0] if hasattr(model, "predict_proba") else [0.5, 0.5]
+        proba = model.predict_proba(X)[0] if hasattr(model, "predict_proba") else [0.5, 0.5, 0.0]
 
         predicted_class = int(preds[0])
-        predicted_direction = "UP" if predicted_class == 1 else "DOWN"
-        prob_down = float(proba[0])
-        prob_up = float(proba[1])
-        confidence_pct = round(max(prob_up, prob_down) * 100, 2)
-        signal = "BULLISH" if predicted_direction == "UP" else "BEARISH"
+        model_classes = list(getattr(model, "classes_", [0, 1, 2]))
+        class_prob_map = {int(c): float(p) for c, p in zip(model_classes, proba)}
+
+        prob_down = float(class_prob_map.get(0, 0.0))
+        prob_up = float(class_prob_map.get(1, 0.0))
+        prob_hold = float(class_prob_map.get(2, 0.0))
+
+        if predicted_class == 1:
+            predicted_direction = "UP"
+            signal = "BULLISH"
+        elif predicted_class == 0:
+            predicted_direction = "DOWN"
+            signal = "BEARISH"
+        else:
+            predicted_direction = "HOLD"
+            signal = "NEUTRAL"
+
+        confidence_pct = round(max(prob_up, prob_down, prob_hold) * 100, 2)
 
         top_features = []
         if hasattr(model, "feature_importances_"):
@@ -335,6 +348,7 @@ class StockPredictionService:
                 "confidence_percent": confidence_pct,
                 "prob_up": round(prob_up, 4),
                 "prob_down": round(prob_down, 4),
+                "prob_hold": round(prob_hold, 4),
                 "signal": signal,
             },
             "top_influencing_features": top_features,

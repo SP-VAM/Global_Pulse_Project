@@ -107,8 +107,8 @@ class TestJWTAttackVectors:
     def test_empty_secret_rejected_at_encode_time(self):
         """PyJWT empty HMAC key encoding & decoding protection test."""
         from app.core.exceptions import GlobalPulseError
-        tok = jwt.encode({"sub": "1", "type": "access"}, "", algorithm="HS256")
-        with pytest.raises((GlobalPulseError, Exception)):
+        with pytest.raises((jwt.exceptions.InvalidKeyError, GlobalPulseError, Exception)):
+            tok = jwt.encode({"sub": "1", "type": "access"}, "", algorithm="HS256")
             decode_token(tok)
 
     def test_attacker_short_secret_token_rejected_on_decode(self):

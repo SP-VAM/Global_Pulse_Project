@@ -308,9 +308,10 @@ export default function MarketAnalysis() {
     const pred = liveApiData?.prediction || {}
     return {
       signal: pred.signal || "NEUTRAL",
-      bullish: pred.prob_up ? parseFloat((pred.prob_up * 100).toFixed(1)) : 50.0,
-      bearish: pred.prob_down ? parseFloat((pred.prob_down * 100).toFixed(1)) : 50.0,
-      confidence: pred.confidence_percent ? parseFloat(pred.confidence_percent.toFixed(1)) : 0.0,
+      bullish: pred.prob_up !== undefined ? parseFloat((pred.prob_up * 100).toFixed(2)) : 0.0,
+      bearish: pred.prob_down !== undefined ? parseFloat((pred.prob_down * 100).toFixed(2)) : 0.0,
+      neutral: pred.prob_hold !== undefined ? parseFloat((pred.prob_hold * 100).toFixed(2)) : 0.0,
+      confidence: pred.confidence_percent !== undefined ? parseFloat(pred.confidence_percent.toFixed(2)) : 0.0,
     }
   }, [liveApiData])
 
@@ -759,18 +760,18 @@ export default function MarketAnalysis() {
                 </div>
 
                 <div className="smp-live-badge">
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: livePrediction.signal === "BULLISH" ? "#22c55e" : "#ef4444", display: "inline-block" }}></span>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: livePrediction.signal === "BULLISH" ? "#22c55e" : (livePrediction.signal === "BEARISH" ? "#ef4444" : "#eab308"), display: "inline-block" }}></span>
                   LIVE PREDICTION: {livePrediction.signal}
                 </div>
 
                 <div className="smp-pred-stats-grid">
                   <div className="smp-pred-stat-card">
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Bullish Probability</div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Probabilities (UP / DOWN / HOLD)</div>
                     <div className="smp-pred-stat-card__val" style={{ color: "#22c55e" }}>
-                      {livePrediction.bullish}%
+                      UP: {livePrediction.bullish}%
                     </div>
                     <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                      Bearish: {livePrediction.bearish}%
+                      DOWN: {livePrediction.bearish}% | HOLD: {livePrediction.neutral}%
                     </div>
                   </div>
 

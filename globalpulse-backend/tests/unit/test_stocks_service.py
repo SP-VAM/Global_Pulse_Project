@@ -253,13 +253,46 @@ async def test_predict_stock_movement_success(prediction_service):
 
     assert res["symbol"] == "RELIANCE"
     assert res["company_name"] == "Reliance Industries Ltd"
-    assert res["prediction"]["predicted_direction"] in ("UP", "DOWN")
+    assert res["prediction"]["predicted_direction"] in ("UP", "DOWN", "HOLD")
+    assert "prob_up" in res["prediction"]
+    assert "prob_down" in res["prediction"]
+    assert "prob_hold" in res["prediction"]
+    
+    # Verify probabilities sum to 1.0 (100%)
+    prob_sum = round(
+        res["prediction"]["prob_up"] + res["prediction"]["prob_down"] + res["prediction"]["prob_hold"],
+        4,
+    )
+    assert prob_sum == 1.0
+
     assert 0 <= res["prediction"]["confidence_percent"] <= 100
     assert len(res["top_influencing_features"]) > 0
     assert "price_history" in res
     assert len(res["price_history"]) > 0
     assert "date" in res["price_history"][0]
     assert "close" in res["price_history"][0]
+
+
+@pytest.mark.asyncio
+async def test_predict_stock_movement_three_class_model_preserves_hold_and_sums_to_one(prediction_service):
+    """Verifies that 3-class model outputs prob_up, prob_down, prob_hold mapping dynamically to model.classes_."""
+    # Mock model with 3 classes [0, 1, 2] predicting Class 2 (HOLD)
+    mock_model = MagicMock()
+    mock_model.classes_ = [0, 1, 2]
+    mock_model.predict.return_value = [2]
+    mock_model.predict_proba.return_value = np.array([[0.3475, 0.4250, 0.2275]])
+
+    with patch.object(prediction_service.artifact_loader, "load_model", return_value=mock_model):
+        res = await prediction_service.predict_stock_movement("TCS")
+
+    pred = res["prediction"]
+    assert pred["predicted_direction"] == "HOLD"
+    assert pred["signal"] == "NEUTRAL"
+    assert pred["prob_down"] == 0.3475
+    assert pred["prob_up"] == 0.4250
+    assert pred["prob_hold"] == 0.2275
+    assert round(pred["prob_down"] + pred["prob_up"] + pred["prob_hold"], 4) == 1.0
+    assert pred["confidence_percent"] == 42.5
 
 
 @pytest.mark.asyncio

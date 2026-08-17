@@ -7,7 +7,25 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-def validate_max_13_digits(v: Optional[float]) -> Optional[float]:
+def validate_max_goal_target(v: Optional[float]) -> Optional[float]:
+    if v is not None:
+        if math.isnan(v) or math.isinf(v):
+            raise ValueError("Target Amount must be a finite number.")
+        if v <= 0:
+            raise ValueError("Target Amount must be greater than zero.")
+        int_part = str(int(abs(v)))
+        if len(int_part) > 9 or abs(v) > 999_999_999.00:
+            raise ValueError("Target Amount cannot exceed ₹99,99,99,999.")
+        # Check decimal places (max 2)
+        dec_part = f"{v:.6f}".rstrip("0").split(".")[-1]
+        if len(dec_part) > 2 and round(v, 2) != v:
+            # Check if precision exceeds 2 decimal places
+            formatted = f"{v:.4f}".rstrip("0")
+            if len(formatted.split(".")[-1]) > 2:
+                raise ValueError("Target Amount cannot exceed 2 decimal places.")
+        return v
+    return v
+def validate_max_13_digits(v: float) -> float:
     if v is not None:
         if math.isnan(v) or math.isinf(v):
             raise ValueError("Amount must be a finite number.")
@@ -15,20 +33,14 @@ def validate_max_13_digits(v: Optional[float]) -> Optional[float]:
             raise ValueError("Amount must be greater than zero.")
         int_part = str(int(abs(v)))
         if len(int_part) > 13 or abs(v) > 9_999_999_999_999.99:
-            raise ValueError("Amount cannot exceed 13 integer digits (max 9,999,999,999,999.99).")
-        # Check decimal places (max 2)
-        dec_part = f"{v:.6f}".rstrip("0").split(".")[-1]
-        if len(dec_part) > 2 and round(v, 2) != v:
-            # Check if precision exceeds 2 decimal places
-            formatted = f"{v:.4f}".rstrip("0")
-            if len(formatted.split(".")[-1]) > 2:
-                raise ValueError("Amount cannot exceed 2 decimal places.")
+            raise ValueError("Amount cannot exceed 13 digits.")
     return v
+
 
 
 class GoalBase(BaseModel):
     goal_name: str = Field(..., min_length=1, max_length=100, description="Name of the goal")
-    target_quantity: float = Field(..., gt=0, le=9_999_999_999_999.99, description="Target financial goal amount/units")
+    target_quantity: float = Field(..., gt=0, le=999_999_999.00, description="Target financial goal amount/units")
     unit: Optional[str] = Field(default="INR", max_length=20, description="Currency or unit (e.g. INR, Gold, Stocks)")
     start_date: Optional[date] = Field(default=None, description="Start date of the goal")
     end_date: date = Field(..., description="Target completion deadline date")
@@ -39,7 +51,7 @@ class GoalBase(BaseModel):
     @field_validator("target_quantity")
     @classmethod
     def check_target_quantity(cls, v: float) -> float:
-        return validate_max_13_digits(v)
+        return validate_max_goal_target(v)
 
 
 class GoalCreate(GoalBase):
@@ -48,7 +60,7 @@ class GoalCreate(GoalBase):
 
 class GoalUpdate(BaseModel):
     goal_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    target_quantity: Optional[float] = Field(default=None, gt=0, le=9_999_999_999_999.99)
+    target_quantity: Optional[float] = Field(default=None, gt=0, le=999_999_999.00)
     unit: Optional[str] = Field(default=None, max_length=20)
     end_date: Optional[date] = None
     notes: Optional[str] = Field(default=None, max_length=500)
@@ -56,7 +68,7 @@ class GoalUpdate(BaseModel):
     @field_validator("target_quantity")
     @classmethod
     def check_target_quantity(cls, v: Optional[float]) -> Optional[float]:
-        return validate_max_13_digits(v)
+        return validate_max_goal_target(v)
 
 
 class GoalProgressCreate(BaseModel):

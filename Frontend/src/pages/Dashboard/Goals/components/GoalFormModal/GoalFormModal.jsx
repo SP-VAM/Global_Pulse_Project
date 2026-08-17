@@ -6,9 +6,9 @@ import {
   sanitizeFinancialInput,
   validateFinancialAmount,
   validateTextLength,
-  MAX_NAME_LENGTH,
-  MAX_NOTE_LENGTH,
-  MAX_FINANCIAL_INT_DIGITS,
+  MAX_GOAL_NAME_LENGTH,
+  MAX_GOAL_NOTE_LENGTH,
+  MAX_GOAL_TARGET_AMOUNT,
 } from "../../../../../utils/financialValidation.js"
 
 export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteRequest }) {
@@ -33,7 +33,7 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
   }, [])
 
   function handleTargetChange(e) {
-    let value = sanitizeFinancialInput(e.target.value, false)
+    let value = sanitizeFinancialInput(e.target.value, false, 9)
     setTarget(value)
     if (errors.target) {
       setErrors((prev) => ({ ...prev, target: null }))
@@ -43,21 +43,35 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
   function validate() {
     const e = {}
 
-    const nameVal = validateTextLength(name, MAX_NAME_LENGTH, "Goal name", true)
+    const nameVal = validateTextLength(
+      name,
+      MAX_GOAL_NAME_LENGTH,
+      "Goal Name",
+      true,
+      "Goal Name cannot exceed 100 characters."
+    )
     if (!nameVal.isValid) {
       e.name = nameVal.error
     }
 
-    const noteVal = validateTextLength(notes, MAX_NOTE_LENGTH, "Note", false)
+    const noteVal = validateTextLength(
+      notes,
+      MAX_GOAL_NOTE_LENGTH,
+      "Note",
+      false,
+      "Note cannot exceed 500 characters."
+    )
     if (!noteVal.isValid) {
       e.notes = noteVal.error
     }
 
     const minAmt = goalToEdit?.target ? Number(goalToEdit.target) : 10000
     const targetVal = validateFinancialAmount(target, {
-      fieldName: "Target amount",
+      fieldName: "Target Amount",
       min: minAmt,
       minError: goalToEdit ? `Target amount cannot be decreased below ${minAmt}.` : "Minimum target amount is ₹10,000.",
+      max: MAX_GOAL_TARGET_AMOUNT,
+      maxError: "Target Amount cannot exceed ₹99,99,99,999.",
     })
     if (!targetVal.isValid) {
       e.target = targetVal.error
@@ -151,10 +165,15 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
         <form className="gf-form" onSubmit={handleSubmit} noValidate>
           {/* GOAL NAME */}
           <div className="gf-field">
-            <label className="gf-label">GOAL NAME</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label className="gf-label">GOAL NAME</label>
+              <span style={{ fontSize: "11px", color: "var(--text-3, #6b7385)", fontWeight: 600 }}>
+                {name.length}/100
+              </span>
+            </div>
             <input
               type="text"
-              maxLength={MAX_NAME_LENGTH}
+              maxLength={MAX_GOAL_NAME_LENGTH}
               className={`gf-input ${errors.name ? "gf-input--error" : ""}`}
               placeholder="Goal name"
               value={name}
@@ -168,14 +187,22 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
 
           {/* NOTE */}
           <div className="gf-field">
-            <label className="gf-label">NOTE</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label className="gf-label">NOTE</label>
+              <span style={{ fontSize: "11px", color: "var(--text-3, #6b7385)", fontWeight: 600 }}>
+                {notes.length}/500
+              </span>
+            </div>
             <input
               type="text"
-              maxLength={MAX_NOTE_LENGTH}
-              className="gf-input"
+              maxLength={MAX_GOAL_NOTE_LENGTH}
+              className={`gf-input ${errors.notes ? "gf-input--error" : ""}`}
               placeholder="Note"
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={(e) => {
+                setNotes(e.target.value)
+                if (errors.notes) setErrors((prev) => ({ ...prev, notes: null }))
+              }}
             />
             {errors.notes && <div className="gf-error">{errors.notes}</div>}
           </div>
@@ -186,9 +213,9 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
             <input
               type="text"
               inputMode="numeric"
-              maxLength={MAX_FINANCIAL_INT_DIGITS}
+              maxLength={14}
               className={`gf-input ${errors.target ? "gf-input--error" : ""}`}
-              placeholder="Amount"
+              placeholder="Amount (Max ₹99,99,99,999)"
               value={target}
               onChange={handleTargetChange}
             />

@@ -14,29 +14,33 @@ export const MAX_FINANCIAL_AMOUNT = 9999999999999.99;
 export const MAX_NAME_LENGTH = 100;
 export const MAX_NOTE_LENGTH = 30;
 export const MAX_EXPENSE_NOTE_LENGTH = 30;
+export const MAX_GOAL_NAME_LENGTH = 100;
+export const MAX_GOAL_NOTE_LENGTH = 500;
+export const MAX_GOAL_TARGET_AMOUNT = 999999999; // ₹99,99,99,999
 
 /**
  * Sanitizes user input string for monetary fields as they type or paste.
- * Restricts integer part to 13 digits and decimal part to 2 digits.
+ * Restricts integer part to 13 digits (or maxIntDigits if specified) and decimal part to 2 digits.
  * Strips all invalid characters ('e', 'E', '+', '-', alphabetic, symbols).
  *
  * @param {string} raw
  * @param {boolean} allowDecimals
+ * @param {number} maxIntDigits
  * @returns {string} Clean numeric string
  */
-export function sanitizeFinancialInput(raw, allowDecimals = true) {
+export function sanitizeFinancialInput(raw, allowDecimals = true, maxIntDigits = MAX_FINANCIAL_INT_DIGITS) {
   if (raw === null || raw === undefined) return "";
   let clean = String(raw).replace(/[^0-9.]/g, "");
 
   // If no decimals allowed, strip all non-digits
   if (!allowDecimals) {
     clean = clean.replace(/[^0-9]/g, "");
-    return clean.slice(0, MAX_FINANCIAL_INT_DIGITS);
+    return clean.slice(0, maxIntDigits);
   }
 
   // Handle at most one decimal point
   const parts = clean.split(".");
-  let intPart = parts[0] ? parts[0].slice(0, MAX_FINANCIAL_INT_DIGITS) : "";
+  let intPart = parts[0] ? parts[0].slice(0, maxIntDigits) : "";
   if (parts.length > 1) {
     const decPart = parts.slice(1).join("").slice(0, MAX_FINANCIAL_DECIMALS);
     return `${intPart}.${decPart}`;
@@ -85,12 +89,12 @@ export function validateFinancialAmount(value, options = {}) {
     return { isValid: false, error: `Invalid ${fieldName.toLowerCase()}.`, numValue: 0 };
   }
 
-  // Check integer digits length
+  // Check integer digits length or max value
   const [intPart] = strVal.split(".");
-  if (intPart.length > MAX_FINANCIAL_INT_DIGITS || num > max) {
+  if (num > max || intPart.length > String(Math.floor(max)).length) {
     return {
       isValid: false,
-      error: maxError || `${fieldName} cannot exceed 13 digits (₹99,99,999 crore).`,
+      error: maxError || `${fieldName} cannot exceed ${max.toLocaleString("en-IN")}.`,
       numValue: num,
     };
   }
@@ -113,9 +117,16 @@ export function validateFinancialAmount(value, options = {}) {
  * @param {number} maxLength
  * @param {string} fieldName
  * @param {boolean} required
+ * @param {string|null} customMaxError
  * @returns {{ isValid: boolean, error: string | null }}
  */
-export function validateTextLength(text, maxLength = MAX_NOTE_LENGTH, fieldName = "Field", required = false) {
+export function validateTextLength(
+  text,
+  maxLength = MAX_NOTE_LENGTH,
+  fieldName = "Field",
+  required = false,
+  customMaxError = null
+) {
   const str = String(text || "").trim();
   if (!str) {
     if (required) {
@@ -126,7 +137,7 @@ export function validateTextLength(text, maxLength = MAX_NOTE_LENGTH, fieldName 
   if (str.length > maxLength) {
     return {
       isValid: false,
-      error: `${fieldName} cannot exceed ${maxLength} characters (currently ${str.length}).`,
+      error: customMaxError || `${fieldName} cannot exceed ${maxLength} characters.`,
     };
   }
   return { isValid: true, error: null };
