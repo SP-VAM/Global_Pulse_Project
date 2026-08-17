@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react"
+import React, { useState, useMemo, useEffect, useRef } from "react"
 import {
   ResponsiveContainer,
   LineChart,
@@ -140,6 +140,9 @@ export default function MarketAnalysis() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
 
+  // Client-side in-memory analysis cache for instant sub-millisecond tab/symbol switching
+  const analysisCacheRef = useRef(new Map())
+
   // Company List fetched directly from backend GET /api/v1/stocks/companies
   const [companies, setCompanies] = useState([])
 
@@ -188,18 +191,28 @@ export default function MarketAnalysis() {
   const [loading, setLoading] = useState(true)
   const [apiError, setApiError] = useState(null)
 
-  // Fetch full analysis when selectedSymbol or selectedRange changes
+  // Fetch full analysis with in-memory client-side cache
   useEffect(() => {
     let isMounted = true
+    const period = RANGE_TO_PERIOD[selectedRange] || "1y"
+    const cacheKey = `${selectedSymbol}_${period}`
+
+    // Instant resolution if cached in client memory
+    if (analysisCacheRef.current.has(cacheKey)) {
+      setLiveApiData(analysisCacheRef.current.get(cacheKey))
+      setLoading(false)
+      setApiError(null)
+      return
+    }
+
     setLoading(true)
     setApiError(null)
-
-    const period = RANGE_TO_PERIOD[selectedRange] || "1y"
 
     getStockAnalysis(selectedSymbol, period)
       .then((res) => {
         if (isMounted) {
           if (res && res.historical_chart_data) {
+            analysisCacheRef.current.set(cacheKey, res)
             setLiveApiData(res)
             setApiError(null)
           } else {
@@ -501,273 +514,314 @@ export default function MarketAnalysis() {
           </button>
         </nav>
 
-        {/* LOADING & ERROR STATES */}
-        {loading && (
-          <div className="smp-card text-center p-8 flex flex-col items-center justify-center gap-3">
-            <RefreshCw size={24} className="animate-spin text-blue-400" />
-            <div style={{ color: "#94a3b8", fontSize: 14 }}>Loading live market data for {currentCompany.symbol} ({selectedRange})...</div>
-          </div>
-        )}
-
-        {!loading && apiError && (
-          <div className="smp-card text-center p-8 flex flex-col items-center justify-center gap-3 border border-red-500/30">
-            <AlertTriangle size={32} className="text-red-400" />
-            <div style={{ color: "#f87171", fontSize: 16, fontWeight: 600 }}>Live market data unavailable</div>
-            <div style={{ color: "#94a3b8", fontSize: 13 }}>Failed to retrieve live market data for {currentCompany.symbol}. Please check your backend connection.</div>
-          </div>
-        )}
-
         {/* TAB 1: OVERVIEW & CHARTS */}
-        {!loading && !apiError && activeTab === "overview" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Chart 1: Price with Moving Averages */}
-            <div className="smp-card">
-              <h3 className="smp-card__title">
-                {currentCompany.symbol} - Price with Moving Averages ({selectedRange})
-              </h3>
-              <div style={{ width: "100%", height: 320 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} />
-                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }} domain={["auto", "auto"]} />
-                    <Tooltip content={<CustomOverviewTooltip />} cursor={{ stroke: "#ffffff", strokeWidth: 1 }} />
-                    <Legend />
-                    <Line type="monotone" dataKey="price" name="Price (₹)" stroke="#22c55e" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="sma20" name="SMA 20" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="sma50" name="SMA 50" stroke="#3b82f6" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="sma200" name="SMA 200" stroke="#a855f7" strokeWidth={1.5} dot={false} connectNulls={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+        {activeTab === "overview" && (
+          loading && !liveApiData ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div className="smp-card">
+                <div className="smp-skeleton smp-skeleton-bar" style={{ width: "40%", height: 24, marginBottom: 16 }} />
+                <div className="smp-skeleton smp-skeleton-chart" />
+              </div>
+              <div className="smp-card">
+                <div className="smp-skeleton smp-skeleton-bar" style={{ width: "35%", height: 24, marginBottom: 16 }} />
+                <div className="smp-skeleton smp-skeleton-chart" style={{ height: 260 }} />
               </div>
             </div>
+          ) : apiError && !liveApiData ? (
+            <div className="smp-card text-center p-8 flex flex-col items-center justify-center gap-3 border border-red-500/30">
+              <AlertTriangle size={32} className="text-red-400" />
+              <div style={{ color: "#f87171", fontSize: 16, fontWeight: 600 }}>Live market data unavailable</div>
+              <div style={{ color: "#94a3b8", fontSize: 13 }}>Failed to retrieve live market data for {currentCompany.symbol}. Please check your backend connection.</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* Chart 1: Price with Moving Averages */}
+              <div className="smp-card">
+                <h3 className="smp-card__title">
+                  {currentCompany.symbol} - Price with Moving Averages ({selectedRange})
+                </h3>
+                <div style={{ width: "100%", height: 320 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} />
+                      <YAxis stroke="#64748b" tick={{ fontSize: 12 }} domain={["auto", "auto"]} />
+                      <Tooltip content={<CustomOverviewTooltip />} cursor={{ stroke: "#ffffff", strokeWidth: 1 }} />
+                      <Legend />
+                      <Line type="monotone" dataKey="price" name="Price (₹)" stroke="#22c55e" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="sma20" name="SMA 20" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                      <Line type="monotone" dataKey="sma50" name="SMA 50" stroke="#3b82f6" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                      <Line type="monotone" dataKey="sma200" name="SMA 200" stroke="#a855f7" strokeWidth={1.5} dot={false} connectNulls={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
 
-            {/* Chart 2: Price & Volume */}
-            <div className="smp-card">
-              <h3 className="smp-card__title">
-                {currentCompany.symbol} - Price & Volume ({selectedRange})
-              </h3>
-              <div style={{ width: "100%", height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} />
-                    <YAxis yAxisId="left" stroke="#64748b" tick={{ fontSize: 12 }} domain={["auto", "auto"]} />
-                    <YAxis yAxisId="right" orientation="right" stroke="#64748b" tick={{ fontSize: 12 }} />
-                    <Tooltip content={<CustomOverviewTooltip />} />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="price" name="Price (₹)" stroke="#ef4444" strokeWidth={2} dot={false} />
-                    <Bar yAxisId="right" dataKey="volume" name="Volume" fill="#22c55e" opacity={0.4} />
-                  </ComposedChart>
-                </ResponsiveContainer>
+              {/* Chart 2: Price & Volume */}
+              <div className="smp-card">
+                <h3 className="smp-card__title">
+                  {currentCompany.symbol} - Price & Volume ({selectedRange})
+                </h3>
+                <div style={{ width: "100%", height: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} />
+                      <YAxis yAxisId="left" stroke="#64748b" tick={{ fontSize: 12 }} domain={["auto", "auto"]} />
+                      <YAxis yAxisId="right" orientation="right" stroke="#64748b" tick={{ fontSize: 12 }} />
+                      <Tooltip content={<CustomOverviewTooltip />} />
+                      <Legend />
+                      <Line yAxisId="left" type="monotone" dataKey="price" name="Price (₹)" stroke="#ef4444" strokeWidth={2} dot={false} />
+                      <Bar yAxisId="right" dataKey="volume" name="Volume" fill="#22c55e" opacity={0.4} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
-          </div>
+          )
         )}
 
         {/* TAB 2: TECHNICAL ANALYSIS */}
-        {!loading && !apiError && activeTab === "technical" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div className="smp-card">
-              <h2 className="smp-card__title" style={{ fontSize: 18 }}>
-                Technical Analysis ({selectedRange})
-              </h2>
-
-              <div className="smp-learner-box">
-                <div className="smp-learner-box__title">What this means for learners</div>
-                <ul>
-                  <li>
-                    <strong>SMA 20/50/200:</strong> Simple Moving Averages showing short, medium, and long term trend baselines.
-                  </li>
-                  <li>
-                    <strong>MACD:</strong> Helps spot when the momentum is getting stronger or weaker.
-                  </li>
-                  <li>
-                    <strong>Bollinger Bands:</strong> Show whether price is high or low compared to normal volatility range.
-                  </li>
-                  <li>
-                    <strong>RSI:</strong> Shows overall momentum (Overbought &gt; 70, Oversold &lt; 30).
-                  </li>
-                </ul>
+        {activeTab === "technical" && (
+          loading && !liveApiData ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div className="smp-card">
+                <div className="smp-skeleton smp-skeleton-bar" style={{ width: "30%", height: 20, marginBottom: 12 }} />
+                <div className="smp-skeleton smp-skeleton-chart" style={{ height: 160 }} />
+              </div>
+              <div className="smp-card">
+                <div className="smp-skeleton smp-skeleton-bar" style={{ width: "25%", height: 20, marginBottom: 12 }} />
+                <div className="smp-skeleton smp-skeleton-chart" style={{ height: 160 }} />
               </div>
             </div>
-
-            {/* RSI (14) Chart */}
-            <div className="smp-card">
-              <h3 className="smp-card__title">RSI (14)</h3>
-              <div style={{ width: "100%", height: 200 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
-                    <YAxis stroke="#64748b" domain={[0, 100]} tick={{ fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
-                    <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" label={{ value: "Overbought (70)", fill: "#ef4444", fontSize: 10 }} />
-                    <ReferenceLine y={30} stroke="#22c55e" strokeDasharray="3 3" label={{ value: "Oversold (30)", fill: "#22c55e", fontSize: 10 }} />
-                    <Line type="monotone" dataKey="rsi" name="RSI" stroke="#06b6d4" strokeWidth={1.8} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+          ) : apiError && !liveApiData ? (
+            <div className="smp-card text-center p-8 flex flex-col items-center justify-center gap-3 border border-red-500/30">
+              <AlertTriangle size={32} className="text-red-400" />
+              <div style={{ color: "#f87171", fontSize: 16, fontWeight: 600 }}>Technical indicators unavailable</div>
+              <div style={{ color: "#94a3b8", fontSize: 13 }}>Failed to retrieve technical analysis for {currentCompany.symbol}.</div>
             </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div className="smp-card">
+                <h2 className="smp-card__title" style={{ fontSize: 18 }}>
+                  Technical Analysis ({selectedRange})
+                </h2>
 
-            {/* MACD Chart */}
-            <div className="smp-card">
-              <h3 className="smp-card__title">MACD</h3>
-              <div style={{ width: "100%", height: 200 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
-                    <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
-                    <Legend />
-                    <Line type="monotone" dataKey="macd" name="MACD" stroke="#3b82f6" strokeWidth={1.8} dot={false} />
-                    <Line type="monotone" dataKey="macd_signal" name="Signal" stroke="#f59e0b" strokeWidth={1.5} dot={false} />
-                    <Bar dataKey="macd_hist" name="Histogram" fill="#10b981" opacity={0.6} />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <div className="smp-learner-box">
+                  <div className="smp-learner-box__title">What this means for learners</div>
+                  <ul>
+                    <li>
+                      <strong>SMA 20/50/200:</strong> Simple Moving Averages showing short, medium, and long term trend baselines.
+                    </li>
+                    <li>
+                      <strong>MACD:</strong> Helps spot when the momentum is getting stronger or weaker.
+                    </li>
+                    <li>
+                      <strong>Bollinger Bands:</strong> Show whether price is high or low compared to normal volatility range.
+                    </li>
+                    <li>
+                      <strong>RSI:</strong> Shows overall momentum (Overbought &gt; 70, Oversold &lt; 30).
+                    </li>
+                  </ul>
+                </div>
               </div>
-            </div>
 
-            {/* Bollinger Bands Chart */}
-            <div className="smp-card">
-              <h3 className="smp-card__title">Bollinger Bands (20, 2)</h3>
-              <div style={{ width: "100%", height: 220 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
-                    <YAxis stroke="#64748b" tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
-                    <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
-                    <Legend />
-                    <Line type="monotone" dataKey="upper_band" name="Upper Band" stroke="#ef4444" strokeDasharray="4 4" dot={false} />
-                    <Line type="monotone" dataKey="middle_band" name="Middle Band (SMA 20)" stroke="#3b82f6" dot={false} />
-                    <Line type="monotone" dataKey="lower_band" name="Lower Band" stroke="#22c55e" strokeDasharray="4 4" dot={false} />
-                    <Line type="monotone" dataKey="price" name="Price (₹)" stroke="#ffffff" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+              {/* RSI (14) Chart */}
+              <div className="smp-card">
+                <h3 className="smp-card__title">RSI (14)</h3>
+                <div style={{ width: "100%", height: 200 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
+                      <YAxis stroke="#64748b" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                      <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
+                      <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" label={{ value: "Overbought (70)", fill: "#ef4444", fontSize: 10 }} />
+                      <ReferenceLine y={30} stroke="#22c55e" strokeDasharray="3 3" label={{ value: "Oversold (30)", fill: "#22c55e", fontSize: 10 }} />
+                      <Line type="monotone" dataKey="rsi" name="RSI" stroke="#06b6d4" strokeWidth={1.8} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
 
-            {/* Technical Indicators Summary Table */}
-            <div className="smp-card">
-              <h3 className="smp-card__title">Technical Indicators Summary</h3>
-              <div className="smp-table-wrapper">
-                <table className="smp-table">
-                  <thead>
-                    <tr>
-                      <th>Indicator</th>
-                      <th>Value</th>
-                      <th>Signal</th>
-                      <th>Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {indicatorTable.map((row, idx) => (
-                      <tr key={idx}>
-                        <td style={{ fontWeight: 600 }}>{row.indicator}</td>
-                        <td style={{ fontFamily: "monospace" }}>{row.value}</td>
-                        <td>
-                          <span
-                            className={
-                              row.signal.includes("Buy")
-                                ? "smp-badge--pos"
-                                : row.signal.includes("Sell")
-                                ? "smp-badge--neg"
-                                : "gp-chip"
-                            }
-                          >
-                            {row.signal}
-                          </span>
-                        </td>
-                        <td style={{ color: "#94a3b8" }}>{row.details}</td>
+              {/* MACD Chart */}
+              <div className="smp-card">
+                <h3 className="smp-card__title">MACD</h3>
+                <div style={{ width: "100%", height: 200 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
+                      <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
+                      <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
+                      <Legend />
+                      <Line type="monotone" dataKey="macd" name="MACD" stroke="#3b82f6" strokeWidth={1.8} dot={false} />
+                      <Line type="monotone" dataKey="macd_signal" name="Signal" stroke="#f59e0b" strokeWidth={1.5} dot={false} />
+                      <Bar dataKey="macd_hist" name="Histogram" fill="#10b981" opacity={0.6} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Bollinger Bands Chart */}
+              <div className="smp-card">
+                <h3 className="smp-card__title">Bollinger Bands (20, 2)</h3>
+                <div style={{ width: "100%", height: 220 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
+                      <YAxis stroke="#64748b" tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
+                      <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
+                      <Legend />
+                      <Line type="monotone" dataKey="upper_band" name="Upper Band" stroke="#ef4444" strokeDasharray="4 4" dot={false} />
+                      <Line type="monotone" dataKey="middle_band" name="Middle Band (SMA 20)" stroke="#3b82f6" dot={false} />
+                      <Line type="monotone" dataKey="lower_band" name="Lower Band" stroke="#22c55e" strokeDasharray="4 4" dot={false} />
+                      <Line type="monotone" dataKey="price" name="Price (₹)" stroke="#ffffff" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Technical Indicators Summary Table */}
+              <div className="smp-card">
+                <h3 className="smp-card__title">Technical Indicators Summary</h3>
+                <div className="smp-table-wrapper">
+                  <table className="smp-table">
+                    <thead>
+                      <tr>
+                        <th>Indicator</th>
+                        <th>Value</th>
+                        <th>Signal</th>
+                        <th>Details</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {indicatorTable.map((row, idx) => (
+                        <tr key={idx}>
+                          <td style={{ fontWeight: 600 }}>{row.indicator}</td>
+                          <td style={{ fontFamily: "monospace" }}>{row.value}</td>
+                          <td>
+                            <span
+                              className={
+                                row.signal.includes("Buy")
+                                  ? "smp-badge--pos"
+                                  : row.signal.includes("Sell")
+                                  ? "smp-badge--neg"
+                                  : "gp-chip"
+                              }
+                            >
+                              {row.signal}
+                            </span>
+                          </td>
+                          <td style={{ color: "#94a3b8" }}>{row.details}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
+          )
         )}
 
         {/* TAB 3: ML PREDICTION */}
-        {!loading && !apiError && activeTab === "ml" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>ML Prediction Engine</h2>
+        {activeTab === "ml" && (
+          loading && !liveApiData ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div className="smp-card">
+                <div className="smp-skeleton smp-skeleton-bar" style={{ width: "35%", height: 22, marginBottom: 14 }} />
+                <div className="smp-skeleton smp-skeleton-chart" style={{ height: 180 }} />
+              </div>
+              <div className="smp-card">
+                <div className="smp-skeleton smp-skeleton-bar" style={{ width: "45%", height: 22, marginBottom: 14 }} />
+                <div className="smp-skeleton smp-skeleton-chart" style={{ height: 220 }} />
+              </div>
+            </div>
+          ) : apiError && !liveApiData ? (
+            <div className="smp-card text-center p-8 flex flex-col items-center justify-center gap-3 border border-red-500/30">
+              <AlertTriangle size={32} className="text-red-400" />
+              <div style={{ color: "#f87171", fontSize: 16, fontWeight: 600 }}>ML Prediction unavailable</div>
+              <div style={{ color: "#94a3b8", fontSize: 13 }}>Failed to load machine learning movement prediction for {currentCompany.symbol}.</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>ML Prediction Engine</h2>
 
-            <div className="smp-prediction-banner">
-              <div>
-                <h3 className="smp-card__title" style={{ fontSize: 16 }}>
-                  <Zap size={18} className="text-yellow-400" /> Live News & Indicator Aware XGBoost Model
-                </h3>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-                  Evaluated live against historical candlestick patterns, news sentiment, and macroeconomic indicators.
+              <div className="smp-prediction-banner">
+                <div>
+                  <h3 className="smp-card__title" style={{ fontSize: 16 }}>
+                    <Zap size={18} className="text-yellow-400" /> Live News & Indicator Aware XGBoost Model
+                  </h3>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                    Evaluated live against historical candlestick patterns, news sentiment, and macroeconomic indicators.
+                  </div>
+                </div>
+
+                <div className="smp-live-badge">
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: livePrediction.signal === "BULLISH" ? "#22c55e" : "#ef4444", display: "inline-block" }}></span>
+                  LIVE PREDICTION: {livePrediction.signal}
+                </div>
+
+                <div className="smp-pred-stats-grid">
+                  <div className="smp-pred-stat-card">
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Bullish Probability</div>
+                    <div className="smp-pred-stat-card__val" style={{ color: "#22c55e" }}>
+                      {livePrediction.bullish}%
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                      Bearish: {livePrediction.bearish}%
+                    </div>
+                  </div>
+
+                  <div className="smp-pred-stat-card">
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Model Confidence</div>
+                    <div className="smp-pred-stat-card__val" style={{ color: "#eab308" }}>
+                      {livePrediction.confidence}%
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                      High Confidence Classification
+                    </div>
+                  </div>
+
+                  <div className="smp-pred-stat-card">
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Current Price</div>
+                    <div className="smp-pred-stat-card__val" style={{ color: "#38bdf8" }}>
+                      ₹{currentPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="smp-live-badge">
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: livePrediction.signal === "BULLISH" ? "#22c55e" : "#ef4444", display: "inline-block" }}></span>
-                LIVE PREDICTION: {livePrediction.signal}
+              {/* Disclaimer Banner */}
+              <div className="smp-disclaimer">
+                <AlertTriangle size={20} style={{ flexShrink: 0 }} />
+                <div>
+                  <strong>Disclaimer:</strong> Predictions are generated by machine learning models based on historical price patterns and news sentiment. Stock markets carry inherent risk; predictions do not constitute financial advice.
+                </div>
               </div>
 
-              <div className="smp-pred-stats-grid">
-                <div className="smp-pred-stat-card">
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Bullish Probability</div>
-                  <div className="smp-pred-stat-card__val" style={{ color: "#22c55e" }}>
-                    {livePrediction.bullish}%
-                  </div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                    Bearish: {livePrediction.bearish}%
-                  </div>
-                </div>
-
-                <div className="smp-pred-stat-card">
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Model Confidence</div>
-                  <div className="smp-pred-stat-card__val" style={{ color: "#eab308" }}>
-                    {livePrediction.confidence}%
-                  </div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                    High Confidence Classification
-                  </div>
-                </div>
-
-                <div className="smp-pred-stat-card">
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Current Price</div>
-                  <div className="smp-pred-stat-card__val" style={{ color: "#38bdf8" }}>
-                    ₹{currentPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </div>
+              {/* Feature Importance Bar Chart */}
+              <div className="smp-card">
+                <h3 className="smp-card__title">Top Influencing Features (XGBoost Model Weights)</h3>
+                <div style={{ width: "100%", height: 360 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={featureImportance} layout="vertical" margin={{ top: 10, right: 30, left: 160, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis type="number" stroke="#64748b" tick={{ fontSize: 11 }} />
+                      <YAxis type="category" dataKey="feature" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                      <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
+                      <Bar dataKey="importance" name="Importance Weight (%)" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>
-
-            {/* Disclaimer Banner */}
-            <div className="smp-disclaimer">
-              <AlertTriangle size={20} style={{ flexShrink: 0 }} />
-              <div>
-                <strong>Disclaimer:</strong> Predictions are generated by machine learning models based on historical price patterns and news sentiment. Stock markets carry inherent risk; predictions do not constitute financial advice.
-              </div>
-            </div>
-
-            {/* Feature Importance Bar Chart */}
-            <div className="smp-card">
-              <h3 className="smp-card__title">Top Influencing Features (XGBoost Model Weights)</h3>
-              <div style={{ width: "100%", height: 360 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={featureImportance} layout="vertical" margin={{ top: 10, right: 30, left: 160, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis type="number" stroke="#64748b" tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="feature" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
-                    <Bar dataKey="importance" name="Importance Weight (%)" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
+          )
         )}
 
-        {/* TAB 4: NEWS SENTIMENT */}
-        {!loading && !apiError && activeTab === "news" && (
+        {/* TAB 4: NEWS SENTIMENT — Rendered immediately without blocking on market analysis */}
+        {activeTab === "news" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div className="smp-card">
               <h2 className="smp-card__title" style={{ fontSize: 18 }}>
@@ -823,8 +877,8 @@ export default function MarketAnalysis() {
           </div>
         )}
 
-        {/* TAB 5: PREDICTION HISTORY */}
-        {!loading && !apiError && activeTab === "history" && (
+        {/* TAB 5: PREDICTION HISTORY — Rendered immediately without blocking on market analysis */}
+        {activeTab === "history" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div className="smp-card">
               <h2 className="smp-card__title" style={{ fontSize: 18 }}>

@@ -2,6 +2,7 @@
 Pydantic Schemas for Expense Tracker (Categories, Expenses, Incomes, Budgets).
 Serializes fields to camelCase for frontend compatibility.
 """
+import math
 from datetime import date, datetime
 from typing import List, Optional
 
@@ -21,9 +22,18 @@ class ExpenseCategoryResponse(BaseModel):
 
 def validate_max_13_digits(v: Optional[float]) -> Optional[float]:
     if v is not None:
+        if math.isnan(v) or math.isinf(v):
+            raise ValueError("Amount must be a finite number.")
+        if v <= 0:
+            raise ValueError("Amount must be greater than zero.")
         int_part = str(int(abs(v)))
-        if len(int_part) > 13 or abs(v) >= 1e13:
-            raise ValueError("Amount cannot exceed 13 digits.")
+        if len(int_part) > 13 or abs(v) > 9_999_999_999_999.99:
+            raise ValueError("Amount cannot exceed 13 integer digits (max 9,999,999,999,999.99).")
+        dec_part = f"{v:.6f}".rstrip("0").split(".")[-1]
+        if len(dec_part) > 2 and round(v, 2) != v:
+            formatted = f"{v:.4f}".rstrip("0")
+            if len(formatted.split(".")[-1]) > 2:
+                raise ValueError("Amount cannot exceed 2 decimal places.")
     return v
 
 
@@ -31,11 +41,11 @@ class ExpenseCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     category_id: Optional[int] = Field(None)
-    category_name: Optional[str] = Field(None)
-    amount: float = Field(..., gt=0, lt=1e13)
+    category_name: Optional[str] = Field(None, max_length=100)
+    amount: float = Field(..., gt=0, le=9_999_999_999_999.99)
     expense_date: date
-    payment_method: Optional[str] = Field("UPI")
-    notes: Optional[str] = Field(None)
+    payment_method: Optional[str] = Field("UPI", max_length=50)
+    notes: Optional[str] = Field(None, max_length=500)
 
     @field_validator("amount")
     @classmethod
@@ -61,11 +71,11 @@ class ExpenseUpdate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     category_id: Optional[int] = Field(None)
-    category_name: Optional[str] = Field(None)
-    amount: Optional[float] = Field(None, gt=0, lt=1e13)
+    category_name: Optional[str] = Field(None, max_length=100)
+    amount: Optional[float] = Field(None, gt=0, le=9_999_999_999_999.99)
     expense_date: Optional[date] = Field(None)
-    payment_method: Optional[str] = Field(None)
-    notes: Optional[str] = Field(None)
+    payment_method: Optional[str] = Field(None, max_length=50)
+    notes: Optional[str] = Field(None, max_length=500)
 
     @field_validator("amount")
     @classmethod
@@ -76,10 +86,10 @@ class ExpenseUpdate(BaseModel):
 class IncomeCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    amount: float = Field(..., gt=0, lt=1e13)
+    amount: float = Field(..., gt=0, le=9_999_999_999_999.99)
     income_date: date
-    payment_method: Optional[str] = Field("Salary")
-    notes: Optional[str] = Field(None)
+    payment_method: Optional[str] = Field("Salary", max_length=50)
+    notes: Optional[str] = Field(None, max_length=500)
 
     @field_validator("amount")
     @classmethod
@@ -90,10 +100,10 @@ class IncomeCreate(BaseModel):
 class IncomeUpdate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    amount: Optional[float] = Field(None, gt=0, lt=1e13)
+    amount: Optional[float] = Field(None, gt=0, le=9_999_999_999_999.99)
     income_date: Optional[date] = Field(None)
-    payment_method: Optional[str] = Field(None)
-    notes: Optional[str] = Field(None)
+    payment_method: Optional[str] = Field(None, max_length=50)
+    notes: Optional[str] = Field(None, max_length=500)
 
     @field_validator("amount")
     @classmethod
@@ -117,18 +127,28 @@ class BudgetCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     category_id: Optional[int] = Field(None)
-    category_name: Optional[str] = Field(None)
-    budget_amount: float = Field(..., gt=0)
+    category_name: Optional[str] = Field(None, max_length=100)
+    budget_amount: float = Field(..., gt=0, le=9_999_999_999_999.99)
     budget_month: int = Field(..., ge=1, le=12)
     budget_year: int = Field(..., ge=2000, le=2100)
+
+    @field_validator("budget_amount")
+    @classmethod
+    def check_budget_amount_digits(cls, v: float) -> float:
+        return validate_max_13_digits(v)
 
 
 class BudgetUpdate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    budget_amount: Optional[float] = Field(None, gt=0)
+    budget_amount: Optional[float] = Field(None, gt=0, le=9_999_999_999_999.99)
     budget_month: Optional[int] = Field(None, ge=1, le=12)
     budget_year: Optional[int] = Field(None, ge=2000, le=2100)
+
+    @field_validator("budget_amount")
+    @classmethod
+    def check_budget_amount_digits(cls, v: Optional[float]) -> Optional[float]:
+        return validate_max_13_digits(v)
 
 
 

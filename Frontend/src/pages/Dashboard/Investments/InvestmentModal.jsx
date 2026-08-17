@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react"
 import { Plus, Pencil, Building2, Ticket, Hash, IndianRupee, Calendar, CheckCircle2, X } from "lucide-react"
+import {
+  sanitizeFinancialInput,
+  validateFinancialAmount,
+  validateTextLength,
+  MAX_NAME_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_FINANCIAL_INT_DIGITS,
+} from "../../../utils/financialValidation.js"
 
 const ASSET_TYPES = [
   { id: "STOCKS", label: "Stocks" },
@@ -57,26 +65,53 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
 
   const submit = (e) => {
     e.preventDefault()
-    if (!form.ticker.trim()) {
-      setError("Please enter a valid stock/asset ticker symbol (e.g. RELIANCE.NS, TCS.NS, AAPL).")
+
+    const tickerVal = validateTextLength(form.ticker, 50, "Stock ticker", true)
+    if (!tickerVal.isValid) {
+      setError(tickerVal.error)
       return
     }
-    if (!form.companyName.trim()) {
-      setError("Please enter the company/fund name.")
+
+    const companyVal = validateTextLength(form.companyName, 150, "Company name", true)
+    if (!companyVal.isValid) {
+      setError(companyVal.error)
       return
     }
-    const qty = Number(form.quantity)
-    if (!form.quantity || Number.isNaN(qty) || qty <= 0) {
-      setError("Quantity must be a positive number greater than 0.")
+
+    const qtyVal = validateFinancialAmount(form.quantity, {
+      fieldName: "Quantity",
+      min: 0.0001,
+      minError: "Quantity must be a positive number greater than 0.",
+    })
+    if (!qtyVal.isValid) {
+      setError(qtyVal.error)
       return
     }
-    const price = Number(form.purchasePrice)
-    if (!form.purchasePrice || Number.isNaN(price) || price <= 0) {
-      setError("Purchase price must be a positive number greater than 0.")
+
+    const priceVal = validateFinancialAmount(form.purchasePrice, {
+      fieldName: "Purchase price",
+      min: 0.01,
+      minError: "Purchase price must be a positive number greater than 0.",
+    })
+    if (!priceVal.isValid) {
+      setError(priceVal.error)
       return
     }
+
     if (!form.purchaseDate) {
       setError("Please select a purchase date.")
+      return
+    }
+
+    const brokerVal = validateTextLength(form.brokerName, MAX_NAME_LENGTH, "Broker name", false)
+    if (!brokerVal.isValid) {
+      setError(brokerVal.error)
+      return
+    }
+
+    const notesVal = validateTextLength(form.notes, MAX_NOTE_LENGTH, "Notes", false)
+    if (!notesVal.isValid) {
+      setError(notesVal.error)
       return
     }
 
@@ -84,8 +119,8 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
       assetType: form.assetType,
       ticker: form.ticker.trim().toUpperCase(),
       companyName: form.companyName.trim(),
-      quantity: qty,
-      purchasePrice: price,
+      quantity: qtyVal.numValue,
+      purchasePrice: priceVal.numValue,
       purchaseDate: form.purchaseDate,
       brokerName: form.brokerName.trim() || null,
       notes: form.notes.trim() || null,
@@ -128,7 +163,7 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
             <label style={{ fontSize: "12px", color: "#8a94a6", display: "block", marginBottom: "4px" }}>Stock Ticker Symbol (e.g. RELIANCE.NS, TCS.NS, AAPL)</label>
             <div style={{ position: "relative" }}>
               <Ticket size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#8a94a6" }} />
-              <input style={{ width: "100%", padding: "10px 12px 10px 36px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "14px" }} placeholder="RELIANCE.NS" value={form.ticker} onChange={set("ticker")} required />
+              <input maxLength={50} style={{ width: "100%", padding: "10px 12px 10px 36px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "14px" }} placeholder="RELIANCE.NS" value={form.ticker} onChange={set("ticker")} required />
             </div>
           </div>
 
@@ -136,7 +171,7 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
             <label style={{ fontSize: "12px", color: "#8a94a6", display: "block", marginBottom: "4px" }}>Company / Asset Name</label>
             <div style={{ position: "relative" }}>
               <Building2 size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#8a94a6" }} />
-              <input style={{ width: "100%", padding: "10px 12px 10px 36px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "14px" }} placeholder="Reliance Industries" value={form.companyName} onChange={set("companyName")} required />
+              <input maxLength={150} style={{ width: "100%", padding: "10px 12px 10px 36px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "14px" }} placeholder="Reliance Industries" value={form.companyName} onChange={set("companyName")} required />
             </div>
           </div>
 
@@ -145,7 +180,7 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
               <label style={{ fontSize: "12px", color: "#8a94a6", display: "block", marginBottom: "4px" }}>Quantity / Units</label>
               <div style={{ position: "relative" }}>
                 <Hash size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#8a94a6" }} />
-                <input style={{ width: "100%", padding: "10px 12px 10px 36px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "14px" }} type="number" step="0.0001" min="0" placeholder="10" value={form.quantity} onChange={set("quantity")} required />
+                <input maxLength={MAX_FINANCIAL_INT_DIGITS + 3} style={{ width: "100%", padding: "10px 12px 10px 36px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "14px" }} type="text" inputMode="decimal" placeholder="10" value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: sanitizeFinancialInput(e.target.value, true) }))} required />
               </div>
             </div>
 
@@ -153,7 +188,7 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
               <label style={{ fontSize: "12px", color: "#8a94a6", display: "block", marginBottom: "4px" }}>Buy Price per Unit (₹)</label>
               <div style={{ position: "relative" }}>
                 <IndianRupee size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#8a94a6" }} />
-                <input style={{ width: "100%", padding: "10px 12px 10px 36px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "14px" }} type="number" step="0.01" min="0" placeholder="2500.00" value={form.purchasePrice} onChange={set("purchasePrice")} required />
+                <input maxLength={MAX_FINANCIAL_INT_DIGITS + 3} style={{ width: "100%", padding: "10px 12px 10px 36px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "14px" }} type="text" inputMode="decimal" placeholder="2500.00" value={form.purchasePrice} onChange={(e) => setForm((f) => ({ ...f, purchasePrice: sanitizeFinancialInput(e.target.value, true) }))} required />
               </div>
             </div>
           </div>
@@ -169,7 +204,7 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
 
             <div>
               <label style={{ fontSize: "12px", color: "#8a94a6", display: "block", marginBottom: "4px" }}>Broker Name (Optional)</label>
-              <input style={{ width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "14px" }} placeholder="Zerodha, Groww, etc." value={form.brokerName} onChange={set("brokerName")} />
+              <input maxLength={MAX_NAME_LENGTH} style={{ width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "14px" }} placeholder="Zerodha, Groww, etc." value={form.brokerName} onChange={set("brokerName")} />
             </div>
           </div>
 

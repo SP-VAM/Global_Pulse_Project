@@ -7,6 +7,15 @@ import {
   formatDateDisplay,
 } from "../../goalsContext.jsx";
 import { getContributionDateBounds, formatDateDisplay as formatDisplay } from "../../../../../utils/dateRules.js";
+import {
+  sanitizeFinancialInput,
+  validateFinancialAmount,
+  validateTextLength,
+  MAX_NAME_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_FINANCIAL_INT_DIGITS,
+  formatSafeINR,
+} from "../../../../../utils/financialValidation.js";
 import "./UpdateProgressDrawer.css";
 
 export default function UpdateProgressDrawer({
@@ -26,7 +35,7 @@ export default function UpdateProgressDrawer({
   const [errors, setErrors] = useState({});
 
   const handleAmountChange = (e) => {
-    const clean = e.target.value.replace(/[^0-9]/g, "");
+    const clean = sanitizeFinancialInput(e.target.value, false);
     setAmountRaw(clean);
     if (errors.amount) {
       setErrors((prev) => ({ ...prev, amount: null }));
@@ -35,10 +44,14 @@ export default function UpdateProgressDrawer({
 
   const validate = () => {
     const newErrors = {};
-    const numAmt = Number(amountRaw) || 0;
 
-    if (!amountRaw || numAmt <= 0) {
-      newErrors.amount = "Contribution amount must be greater than zero.";
+    const amtVal = validateFinancialAmount(amountRaw, {
+      fieldName: "Contribution amount",
+      min: 1,
+      minError: "Contribution amount must be greater than zero.",
+    });
+    if (!amtVal.isValid) {
+      newErrors.amount = amtVal.error;
     }
 
     if (!date) {
@@ -64,7 +77,7 @@ export default function UpdateProgressDrawer({
     onClose();
   };
 
-  const formattedAmountDisplay = amountRaw ? formatINR(Number(amountRaw)) : "₹0";
+  const formattedAmountDisplay = amountRaw ? formatSafeINR(Number(amountRaw)) : "₹0";
 
   return (
     <div className="drawer-overlay" onClick={onClose}>
@@ -140,8 +153,9 @@ export default function UpdateProgressDrawer({
                 id="progress-amount"
                 type="text"
                 inputMode="numeric"
+                maxLength={MAX_FINANCIAL_INT_DIGITS}
                 className={`drawer-panel__input ${errors.amount ? "has-error" : ""}`}
-                placeholder="Enter deposit amount e.g. 5000"
+                placeholder="Enter deposit amount e.g. 5000 (Max 13 digits)"
                 value={amountRaw ? formatINR(Number(amountRaw)) : ""}
                 onChange={handleAmountChange}
                 onFocus={(e) => e.target.select()}

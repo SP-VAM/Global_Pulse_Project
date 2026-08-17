@@ -2,6 +2,15 @@ import React, { useState } from "react";
 import { ArrowLeft, Target, FileText, IndianRupee, Calendar, Trash2, X, AlertTriangle } from "lucide-react";
 import { formatINR, getTodayString, formatDateDisplay } from "../../goalsContext.jsx";
 import { getMaxDateISO, formatDateDisplay as formatDisplay } from "../../../../../utils/dateRules.js";
+import {
+  sanitizeFinancialInput,
+  validateFinancialAmount,
+  validateTextLength,
+  MAX_NAME_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_FINANCIAL_INT_DIGITS,
+  formatSafeINR,
+} from "../../../../../utils/financialValidation.js";
 import "./UpdateGoalDrawer.css";
 
 export default function UpdateGoalDrawer({
@@ -22,7 +31,7 @@ export default function UpdateGoalDrawer({
   const [errors, setErrors] = useState({});
 
   const handleTargetChange = (e) => {
-    const clean = e.target.value.replace(/[^0-9]/g, "");
+    const clean = sanitizeFinancialInput(e.target.value, false);
     setTargetRaw(clean);
     if (errors.target) {
       setErrors((prev) => ({ ...prev, target: null }));
@@ -32,15 +41,23 @@ export default function UpdateGoalDrawer({
   const validate = () => {
     const newErrors = {};
 
-    if (!name.trim()) {
-      newErrors.name = "Goal name is required.";
+    const nameVal = validateTextLength(name, MAX_NAME_LENGTH, "Goal name", true);
+    if (!nameVal.isValid) {
+      newErrors.name = nameVal.error;
     }
 
-    const numTarget = Number(targetRaw) || 0;
-    if (!targetRaw || numTarget < currentTarget) {
-      newErrors.target = `New target must be greater than or equal to current target (${formatINR(
-        currentTarget
-      )}). Decreasing target is not allowed.`;
+    const noteVal = validateTextLength(note, MAX_NOTE_LENGTH, "Note", false);
+    if (!noteVal.isValid) {
+      newErrors.note = noteVal.error;
+    }
+
+    const targetVal = validateFinancialAmount(targetRaw, {
+      fieldName: "Update Target amount",
+      min: currentTarget,
+      minError: `New target must be greater than or equal to current target (${formatINR(currentTarget)}). Decreasing target is not allowed.`,
+    });
+    if (!targetVal.isValid) {
+      newErrors.target = targetVal.error;
     }
 
     if (!endDate) {
@@ -68,7 +85,7 @@ export default function UpdateGoalDrawer({
     onClose();
   };
 
-  const formattedTargetDisplay = targetRaw ? formatINR(Number(targetRaw)) : "₹0";
+  const formattedTargetDisplay = targetRaw ? formatSafeINR(Number(targetRaw)) : "₹0";
 
   return (
     <div className="drawer-overlay" onClick={onClose}>
@@ -100,6 +117,7 @@ export default function UpdateGoalDrawer({
               <input
                 id="edit-goal-name"
                 type="text"
+                maxLength={MAX_NAME_LENGTH}
                 className={`drawer-panel__input ${errors.name ? "has-error" : ""}`}
                 value={name}
                 onChange={(e) => {
@@ -122,11 +140,13 @@ export default function UpdateGoalDrawer({
               <input
                 id="edit-goal-note"
                 type="text"
+                maxLength={MAX_NOTE_LENGTH}
                 className="drawer-panel__input"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
             </div>
+            {errors.note && <span className="drawer-panel__err-msg">{errors.note}</span>}
           </div>
 
           {/* Target Amount */}
@@ -147,6 +167,7 @@ export default function UpdateGoalDrawer({
                 id="edit-goal-target"
                 type="text"
                 inputMode="numeric"
+                maxLength={MAX_FINANCIAL_INT_DIGITS}
                 className={`drawer-panel__input ${errors.target ? "has-error" : ""}`}
                 value={targetRaw ? formatINR(Number(targetRaw)) : ""}
                 onChange={handleTargetChange}

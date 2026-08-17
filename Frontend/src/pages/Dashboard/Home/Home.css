@@ -260,8 +260,8 @@
 
 .dashboard__companies {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
   width: 100%;
   min-width: 0;
 }
@@ -283,21 +283,20 @@
   text-align: center;
 }
 
-/* Company card — square aspect ratio */
+/* Company card — 2x2 balanced card */
 .company-card {
   background: var(--card, rgba(15, 22, 40, 0.7));
   border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
   border-radius: var(--radius);
-  padding: 14px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 10px;
-  aspect-ratio: 1 / 1;
+  gap: 12px;
+  min-height: 195px;
   width: 100%;
   min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+  box-sizing: border-box;
   backdrop-filter: blur(10px);
   transition: transform 200ms var(--ease, ease), border-color 200ms var(--ease, ease), box-shadow 200ms var(--ease, ease);
 }
@@ -314,9 +313,10 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .company-card__header-left {
@@ -327,22 +327,23 @@
 }
 
 .company-card__name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.3;
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text, #f8fafc);
+  color: #f8fafc;
 }
 
 .company-card__ticker {
   display: inline-block;
-  margin-top: 2px;
-  font-size: 10px;
+  margin-top: 3px;
+  font-size: 11px;
   letter-spacing: 0.05em;
-  color: var(--text-3, #64748b);
+  color: #94a3b8;
+  font-weight: 500;
 }
 
 .company-card__price-block {
@@ -354,22 +355,26 @@
 }
 
 .company-card__price {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
-  color: var(--text, #f8fafc);
+  color: #f8fafc;
 }
 
 .company-card__change {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  margin-top: 2px;
+  margin-top: 3px;
   white-space: nowrap;
 }
 
 .company-card__chart {
   margin-top: auto;
   width: 100%;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 /* Top movers — compact */

@@ -23,13 +23,19 @@ export default function Sparkline({
   const h = height
   const pad = 6
 
-  if (!points || !Array.isArray(points) || points.length === 0) {
+  const cleanPoints = Array.isArray(points)
+    ? points
+        .map(Number)
+        .filter((p) => typeof p === "number" && !isNaN(p) && isFinite(p) && p > 0)
+    : []
+
+  if (cleanPoints.length === 0) {
     return (
       <div className="sparkline">
         {labels && (
           <div className="sparkline__labels">
-            {labels.map((l) => (
-              <span key={l}>{l}</span>
+            {labels.map((l, idx) => (
+              <span key={`${l}-${idx}`}>{l}</span>
             ))}
           </div>
         )}
@@ -37,12 +43,12 @@ export default function Sparkline({
     )
   }
 
-  const max = Math.max(...points)
-  const min = Math.min(...points)
+  const max = Math.max(...cleanPoints)
+  const min = Math.min(...cleanPoints)
   const range = max - min || 1
 
-  const coords = points.map((p, i) => {
-    const x = (i / (points.length - 1)) * (w - pad * 2) + pad
+  const coords = cleanPoints.map((p, i) => {
+    const x = cleanPoints.length > 1 ? (i / (cleanPoints.length - 1)) * (w - pad * 2) + pad : w / 2
     const y = h - pad - ((p - min) / range) * (h - pad * 2)
     return { x, y }
   })

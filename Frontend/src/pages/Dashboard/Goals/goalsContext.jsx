@@ -26,13 +26,15 @@ export const ASSET_COLORS = {
 };
 
 export function formatINR(val) {
-  if (val === null || val === undefined || isNaN(val)) return "₹0";
-  const num = Math.round(Number(val));
+  if (val === null || val === undefined || isNaN(val) || !isFinite(val)) return "₹0";
+  const num = Number(val);
+  if (num <= 0) return "₹0";
+  if (num > 9999999999999) return "₹99,99,999 Cr+";
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(num);
+  }).format(Math.round(num));
 }
 
 export function getTodayString() {

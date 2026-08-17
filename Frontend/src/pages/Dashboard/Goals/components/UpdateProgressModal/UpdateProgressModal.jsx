@@ -2,6 +2,14 @@ import React, { useContext, useEffect, useRef, useState } from "react"
 import "./UpdateProgressModal.css"
 import { GoalsContext } from "../../goalsContext.jsx"
 import { getContributionDateBounds, formatDateDisplay as formatDisplay } from "../../../../../utils/dateRules.js"
+import {
+  sanitizeFinancialInput,
+  validateFinancialAmount,
+  validateTextLength,
+  MAX_NAME_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_FINANCIAL_INT_DIGITS,
+} from "../../../../../utils/financialValidation.js"
 
 export default function UpdateProgressModal({ onClose }) {
   const { selected, addProgress } = useContext(GoalsContext)
@@ -27,26 +35,44 @@ export default function UpdateProgressModal({ onClose }) {
   if (!selected) return null
 
   function handleAmountChange(e) {
-    const val = e.target.value.replace(/[^\d]/g, "")
+    const val = sanitizeFinancialInput(e.target.value, false)
     setAmount(val)
     if (error) setError("")
   }
 
   function handleSubmit(e) {
     e.preventDefault()
-    const num = Number(amount)
-    if (!amount || isNaN(num) || num <= 0) {
-      setError("Please enter a valid amount.")
+
+    const nameVal = validateTextLength(goalName, MAX_NAME_LENGTH, "Goal name", true)
+    if (!nameVal.isValid) {
+      setError(nameVal.error)
       return
     }
+
+    const noteVal = validateTextLength(notes, MAX_NOTE_LENGTH, "Note", false)
+    if (!noteVal.isValid) {
+      setError(noteVal.error)
+      return
+    }
+
+    const amtVal = validateFinancialAmount(amount, {
+      fieldName: "Contribution amount",
+      min: 1,
+      minError: "Contribution amount must be greater than zero.",
+    })
+    if (!amtVal.isValid) {
+      setError(amtVal.error)
+      return
+    }
+
     if (!date || date < bounds.min || date > bounds.max) {
       setError(`Contribution date must be between ${formatDisplay(bounds.min)} and ${formatDisplay(bounds.max)}.`)
       return
     }
 
     addProgress(selected.id, {
-      name: goalName,
-      amount: num,
+      name: goalName.trim(),
+      amount: amtVal.numValue,
       assetType: asset || "Gold",
       date,
       notes: notes.trim(),
@@ -67,6 +93,7 @@ export default function UpdateProgressModal({ onClose }) {
             <label className="up-label">GOAL NAME</label>
             <input
               type="text"
+              maxLength={MAX_NAME_LENGTH}
               className="up-input"
               value={goalName}
               onChange={(e) => setGoalName(e.target.value)}
@@ -78,6 +105,7 @@ export default function UpdateProgressModal({ onClose }) {
             <label className="up-label">NOTE</label>
             <input
               type="text"
+              maxLength={MAX_NOTE_LENGTH}
               className="up-input"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -89,6 +117,8 @@ export default function UpdateProgressModal({ onClose }) {
             <label className="up-label">ADD AMOUNT</label>
             <input
               type="text"
+              inputMode="numeric"
+              maxLength={MAX_FINANCIAL_INT_DIGITS}
               className={`up-input ${error ? "up-input--error" : ""}`}
               value={amount}
               onChange={handleAmountChange}

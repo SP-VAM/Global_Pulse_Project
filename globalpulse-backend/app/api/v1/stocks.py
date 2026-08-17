@@ -8,7 +8,8 @@ Exposes:
   - GET /api/v1/stocks/{symbol}/indicators
   - GET /api/v1/stocks/{symbol}/analysis (Orchestrated endpoint)
 """
-from typing import List, Optional
+import time
+from typing import Dict, List, Optional, Tuple
 import pandas as pd
 from fastapi import APIRouter, Depends, Path, Query, Request
 
@@ -32,6 +33,9 @@ from app.services.technical_indicator_service import TechnicalIndicatorService
 router = APIRouter(prefix="/stocks", tags=["Stock ML Predictions & Indicators"])
 
 _settings = get_settings()
+
+_full_analysis_cache: Dict[str, Tuple[StockFullAnalysisResponse, float]] = {}
+_ANALYSIS_CACHE_TTL: float = 180.0  # 3 minutes in-memory TTL for stock full analysis response
 
 _SYMBOL_PATH = Path(
     ...,
@@ -209,6 +213,13 @@ async def get_stock_full_analysis(
     and formats historical_chart_data for frontend charts.
     """
     normalized = prediction_service.normalize_symbol(symbol)
+    cache_key = f"{normalized}_{period}"
+    now = time.time()
+
+    if cache_key in _full_analysis_cache:
+        cached_resp, cached_time = _full_analysis_cache[cache_key]
+        if now - cached_time < _ANALYSIS_CACHE_TTL:
+            return cached_resp
 
     # Determine fetch period (fetch at least 1y if period is short to allow warm-up for SMA200)
     fetch_period = "1y" if period in ("1d", "5d", "1mo", "3mo", "6mo") else period
@@ -278,7 +289,7 @@ async def get_stock_full_analysis(
             "lower_band": bb_lower,
         })
 
-    return StockFullAnalysisResponse(
+    response = StockFullAnalysisResponse(
         symbol=normalized,
         company_name=pred_res["company_name"],
         period=period,
@@ -293,3 +304,5 @@ async def get_stock_full_analysis(
         price_history=pred_res.get("price_history", []),
         historical_chart_data=historical_chart_data,
     )
+    _full_analysis_cache[cache_key] = (response, now)
+    return response

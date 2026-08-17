@@ -13,6 +13,7 @@ Security & Architectural Invariants:
 """
 import asyncio
 import logging
+import math
 import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -158,16 +159,28 @@ class StockPredictionService:
     def extract_price_history(self, prices_df: pd.DataFrame, limit: int = 30) -> List[Dict[str, Any]]:
         """
         Extract bounded list of latest N trading days closing prices for Sparkline rendering.
+        Filters out invalid, zero, NaN, or corrupted values to prevent artificial zero spikes.
         """
         if prices_df is None or prices_df.empty:
             return []
 
-        tail_df = prices_df.tail(limit)
+        # Filter valid positive prices
+        clean_df = prices_df.dropna(subset=["Close", "Date"]).copy()
+        clean_df["Close_num"] = pd.to_numeric(clean_df["Close"], errors="coerce")
+        clean_df = clean_df[clean_df["Close_num"] > 0]
+        if clean_df.empty:
+            return []
+
+        tail_df = clean_df.tail(limit)
         history = []
         for _, row in tail_df.iterrows():
-            date_str = str(pd.to_datetime(row["Date"]).strftime("%Y-%m-%d"))
-            close_val = round(float(row["Close"]), 2)
-            history.append({"date": date_str, "close": close_val})
+            try:
+                date_str = str(pd.to_datetime(row["Date"]).strftime("%Y-%m-%d"))
+                close_val = round(float(row["Close_num"]), 2)
+                if close_val > 0 and not math.isnan(close_val) and not math.isinf(close_val):
+                    history.append({"date": date_str, "close": close_val})
+            except Exception:
+                continue
         return history
 
     def calculate_price_change(self, prices_df: pd.DataFrame) -> Tuple[float, float, float]:

@@ -11,6 +11,14 @@ import {
 import Modal from "./Modal.jsx";
 import { CATEGORIES, PAYMENT_METHODS } from "./data.js";
 import { getTransactionDateBounds, formatDateDisplay } from "../../../utils/dateRules.js";
+import {
+  MAX_NAME_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_FINANCIAL_INT_DIGITS,
+  validateTextLength,
+  validateFinancialAmount,
+  sanitizeFinancialInput,
+} from "../../../utils/financialValidation.js";
  
 const BLANK = { amount: "", category: "food", date: "", source: "Individual", method: "Salary", notes: "", otherSpecify: "" };
  
@@ -113,56 +121,34 @@ export default function TransactionModal({ open, mode, type, initial, selectedDa
   };
 
   const handleAmountChange = (e) => {
-    let val = e.target.value;
-    if (val === "") {
-      setForm((f) => ({ ...f, amount: "" }));
-      if (error) setError("");
-      return;
-    }
-    if (/^\d*\.?\d*$/.test(val)) {
-      const parts = val.split(".");
-      let intPart = parts[0];
-      const decPart = parts[1];
-      if (intPart.length > 13) {
-        intPart = intPart.slice(0, 13);
-        val = decPart !== undefined ? `${intPart}.${decPart}` : intPart;
-      }
-      setForm((f) => ({ ...f, amount: val }));
-      if (error) setError("");
-    }
+    const clean = sanitizeFinancialInput(e.target.value, true);
+    setForm((f) => ({ ...f, amount: clean }));
+    if (error) setError("");
   };
 
   const handleAmountPaste = (e) => {
     const pasteData = (e.clipboardData || window.clipboardData)?.getData("text");
     if (!pasteData) return;
-    const cleaned = pasteData.replace(/[^0-9.]/g, "");
-    const parts = cleaned.split(".");
-    let intPart = parts[0] || "";
-    const decPart = parts.length > 1 ? parts.slice(1).join("") : undefined;
-    if (intPart.length > 13) {
-      intPart = intPart.slice(0, 13);
-    }
-    const finalVal = decPart !== undefined ? `${intPart}.${decPart}` : intPart;
+    const cleaned = sanitizeFinancialInput(pasteData, true);
     e.preventDefault();
-    setForm((f) => ({ ...f, amount: finalVal }));
+    setForm((f) => ({ ...f, amount: cleaned }));
     if (error) setError("");
   };
  
   const submit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
- 
-    const rawAmt = String(form.amount || "").trim();
-    const amount = Number(rawAmt);
-    const [intPart] = rawAmt.split(".");
-    if (!rawAmt || Number.isNaN(amount) || amount <= 0 || /[eE+-]/.test(rawAmt)) {
-      setError("Enter a valid numeric amount greater than 0.");
+
+    const amtVal = validateFinancialAmount(form.amount, {
+      fieldName: "Amount",
+      min: 0.01,
+      minError: "Enter a valid numeric amount greater than 0.",
+    });
+    if (!amtVal.isValid) {
+      setError(amtVal.error);
       return;
     }
-    if (intPart.length > 13 || amount >= 1e13) {
-      setError("Amount cannot exceed 13 digits.");
-      return;
-    }
+
     if (!form.date) {
       setError("Please choose a date.");
       return;
@@ -171,14 +157,22 @@ export default function TransactionModal({ open, mode, type, initial, selectedDa
       setError(`Transaction date must be between ${formatDateDisplay(monthBounds.min)} and ${formatDateDisplay(monthBounds.max)}.`);
       return;
     }
-    if (isExpense && form.category === "other" && (!form.otherSpecify || !form.otherSpecify.trim())) {
-      setError("Specify Expense is required when category is Other.");
+    if (isExpense && form.category === "other") {
+      const otherVal = validateTextLength(form.otherSpecify, MAX_NAME_LENGTH, "Specify Expense", true);
+      if (!otherVal.isValid) {
+        setError(otherVal.error);
+        return;
+      }
+    }
+    const noteVal = validateTextLength(form.notes, MAX_NOTE_LENGTH, "Note", false);
+    if (!noteVal.isValid) {
+      setError(noteVal.error);
       return;
     }
     try {
       setIsSubmitting(true);
       await onSave({
-        amount,
+        amount: amtVal.numValue,
         category: isExpense ? form.category : null,
         date: form.date,
         source: isIncome ? form.source : null,
@@ -278,6 +272,7 @@ export default function TransactionModal({ open, mode, type, initial, selectedDa
               <input
                 id="tx-other-specify"
                 type="text"
+                maxLength={MAX_NAME_LENGTH}
                 className={`drawer-panel__input ${error && (!form.otherSpecify || !form.otherSpecify.trim()) ? "has-error" : ""}`}
                 placeholder="Enter the type of expense..."
                 value={form.otherSpecify}
@@ -395,6 +390,7 @@ export default function TransactionModal({ open, mode, type, initial, selectedDa
             <input
               id="tx-notes"
               type="text"
+              maxLength={MAX_NOTE_LENGTH}
               className="drawer-panel__input"
               placeholder="Add description or notes..."
               value={form.notes}

@@ -175,9 +175,17 @@ export default function Dashboard() {
       const positive = changePct >= 0
       const sym = (item.symbol || item.ticker || "").replace(".NS", "").toUpperCase()
       const compName = item.company_name || item.name || sym
-      const series = item.price_history && item.price_history.length > 0
-        ? item.price_history.map((p) => p.close || 0)
-        : (sparklines[sym.toLowerCase()] || sparklines[sym] || [])
+
+      const rawHistory = item.price_history || []
+      const validHistory = Array.isArray(rawHistory)
+        ? rawHistory.filter(
+            (p) => p && typeof p.close === "number" && !isNaN(p.close) && isFinite(p.close) && p.close > 0
+          )
+        : []
+
+      const fallbackSpark = sparklines[sym.toLowerCase()] || sparklines[sym] || [10, 25, 40, 35, 60, 80]
+      const series = validHistory.length > 0 ? validHistory.map((p) => p.close) : fallbackSpark
+
       return {
         id: sym.toLowerCase(),
         name: compName,
@@ -186,6 +194,7 @@ export default function Dashboard() {
         change: `${positive ? "+" : ""}${typeof changePct === "number" ? changePct.toFixed(2) : changePct}%`,
         positive,
         series,
+        price_history: validHistory,
       }
     })
   }, [liveMarketItems])

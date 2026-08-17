@@ -2,6 +2,15 @@ import React, { useState } from "react";
 import { ArrowLeft, Target, FileText, IndianRupee, Calendar, X } from "lucide-react";
 import { formatINR } from "../../goalsContext.jsx";
 import { getTodayISO, getMaxDateISO, formatDateDisplay } from "../../../../../utils/dateRules.js";
+import {
+  sanitizeFinancialInput,
+  validateFinancialAmount,
+  validateTextLength,
+  MAX_NAME_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_FINANCIAL_INT_DIGITS,
+  formatSafeINR,
+} from "../../../../../utils/financialValidation.js";
 import "../UpdateGoalDrawer/UpdateGoalDrawer.css";
 import "./GoalCreation.css";
 
@@ -29,7 +38,7 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
   const [errors, setErrors] = useState({});
 
   const handleTargetChange = (e) => {
-    const clean = e.target.value.replace(/[^0-9]/g, "");
+    const clean = sanitizeFinancialInput(e.target.value, false);
     setTargetRaw(clean);
     if (errors.target) {
       setErrors((prev) => ({ ...prev, target: null }));
@@ -62,13 +71,23 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
   const validate = () => {
     const newErrors = {};
 
-    if (!name.trim()) {
-      newErrors.name = "Goal name is required.";
+    const nameVal = validateTextLength(name, MAX_NAME_LENGTH, "Goal name", true);
+    if (!nameVal.isValid) {
+      newErrors.name = nameVal.error;
     }
 
-    const numTarget = Number(targetRaw) || 0;
-    if (!targetRaw || numTarget < 10000) {
-      newErrors.target = "Target amount must be at least ₹10,000.";
+    const noteVal = validateTextLength(note, MAX_NOTE_LENGTH, "Note", false);
+    if (!noteVal.isValid) {
+      newErrors.note = noteVal.error;
+    }
+
+    const targetVal = validateFinancialAmount(targetRaw, {
+      fieldName: "Target amount",
+      min: 10000,
+      minError: "Target amount must be at least ₹10,000.",
+    });
+    if (!targetVal.isValid) {
+      newErrors.target = targetVal.error;
     }
 
     if (!startDate) {
@@ -109,7 +128,7 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
     onCreateSuccess(payload);
   };
 
-  const formattedTargetDisplay = targetRaw ? formatINR(Number(targetRaw)) : "₹0";
+  const formattedTargetDisplay = targetRaw ? formatSafeINR(Number(targetRaw)) : "₹0";
 
   return (
     <div className="goal-modal-overlay" onClick={onCancel}>
@@ -144,6 +163,7 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
               <input
                 id="create-goal-name"
                 type="text"
+                maxLength={MAX_NAME_LENGTH}
                 className={`drawer-panel__input ${errors.name ? "has-error" : ""}`}
                 placeholder="e.g. Dream Vacation, House Downpayment..."
                 value={name}
@@ -168,12 +188,14 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
               <input
                 id="create-goal-note"
                 type="text"
+                maxLength={MAX_NOTE_LENGTH}
                 className="drawer-panel__input"
                 placeholder="Add notes or specific strategy..."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
             </div>
+            {errors.note && <span className="drawer-panel__err-msg">{errors.note}</span>}
           </div>
 
           {/* Target Amount */}
@@ -194,8 +216,9 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
                 id="create-goal-target"
                 type="text"
                 inputMode="numeric"
+                maxLength={MAX_FINANCIAL_INT_DIGITS}
                 className={`drawer-panel__input ${errors.target ? "has-error" : ""}`}
-                placeholder="Minimum value is ₹10,000"
+                placeholder="Minimum value is ₹10,000 (Max 13 digits)"
                 value={targetRaw ? formatINR(Number(targetRaw)) : ""}
                 onChange={handleTargetChange}
                 onFocus={(e) => e.target.select()}

@@ -913,13 +913,12 @@ export default function ExpenseTracker() {
                 <p>
                   {isFiltering
                     ? "No transactions match your search / filter criteria."
-                    : "No transactions recorded for this date."}
+                    : `No transactions recorded for ${prettyDate(selected)}.`}
                 </p>
                 {isFiltering ? (
                   <button
                     type="button"
-                    className="goal-hero__btn-secondary"
-                    style={{ marginTop: "12px", padding: "6px 12px", fontSize: "12px" }}
+                    className="et-empty-state__action-btn"
                     onClick={handleResetFilters}
                   >
                     Clear Filters
@@ -927,11 +926,10 @@ export default function ExpenseTracker() {
                 ) : (
                   <button
                     type="button"
-                    className="goal-hero__btn-secondary"
-                    style={{ marginTop: "12px", padding: "6px 12px", fontSize: "12px" }}
+                    className="et-empty-state__action-btn"
                     onClick={() => setTxModal({ mode: "add", type: "expense" })}
                   >
-                    + Add Expense for {prettyDate(selected).slice(0, 6)}
+                    + Add Expense for this date
                   </button>
                 )}
               </div>
@@ -1087,8 +1085,7 @@ export default function ExpenseTracker() {
                 <p>No budgets configured for this month.</p>
                 <button
                   type="button"
-                  className="goal-hero__btn-secondary"
-                  style={{ marginTop: "10px", padding: "6px 12px", fontSize: "12px" }}
+                  className="et-empty-state__action-btn"
                   onClick={() => setBudgetModal({ mode: "add", initial: null })}
                 >
                   + Add First Budget Limit
