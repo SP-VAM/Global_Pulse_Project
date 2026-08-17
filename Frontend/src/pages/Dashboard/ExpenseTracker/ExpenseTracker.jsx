@@ -993,7 +993,7 @@ export default function ExpenseTracker() {
       {/* ------------------- SECTION 4: LOWER 2-COLUMN EQUAL GRID ------------------- */}
       <div className="goal-main-grid" style={{ marginTop: "16px" }}>
         {/* LEFT COLUMN: Category Breakdown Panel */}
-        <div className="goal-panel">
+        <div className="goal-panel et-cat-panel">
           <div className="goal-panel__head">
             <PieChart size={16} className="goal-panel__head-icon" />
             <h3 className="goal-panel__title">
@@ -1056,7 +1056,7 @@ export default function ExpenseTracker() {
         </div>
 
         {/* RIGHT COLUMN: Budget Buckets Panel */}
-        <div className="goal-panel">
+        <div className="goal-panel et-budget-panel">
           <div className="goal-panel__head">
             <Award size={16} className="goal-panel__head-icon" />
             <h3 className="goal-panel__title">
