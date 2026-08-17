@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import requests
@@ -8,6 +9,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger("globalpulse.auth")
 
 from app.sync_database import get_db
 from app.final_auth import create_access_token, hash_password, verify_password, get_current_firebase_user
@@ -70,7 +73,7 @@ def send_real_sms_otp(mobile_number: str, otp_code: str):
     fast2sms_key = os.getenv("FAST2SMS_API_KEY")
 
     if not fast2sms_key or fast2sms_key == "YOUR_FAST2SMS_API_KEY_HERE":
-        print(f"[DEV / MOCK SMS] FAST2SMS_API_KEY not set in .env. OTP for mobile {mobile_number}: {otp_code}")
+        logger.info("[DEV / MOCK SMS] FAST2SMS_API_KEY not set in .env. OTP for mobile %s: %s", mobile_number, otp_code)
         return True
 
     # Clean mobile number for Fast2SMS (10 digits for Indian numbers)
@@ -92,14 +95,14 @@ def send_real_sms_otp(mobile_number: str, otp_code: str):
     try:
         response = requests.post(url, json=payload_otp, headers=headers, timeout=3)
         res_data = response.json()
-        print(f"[FAST2SMS POST OTP RESULT]: {res_data}")
+        logger.debug("[FAST2SMS POST OTP RESULT]: %s", res_data)
 
         if res_data.get("return") is True or res_data.get("status_code") == 200:
-            print(f"[FAST2SMS SUCCESS] Real SMS OTP delivered successfully to {clean_number}")
+            logger.info("[FAST2SMS SUCCESS] Real SMS OTP delivered successfully to %s", clean_number)
             return True
 
         # 2. Try Quick SMS Route ('q') if OTP route fails
-        print(f"[FAST2SMS FALLBACK] Trying Quick SMS route ('q')...")
+        logger.debug("[FAST2SMS FALLBACK] Trying Quick SMS route ('q')...")
         payload_quick = {
             "route": "q",
             "message": f"Your OTP code is {otp_code}. Valid for 10 minutes.",
@@ -109,29 +112,29 @@ def send_real_sms_otp(mobile_number: str, otp_code: str):
         }
         q_response = requests.post(url, json=payload_quick, headers=headers, timeout=3)
         q_res_data = q_response.json()
-        print(f"[FAST2SMS QUICK SMS RESULT]: {q_res_data}")
+        logger.debug("[FAST2SMS QUICK SMS RESULT]: %s", q_res_data)
 
         if q_res_data.get("return") is True or q_res_data.get("status_code") == 200:
-            print(f"[FAST2SMS SUCCESS] Quick SMS OTP delivered successfully to {clean_number}")
+            logger.info("[FAST2SMS SUCCESS] Quick SMS OTP delivered successfully to %s", clean_number)
             return True
 
         # 3. Try GET fallback format for Quick SMS route ('q')
-        print(f"[FAST2SMS RETRY] Trying GET Quick SMS endpoint format...")
+        logger.debug("[FAST2SMS RETRY] Trying GET Quick SMS endpoint format...")
         import urllib.parse
         encoded_msg = urllib.parse.quote(f"Your OTP code is {otp_code}. Valid for 10 minutes.")
         get_url = f"https://www.fast2sms.com/dev/bulkV2?authorization={fast2sms_key}&route=q&message={encoded_msg}&language=english&flash=0&numbers={clean_number}"
         get_resp = requests.get(get_url, timeout=3)
         get_res = get_resp.json()
-        print(f"[FAST2SMS GET DISPATCH RESULT]: {get_res}")
+        logger.debug("[FAST2SMS GET DISPATCH RESULT]: %s", get_res)
         if get_res.get("return") is True or get_res.get("status_code") == 200:
-            print(f"[FAST2SMS SUCCESS] Real SMS OTP delivered via GET Quick SMS to {clean_number}")
+            logger.info("[FAST2SMS SUCCESS] Real SMS OTP delivered via GET Quick SMS to %s", clean_number)
             return True
 
-        print(f"[FAST2SMS FAILURE] API error: {res_data.get('message') or q_res_data.get('message') or get_res.get('message')}")
+        logger.warning("[FAST2SMS FAILURE] API error: %s", res_data.get('message') or q_res_data.get('message') or get_res.get('message'))
         return False
 
     except Exception as e:
-        print(f"[FAST2SMS EXCEPTION] Failed to send SMS: {e}")
+        logger.warning("[FAST2SMS EXCEPTION] Failed to send SMS: %s", e)
         return False
 
 
@@ -146,7 +149,7 @@ def send_real_email_otp(to_email: str, otp_code: str, purpose: str = "Verificati
     sender_password = os.getenv("SMTP_PASSWORD")
 
     if not sender_email or not sender_password:
-        print(f"[DEV / MOCK EMAIL] OTP for email {to_email}: {otp_code}")
+        logger.info("[DEV / MOCK EMAIL] OTP for email %s: %s", to_email, otp_code)
         return True
 
     try:
@@ -173,11 +176,11 @@ def send_real_email_otp(to_email: str, otp_code: str, purpose: str = "Verificati
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, to_email, msg.as_string())
 
-        print(f"[SMTP EMAIL SUCCESS] Real OTP email sent successfully to {to_email}")
+        logger.info("[SMTP EMAIL SUCCESS] Real OTP email sent successfully to %s", to_email)
         return True
     except Exception as e:
-        print(f"[SMTP EMAIL ERROR] Failed to send email to {to_email}: {e}")
-        print(f"[DEV FALLBACK EMAIL] OTP for email {to_email}: {otp_code}")
+        logger.warning("[SMTP EMAIL ERROR] Failed to send email to %s: %s", to_email, e)
+        logger.info("[DEV FALLBACK EMAIL] OTP for email %s: %s", to_email, otp_code)
         return False
 
 
@@ -868,7 +871,7 @@ def login(
     try:
         user = db.query(User).filter(or_(*filters)).first()
     except Exception as err:
-        print(f"[LOGIN DB ERROR]: {err}")
+        logger.error("[LOGIN DB ERROR]: %s", err)
         user = None
 
     if not user:
@@ -878,143 +881,150 @@ def login(
         )
 
     # Verify password hash
-    if not user.password_hash or not verify_password(request.password, user.password_hash):
+    if not user.password_hash or not verify_password(req.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username/email or password.",
+            detail="Incorrect password. Please try again.",
         )
 
-    if user.account_status != "ACTIVE":
+    # Check account status
+    if user.account_status == "LOCKED":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Account is {user.account_status.lower()}. Please contact support.",
+            detail="Your account is locked due to too many failed attempts. Reset your password to unlock.",
         )
 
-    # Update last login timestamp in users DB table
-    user.last_login_at = datetime.now(timezone.utc)
-    db.commit()
-
-    # Generate JWT Token
+    # Generate JWT
     access_token = create_access_token(
-        {"user_id": user.user_id, "email": user.email}
+        data={"sub": str(user.user_id), "email": user.email, "role": user.role}
     )
 
-    # Store Session in user_sessions DB table
-    session = UserSession(
-        user_id=user.user_id,
-        access_token=access_token,
-        is_active=True,
-    )
-    db.add(session)
+    # Record active session
+    try:
+        session_obj = UserSession(
+            user_id=user.user_id,
+            session_token=access_token[:255],
+            is_active=True,
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+        )
+        db.add(session_obj)
 
-    # Store Audit Log in audit_logs DB table
-    audit = AuditLog(
-        user_id=user.user_id,
-        table_name="users",
-        action="UPDATE",
-        description=f"User {user.username} logged in successfully.",
-    )
-    db.add(audit)
-    db.commit()
+        audit = AuditLog(
+            user_id=user.user_id,
+            table_name="users",
+            action="LOGIN_SUCCESS",
+            description=f"User {user.email or user.username} logged in successfully.",
+        )
+        db.add(audit)
+        db.commit()
+    except Exception as db_err:
+        logger.warning("[LOGIN DB AUDIT ERROR]: %s", db_err)
+        db.rollback()
 
     return {
-        "message": "Login Successful",
+        "message": "Login successful",
         "access_token": access_token,
+        "token_type": "bearer",
         "user": serialize_user_entity(user),
     }
 
 
 # ==========================================================
-# 6. GOOGLE OAUTH LOGIN & SIGNUP
+# GOOGLE OAUTH LOGIN / SIGNUP ENDPOINT
 # ==========================================================
 
-@router.post("/google-login")
-def google_login(
-    request: GoogleLoginRequest,
-    db: Session = Depends(get_db),
-):
+@router.post("/google", response_model=dict)
+@router.post("/google-login", response_model=dict)
+def google_auth(req: GoogleLoginRequest, db: Session = Depends(get_db)):
+    """
+    Verifies Google OAuth2 access_token or Firebase ID token and authenticates/registers user in PostgreSQL.
+    """
+    email = None
+    name = ""
+    picture = ""
+    google_uid = None
+
     try:
-        # Fetch user info from Google OAuth API
-        resp = requests.get(
-            "https://www.googleapis.com/oauth2/v3/userinfo",
-            headers={"Authorization": f"Bearer {request.access_token}"},
-            timeout=10,
-        )
-
-        if not resp.ok:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Failed to verify Google access token.",
+        # 1. Try resolving via Google OAuth2 access_token if provided
+        if req.access_token:
+            resp = requests.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {req.access_token.strip()}"},
+                timeout=10,
             )
+            if resp.status_code == 200:
+                user_info = resp.json()
+                email = user_info.get("email")
+                name = user_info.get("name", "")
+                picture = user_info.get("picture", "")
+                google_uid = user_info.get("sub")
+            else:
+                logger.warning("Google userinfo API failed (status %d): %s", resp.status_code, resp.text)
 
-        google_info = resp.json()
-        google_email = google_info.get("email", "").lower()
-        google_sub = google_info.get("sub", "")
-        google_name = google_info.get("name", google_email.split("@")[0])
+        # 2. If access_token was not provided or failed, try verifying via id_token
+        if not email and req.id_token:
+            try:
+                decoded = verify_firebase_token(req.id_token.strip())
+                google_uid = decoded.get("uid") or decoded.get("sub")
+                email = decoded.get("email")
+                name = decoded.get("name", "")
+                picture = decoded.get("picture", "")
+            except Exception as fb_err:
+                logger.warning("Firebase token decode failed: %s", fb_err)
 
-        if not google_email:
+        if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Google account did not return a valid email.",
+                detail="Invalid Google credentials or could not retrieve verified email.",
             )
 
-        # Check if user exists in users DB table
-        user = db.query(User).filter(User.email == google_email).first()
-
+        # Check if user already exists by email
+        user = db.query(User).filter(func.lower(User.email) == email.lower()).first()
         is_new = False
-        if not user:
-            is_new = True
-            base_username = "".join(c for c in google_name.replace(" ", "_").lower() if c.isalnum() or c == "_") or "google_user"
-            unique_username = base_username
-            while db.query(User).filter(func.lower(User.username) == unique_username.lower()).first():
-                unique_username = f"{base_username}_{random.randint(100, 999)}"
 
+        if not user:
+            # Create new user
+            is_new = True
+            first_name = name.split(" ")[0] if name else "User"
+            last_name = " ".join(name.split(" ")[1:]) if len(name.split(" ")) > 1 else ""
+            clean_username = (email.split("@")[0] + str(random.randint(100, 999)))[:50]
             user = User(
-                username=unique_username,
-                email=google_email,
-                auth_provider="GOOGLE",
+                email=email,
+                username=clean_username,
+                first_name=first_name,
+                last_name=last_name,
                 is_email_verified=True,
                 account_status="ACTIVE",
-                last_login_at=datetime.now(timezone.utc),
+                auth_provider="GOOGLE",
+                profile_image=picture,
+                firebase_uid=google_uid,
             )
             db.add(user)
-            db.commit()
-            db.refresh(user)
+            db.flush()
 
-            # Store in social_logins DB table
+            # Record social login provider
             social = SocialLogin(
                 user_id=user.user_id,
                 provider="GOOGLE",
-                provider_user_id=google_sub,
+                provider_user_id=google_uid or email,
             )
             db.add(social)
-
-            # Default Subscription
-            sub = UserSubscription(
-                user_id=user.user_id,
-                plan_name="Starter",
-                subscription_status="ACTIVE",
-                payment_status="PAID",
-            )
-            db.add(sub)
-            db.commit()
-
         else:
-            user.last_login_at = datetime.now(timezone.utc)
-            db.commit()
+            # Existing user: update auth_provider and firebase_uid / profile_image if missing
+            if not user.firebase_uid and google_uid:
+                user.firebase_uid = google_uid
+            if not user.profile_image and picture:
+                user.profile_image = picture
+            if user.account_status != "ACTIVE":
+                user.account_status = "ACTIVE"
+            user.is_email_verified = True
 
-        # Create session token
         access_token = create_access_token(
-            {"user_id": user.user_id, "email": user.email}
+            data={"sub": str(user.user_id), "email": user.email}
         )
 
-        session = UserSession(
-            user_id=user.user_id,
-            access_token=access_token,
-            is_active=True,
-        )
-        db.add(session)
         db.commit()
+        db.refresh(user)
 
         return {
             "message": "Google Login Successful",
@@ -1023,8 +1033,10 @@ def google_login(
             "user": serialize_user_entity(user),
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"[Google Auth Error]: {e}")
+        logger.error("[Google Auth Error]: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Google authentication processing failed.",
@@ -1032,8 +1044,64 @@ def google_login(
 
 
 # ==========================================================
-# 7. LOGOUT
+# RESET PASSWORD ENDPOINT
 # ==========================================================
+
+@router.post("/reset-password", response_model=MessageResponse)
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Resets user password with valid verification token.
+    """
+    req_input = req.email_or_mobile.strip()
+    req_lower = req_input.lower()
+    clean_digits = "".join([c for c in req_input if c.isdigit()])
+
+    user = db.query(User).filter(
+        or_(
+            func.lower(User.email) == req_lower,
+            User.mobile_number == req_input,
+            User.mobile_number == f"+91{clean_digits}" if len(clean_digits) == 10 else False,
+            User.mobile_number == clean_digits if len(clean_digits) == 10 else False,
+        )
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    # Validate reset token in OTP table
+    otp_record = db.query(OTPVerification).filter(
+        OTPVerification.user_id == user.user_id,
+        OTPVerification.purpose == "FORGOT_PASSWORD",
+        OTPVerification.is_verified == True,
+    ).order_by(OTPVerification.created_at.desc()).first()
+
+    if not otp_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No verified password reset request found. Please request a new OTP.",
+        )
+
+    user.password_hash = hash_password(req.new_password)
+    user.updated_at = datetime.now(timezone.utc)
+
+    # Invalidate OTP record so it cannot be reused
+    otp_record.is_verified = False
+
+    try:
+        audit = AuditLog(
+            user_id=user.user_id,
+            table_name="users",
+            action="PASSWORD_CHANGED",
+            description=f"Password reset successfully for user_id={user.user_id}",
+        )
+        db.add(audit)
+    except Exception as audit_err:
+        logger.warning("[reset_password] Audit log warning: %s", audit_err)
+
+    db.commit()
 
 @router.post("/logout")
 def logout(

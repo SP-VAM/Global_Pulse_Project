@@ -97,14 +97,14 @@ class StockPredictionService:
         self.artifact_loader = get_stock_artifact_loader()
         self._snapshot_cache: List[Dict[str, Any]] = []
         self._snapshot_cache_timestamp: float = 0.0
-        self._cache_ttl_seconds: float = 60.0
+        self._cache_ttl_seconds: float = 300.0  # 5 minutes cache TTL
         self._mcap_cache: Dict[str, float] = {}
+        self._snapshot_lock = asyncio.Lock()
+        self._sentiment_cache: Dict[str, float] = {}
+        self._sentiment_mtime: float = 0.0
+        self._is_refreshing: bool = False
 
     def normalize_symbol(self, raw_symbol: str) -> str:
-        """
-        Validate and normalize stock symbol.
-        Raises NotFoundError (HTTP 404) if symbol is not among supported Nifty companies.
-        """
         clean = raw_symbol.upper().strip().replace(".NS", "")
         if clean not in TICKER_TO_COMPANY:
             raise NotFoundError(
@@ -129,6 +129,7 @@ class StockPredictionService:
         Optional compatibility sentiment reader.
         Reads Sentiment_Mean in [-1.0, +1.0] from news_sentiment_aggregated.csv if present;
         returns 0.0 (Neutral) if file absent or ticker missing.
+        Uses cached dictionary invalidated on file modification.
         """
         settings = get_settings()
         csv_path = os.path.join(settings.STOCK_DATA_DIR, "news_sentiment_aggregated.csv")
@@ -136,12 +137,20 @@ class StockPredictionService:
             return 0.0
 
         try:
-            df = pd.read_csv(csv_path)
-            sub = df[df["Ticker"].str.upper() == symbol]
-            if not sub.empty and "Sentiment_Mean" in sub.columns:
-                val = sub["Sentiment_Mean"].values[0]
-                if not np.isnan(val):
-                    return float(np.clip(val, -1.0, 1.0))
+            mtime = os.path.getmtime(csv_path)
+            if mtime != self._sentiment_mtime or not self._sentiment_cache:
+                df = pd.read_csv(csv_path)
+                cache = {}
+                if "Ticker" in df.columns and "Sentiment_Mean" in df.columns:
+                    for _, row in df.iterrows():
+                        t = str(row["Ticker"]).upper().strip()
+                        val = row["Sentiment_Mean"]
+                        if pd.notnull(val):
+                            cache[t] = float(np.clip(float(val), -1.0, 1.0))
+                self._sentiment_cache = cache
+                self._sentiment_mtime = mtime
+
+            return self._sentiment_cache.get(symbol, 0.0)
         except Exception as e:
             logger.debug("Optional sentiment CSV lookup failed for %s: %s", symbol, e)
         return 0.0
@@ -321,18 +330,16 @@ class StockPredictionService:
             "prices_df": prices_df,
         }
 
-    async def get_market_snapshot(self, symbols: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        """
-        Lightweight bulk stock market snapshot for supported Nifty companies.
-        Parallelized via asyncio.gather with 60s in-memory TTL caching.
-        """
+    async def _background_refresh_snapshot(self) -> None:
+        try:
+            await self._execute_snapshot_fetch()
+        except Exception as e:
+            logger.debug("Background market snapshot refresh failed: %s", e)
+        finally:
+            self._is_refreshing = False
+
+    async def _execute_snapshot_fetch(self, symbols: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         is_full_snapshot = (symbols is None or len(symbols) == len(TICKER_TO_COMPANY))
-        now = time.time()
-
-        if is_full_snapshot and self._snapshot_cache and (now - self._snapshot_cache_timestamp < self._cache_ttl_seconds):
-            logger.debug("Returning cached market snapshot (age: %.2fs)", now - self._snapshot_cache_timestamp)
-            return self._snapshot_cache
-
         target_tickers = symbols if symbols else list(TICKER_TO_COMPANY.keys())
 
         async def _fetch_single_item(raw_symbol: str) -> Optional[Dict[str, Any]]:
@@ -380,6 +387,32 @@ class StockPredictionService:
 
         if is_full_snapshot and snapshot_items:
             self._snapshot_cache = snapshot_items
-            self._snapshot_cache_timestamp = now
+            self._snapshot_cache_timestamp = time.time()
 
         return snapshot_items
+
+    async def get_market_snapshot(self, symbols: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """
+        Lightweight bulk stock market snapshot for supported Nifty companies.
+        Non-blocking Stale-While-Revalidate (SWR) with 300s TTL.
+        """
+        is_full_snapshot = (symbols is None or len(symbols) == len(TICKER_TO_COMPANY))
+        now = time.time()
+
+        # 1. Fresh cache hit (< 1ms)
+        if is_full_snapshot and self._snapshot_cache and (now - self._snapshot_cache_timestamp < self._cache_ttl_seconds):
+            logger.debug("Returning fresh cached market snapshot (age: %.2fs)", now - self._snapshot_cache_timestamp)
+            return self._snapshot_cache
+
+        # 2. Stale cache hit (< 1ms) with async background refresh
+        if is_full_snapshot and self._snapshot_cache:
+            if not self._is_refreshing:
+                self._is_refreshing = True
+                asyncio.create_task(self._background_refresh_snapshot())
+            return self._snapshot_cache
+
+        # 3. Cold miss on startup: fetch with single-flight lock
+        async with self._snapshot_lock:
+            if is_full_snapshot and self._snapshot_cache:
+                return self._snapshot_cache
+            return await self._execute_snapshot_fetch(symbols)

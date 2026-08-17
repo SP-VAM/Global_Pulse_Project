@@ -153,6 +153,33 @@ class CategoryBreakdownItem(BaseModel):
     color: str
 
 
+# ---------------------------------------------------------------------------
+# Budget Alert Schema — FRD-017
+# ---------------------------------------------------------------------------
+
+# Single, authoritative configurable threshold for the "approaching budget" alert.
+# A category is considered "approaching" when:
+#     actual_spending >= BUDGET_APPROACHING_THRESHOLD * budget_limit
+#     AND actual_spending <= budget_limit
+# A category is "exceeded" when:
+#     actual_spending > budget_limit
+BUDGET_APPROACHING_THRESHOLD: float = 0.80  # 80%
+
+
+class BudgetAlertItem(BaseModel):
+    """Alert generated when a category's spending is approaching or exceeds its monthly limit."""
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    category_id: int
+    category_name: str
+    # "approaching" or "exceeded"
+    alert_type: str
+    spent: float
+    limit: float
+    # Percentage of budget consumed (0–100+)
+    utilization_pct: float
+
+
 class ExpenseSummaryResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
@@ -165,3 +192,56 @@ class ExpenseSummaryResponse(BaseModel):
     incomes: List[IncomeResponse]
     budgets: List[BudgetResponse]
     categories: List[ExpenseCategoryResponse]
+    # Budget alerts — list is empty when no thresholds are breached
+    budget_alerts: List[BudgetAlertItem] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Transaction Filter Schemas — FRD-022
+# ---------------------------------------------------------------------------
+
+class TransactionFilterParams(BaseModel):
+    """Optional filter parameters for transaction listing."""
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    year: Optional[int] = Field(None, ge=2000, le=2100)
+    month: Optional[int] = Field(None, ge=1, le=12)
+    keyword: Optional[str] = Field(None, max_length=200)
+    category_id: Optional[int] = Field(None, gt=0)
+    # "expense" | "income" | None (all)
+    transaction_type: Optional[str] = Field(None)
+    date_from: Optional[date] = Field(None)
+    date_to: Optional[date] = Field(None)
+    amount_min: Optional[float] = Field(None, ge=0)
+    amount_max: Optional[float] = Field(None, ge=0)
+
+    @field_validator("transaction_type")
+    @classmethod
+    def validate_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ("expense", "income"):
+            raise ValueError("transaction_type must be 'expense' or 'income'")
+        return v
+
+
+class TransactionItem(BaseModel):
+    """Unified transaction item returned by the filter endpoint."""
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    id: str                           # "exp_{expense_id}" or "inc_{income_id}"
+    raw_id: int
+    transaction_type: str             # "expense" | "income"
+    amount: float
+    transaction_date: date
+    payment_method: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    # Expense-only fields
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
+
+
+class TransactionListResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    total: int
+    items: List[TransactionItem]

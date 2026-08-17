@@ -49,7 +49,8 @@ class VerifyOTPRequest(BaseModel):
 # ==========================================================
 
 class GoogleLoginRequest(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
+    id_token: Optional[str] = None
 
 
 # ==========================================================

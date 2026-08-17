@@ -228,32 +228,94 @@ export function getMotivationalMessage(goal) {
   return `🎉 Great consistency! You've completed ${pct}% of your goal. Only ${formatINR(amtNeededForNext)} left to reach ${nextMilestone}%!`;
 }
 
+import { fetchGoals, createGoalApi, updateGoalApi, deleteGoalApi, addGoalProgressApi } from "../../../api/goalsApi";
+
+function transformBackendGoal(bg) {
+  const history = (bg.history || []).map((h) => ({
+    id: h.progress_id,
+    date: h.progress_date,
+    amount: Number(h.quantity_added) || 0,
+    assetType: h.remarks?.replace("Added ", "") || "Gold",
+    remarks: h.remarks,
+    runningTotal: 0,
+    progressPercent: 0,
+    timestamp: new Date(h.created_at).getTime(),
+  }));
+
+  // Sort history ascending by date
+  history.sort((a, b) => new Date(a.date) - new Date(b.date));
+  let running = 0;
+  history.forEach((item) => {
+    running += item.amount;
+    item.runningTotal = running;
+    item.progressPercent = bg.target_quantity > 0 ? Math.round((running / bg.target_quantity) * 100) : 0;
+  });
+  // Reverse for display (latest first)
+  const displayHistory = [...history].reverse();
+
+  return {
+    id: bg.goal_id,
+    name: bg.goal_name,
+    note: bg.notes || "",
+    target: Number(bg.target_quantity) || 10000,
+    progress: Number(bg.current_quantity) || 0,
+    startDate: bg.start_date,
+    endDate: bg.end_date,
+    unit: bg.unit || "INR",
+    history: displayHistory,
+    completedAt: bg.completed_at,
+    createdAt: new Date(bg.created_at).getTime(),
+  };
+}
+
 export function GoalsProvider({ children }) {
   const [goals, setGoals] = useState([]);
   const [activeGoalId, setActiveGoalId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Load state on mount
-  useEffect(() => {
+  const loadGoals = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setGoals(parsed);
-          setActiveGoalId(parsed[0].id);
+      setLoading(true);
+      const serverGoals = await fetchGoals();
+      if (Array.isArray(serverGoals)) {
+        const transformed = serverGoals.map(transformBackendGoal);
+        setGoals(transformed);
+        if (transformed.length > 0) {
+          setActiveGoalId((curr) => (curr && transformed.some((g) => g.id === curr) ? curr : transformed[0].id));
+        } else {
+          setActiveGoalId(null);
         }
       }
     } catch (e) {
-      console.error("Failed to load goals from localStorage", e);
+      console.warn("Failed to load goals from backend, falling back to local cache:", e);
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setGoals(parsed);
+            setActiveGoalId(parsed[0].id);
+          }
+        }
+      } catch (cacheErr) {
+        console.error("Local cache load failed:", cacheErr);
+      }
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  // Save state to localStorage on updates
+  // Load backend goals on mount
+  useEffect(() => {
+    loadGoals();
+  }, [loadGoals]);
+
+  // Sync cache on updates
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
     } catch (e) {
-      console.error("Failed to save goals to localStorage", e);
+      console.error("Failed to save goals cache", e);
     }
   }, [goals]);
 
@@ -262,90 +324,130 @@ export function GoalsProvider({ children }) {
   }, [goals, activeGoalId]);
 
   // Create Goal
-  const createGoal = useCallback((payload) => {
-    const id = uuidv4();
-    const targetAmt = Number(payload.target) || 10000;
-    const newGoal = {
-      id,
-      name: payload.name.trim(),
-      note: payload.note ? payload.note.trim() : "",
-      target: targetAmt,
-      startDate: payload.startDate || getTodayString(),
-      endDate: payload.endDate || getTodayString(),
-      progress: 0,
-      history: [],
-      createdAt: Date.now(),
-    };
-
-    setGoals((prev) => [newGoal, ...prev]);
-    setActiveGoalId(id);
-    return newGoal;
-  }, []);
-
-  // Update Goal Details (Name, Note, Target [only increase!], EndDate)
-  const updateGoal = useCallback((id, fields) => {
-    setGoals((prev) =>
-      prev.map((g) => {
-        if (g.id !== id) return g;
-
-        const newTarget = fields.target !== undefined ? Number(fields.target) : g.target;
-        // Never allow decreasing target amount
-        const finalTarget = Math.max(newTarget, g.target);
-
-        return {
-          ...g,
-          name: fields.name !== undefined ? fields.name.trim() : g.name,
-          note: fields.note !== undefined ? fields.note.trim() : g.note,
-          target: finalTarget,
-          endDate: fields.endDate || g.endDate,
+  const createGoal = useCallback(
+    async (payload) => {
+      try {
+        const serverGoal = await createGoalApi(payload);
+        const transformed = transformBackendGoal(serverGoal);
+        setGoals((prev) => [transformed, ...prev.filter((g) => g.id !== transformed.id)]);
+        setActiveGoalId(transformed.id);
+        return transformed;
+      } catch (err) {
+        console.error("Failed to create goal on backend:", err);
+        // Fallback
+        const id = uuidv4();
+        const targetAmt = Number(payload.target) || 10000;
+        const newGoal = {
+          id,
+          name: payload.name.trim(),
+          note: payload.note ? payload.note.trim() : "",
+          target: targetAmt,
+          startDate: payload.startDate || getTodayString(),
+          endDate: payload.endDate || getTodayString(),
+          progress: 0,
+          history: [],
+          createdAt: Date.now(),
         };
-      })
-    );
-  }, []);
+        setGoals((prev) => [newGoal, ...prev]);
+        setActiveGoalId(id);
+        return newGoal;
+      }
+    },
+    []
+  );
 
-  // Update Progress (Add investment amount)
-  const addProgress = useCallback((id, { amount, assetType, date, name }) => {
-    const addedAmt = Number(amount) || 0;
-    if (addedAmt <= 0) return;
+  // Update Goal Details
+  const updateGoal = useCallback(
+    async (id, fields) => {
+      try {
+        if (typeof id === "number") {
+          const serverGoal = await updateGoalApi(id, fields);
+          const transformed = transformBackendGoal(serverGoal);
+          setGoals((prev) => prev.map((g) => (g.id === id ? transformed : g)));
+          return transformed;
+        }
+      } catch (err) {
+        console.error("Failed to update goal on backend:", err);
+      }
 
-    setGoals((prev) =>
-      prev.map((g) => {
-        if (g.id !== id) return g;
+      setGoals((prev) =>
+        prev.map((g) => {
+          if (g.id !== id) return g;
+          const newTarget = fields.target !== undefined ? Number(fields.target) : g.target;
+          const finalTarget = Math.max(newTarget, g.target);
+          return {
+            ...g,
+            name: fields.name !== undefined ? fields.name.trim() : g.name,
+            note: fields.note !== undefined ? fields.note.trim() : g.note,
+            target: finalTarget,
+            endDate: fields.endDate || g.endDate,
+          };
+        })
+      );
+    },
+    []
+  );
 
-        const newProgress = (g.progress || 0) + addedAmt;
-        const newRunningTotal = newProgress;
-        const progressPercent = Math.round((newRunningTotal / g.target) * 100);
+  // Update Progress
+  const addProgress = useCallback(
+    async (id, { amount, assetType, date, name, remarks }) => {
+      const addedAmt = Number(amount) || 0;
+      if (addedAmt <= 0) return;
 
-        const newEntry = {
-          id: uuidv4(),
-          date: date || getTodayString(),
-          amount: addedAmt,
-          assetType: assetType || "Gold",
-          runningTotal: newRunningTotal,
-          progressPercent: progressPercent,
-          timestamp: Date.now(),
-        };
+      try {
+        if (typeof id === "number") {
+          const serverGoal = await addGoalProgressApi(id, { amount: addedAmt, assetType, date, remarks });
+          const transformed = transformBackendGoal(serverGoal);
+          setGoals((prev) => prev.map((g) => (g.id === id ? transformed : g)));
+          return transformed;
+        }
+      } catch (err) {
+        console.error("Failed to add progress on backend:", err);
+      }
 
-        const updatedHistory = [newEntry, ...(g.history || [])];
-
-        return {
-          ...g,
-          name: name && name.trim() ? name.trim() : g.name,
-          progress: newProgress,
-          history: updatedHistory,
-        };
-      })
-    );
-  }, []);
+      setGoals((prev) =>
+        prev.map((g) => {
+          if (g.id !== id) return g;
+          const newProgress = (g.progress || 0) + addedAmt;
+          const newRunningTotal = newProgress;
+          const progressPercent = Math.round((newRunningTotal / g.target) * 100);
+          const newEntry = {
+            id: uuidv4(),
+            date: date || getTodayString(),
+            amount: addedAmt,
+            assetType: assetType || "Gold",
+            runningTotal: newRunningTotal,
+            progressPercent: progressPercent,
+            timestamp: Date.now(),
+          };
+          return {
+            ...g,
+            name: name && name.trim() ? name.trim() : g.name,
+            progress: newProgress,
+            history: [newEntry, ...(g.history || [])],
+          };
+        })
+      );
+    },
+    []
+  );
 
   // Delete Goal
-  const deleteGoal = useCallback((id) => {
-    setGoals((prev) => {
-      const filtered = prev.filter((g) => g.id !== id);
-      return filtered;
-    });
-    setActiveGoalId((curr) => (curr === id ? null : curr));
-  }, []);
+  const deleteGoal = useCallback(
+    async (id) => {
+      try {
+        if (typeof id === "number") {
+          await deleteGoalApi(id);
+        }
+      } catch (err) {
+        console.error("Failed to delete goal on backend:", err);
+      }
+
+      setGoals((prev) => prev.filter((g) => g.id !== id));
+      setActiveGoalId((curr) => (curr === id ? null : curr));
+    },
+    []
+  );
 
   return (
     <GoalsContext.Provider
@@ -357,6 +459,8 @@ export function GoalsProvider({ children }) {
         updateGoal,
         addProgress,
         deleteGoal,
+        loadGoals,
+        loading,
       }}
     >
       {children}

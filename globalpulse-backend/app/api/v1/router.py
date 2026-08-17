@@ -37,12 +37,20 @@ from app.api.v1 import (
     expenses,
     # Investment Portfolio Management
     portfolio,
+    # FRD-048 Push Notifications
+    notifications,
+    # FRD-041 Financial Goals & Reminders
+    goals,
 )
 
 router = APIRouter(prefix="/api/v1")
 
 # Authentication
 router.include_router(auth.router)
+# Push Notifications
+router.include_router(notifications.router)
+# Financial Goals (FRD-041)
+router.include_router(goals.router)
 # Expense Tracker
 router.include_router(expenses.router)
 # Investment Portfolio

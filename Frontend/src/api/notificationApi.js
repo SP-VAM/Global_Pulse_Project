@@ -1,0 +1,96 @@
+/**
+ * API client service for FRD-048 Push Notifications.
+ */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === "localhost" ? "http://localhost:8000" : "")
+
+function getAuthHeader() {
+  const token = localStorage.getItem("token") || localStorage.getItem("access_token")
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+export async function fetchNotifications({ limit = 50, offset = 0, unreadOnly = false } = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+  }
+  const url = `${API_BASE_URL}/api/v1/notifications?limit=${limit}&offset=${offset}&unread_only=${unreadOnly}`
+  const res = await fetch(url, { headers })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch notifications: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function fetchUnreadCount() {
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+  }
+  const res = await fetch(`${API_BASE_URL}/api/v1/notifications/unread-count`, { headers })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch unread count: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function markNotificationRead(notificationId) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+  }
+  const res = await fetch(`${API_BASE_URL}/api/v1/notifications/${notificationId}/read`, {
+    method: "PATCH",
+    headers,
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to mark notification read: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function markAllNotificationsRead() {
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+  }
+  const res = await fetch(`${API_BASE_URL}/api/v1/notifications/read-all`, {
+    method: "PATCH",
+    headers,
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to mark all notifications read: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function registerDeviceToken(fcmToken, deviceType = "WEB") {
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+  }
+  const res = await fetch(`${API_BASE_URL}/api/v1/notifications/device-token`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ fcm_token: fcmToken, device_type: deviceType }),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to register device token: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function deregisterDeviceToken(fcmToken) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+  }
+  const res = await fetch(`${API_BASE_URL}/api/v1/notifications/device-token`, {
+    method: "DELETE",
+    headers,
+    body: JSON.stringify({ fcm_token: fcmToken }),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to deregister device token: ${res.statusText}`)
+  }
+  return res.json()
+}

@@ -12,6 +12,7 @@ from app.db.models.market_model import (
     Nifty50CompanyModel,
     StockMarketHistoryModel,
 )
+from app.db.models.notification_model import NotificationModel, UserDeviceTokenModel
 from app.db.models.user_model import (
     AuditLogModel,
     OtpVerificationModel,
@@ -45,4 +46,6 @@ __all__ = [
     "UserLearningProgressModel",
     "SubscriptionPlanModel",
     "UserSubscriptionModel",
+    "NotificationModel",
+    "UserDeviceTokenModel",
 ]

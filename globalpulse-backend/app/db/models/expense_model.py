@@ -5,7 +5,7 @@ Mapped to ExpenseTracker_table.sql schema.
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Numeric, SmallInteger, String, Text, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Numeric, SmallInteger, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.models.base import Base, BigIntegerPK
@@ -23,6 +23,10 @@ class ExpenseCategoryModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+# Normalized payment methods accepted by the application (post strip().upper().replace(" ","_"))
+_INCOME_PAYMENT_METHODS = ("CASH", "CARD", "UPI", "NET_BANKING", "WALLET", "SALARY", "OTHER")
+
+
 class IncomeModel(Base):
     __tablename__ = "incomes"
 
@@ -34,6 +38,19 @@ class IncomeModel(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "amount > 0",
+            name="incomes_amount_check",
+        ),
+        CheckConstraint(
+            "payment_method IS NULL OR upper(payment_method) IN ("
+            "'CASH', 'CARD', 'UPI', 'NET_BANKING', 'WALLET', 'SALARY', 'OTHER')",
+            name="incomes_payment_method_check",
+        ),
+    )
+
 
 
 class ExpenseModel(Base):
@@ -49,7 +66,7 @@ class ExpenseModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    category = relationship("ExpenseCategoryModel")
+    category = relationship("ExpenseCategoryModel", lazy="selectin")
 
 
 class BudgetModel(Base):
@@ -64,4 +81,13 @@ class BudgetModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    category = relationship("ExpenseCategoryModel")
+    category = relationship("ExpenseCategoryModel", lazy="selectin")
+
+    __table_args__ = (
+        # Mirrors the DB-level constraint `uq_budget_per_month` already present in Railway PostgreSQL.
+        # Ensures the ORM also enforces uniqueness and allows Alembic autogenerate to detect it.
+        UniqueConstraint("user_id", "category_id", "budget_month", "budget_year", name="uq_budget_per_month"),
+        CheckConstraint("budget_amount > 0", name="budgets_budget_amount_check"),
+        CheckConstraint("budget_month >= 1 AND budget_month <= 12", name="budgets_budget_month_check"),
+        CheckConstraint("budget_year >= 2000", name="budgets_budget_year_check"),
+    )

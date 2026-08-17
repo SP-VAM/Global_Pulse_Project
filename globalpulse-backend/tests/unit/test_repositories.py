@@ -85,13 +85,12 @@ async def test_goal_repository_operations(db_session: AsyncSession):
         {
             "user_id": user.user_id,
             "investment_type_id": 1,
-            "status_id": 1,
             "goal_name": "Buy House",
             "target_quantity": 500000.0,
             "current_quantity": 100000.0,
             "unit": "INR",
-            "start_date": date(2026, 1, 1),
             "end_date": date(2030, 1, 1),
+            "status": "ACTIVE",
         }
     )
 

@@ -1,12 +1,306 @@
-.np-root{position:fixed;top:0;right:-420px;height:100vh;width:420px;z-index:1300;transition:right .28s cubic-bezier(.2,.9,.2,1)}
-.np-root.is-open{right:0}
-.np-inner{background:rgba(8,10,12,0.98);height:100%;padding:1rem;display:flex;flex-direction:column}
-.np-head{display:flex;justify-content:space-between;align-items:center}
-.np-list{margin-top:1rem;overflow:auto}
-.np-card{background:rgba(255,255,255,0.03);padding:0.9rem;border-radius:10px;margin-bottom:0.8rem;display:flex;justify-content:space-between}
-.np-title{font-weight:700}
-.np-meta{color:#9fb0d9}
-.np-time{color:#9fb0d9}
-.np-backdrop{position:fixed;top:0;left:0;right:420px;bottom:0}
-.np-empty{padding:2rem 1rem;text-align:center;color:#94a3b8;font-size:0.9rem}
-.np-empty.np-error{color:#f87171}
+/* ============================================================================
+   GLOBALPULSE NOTIFICATION PANEL STYLESHEET (FRD-048)
+   ============================================================================ */
+
+.np-root {
+  position: fixed;
+  top: 0;
+  right: -420px;
+  height: 100vh;
+  width: 400px;
+  max-width: 90vw;
+  z-index: 1300;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, visibility 0.3s;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.np-root.is-open {
+  right: 0;
+  pointer-events: auto;
+  visibility: visible;
+  opacity: 1;
+}
+
+.np-inner {
+  background: rgba(12, 16, 26, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 2;
+}
+
+/* Header */
+.np-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.np-head__title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.np-head__icon {
+  color: #60a5fa;
+}
+
+.np-head__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0;
+}
+
+.np-head__count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+}
+
+.np-head__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.np-btn-mark-all {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(96, 165, 250, 0.1);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.np-btn-mark-all:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: #60a5fa;
+  transform: translateY(-1px);
+}
+
+.np-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.np-close-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* List */
+.np-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.np-list::-webkit-scrollbar {
+  width: 5px;
+}
+.np-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+/* Card */
+.np-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  gap: 12px;
+  cursor: default;
+  transition: all 0.2s ease;
+}
+
+.np-card.has-link {
+  cursor: pointer;
+}
+
+.np-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.np-card.is-unread {
+  background: rgba(96, 165, 250, 0.05);
+  border-color: rgba(96, 165, 250, 0.25);
+}
+
+.np-card__left {
+  flex-shrink: 0;
+}
+
+.np-card__icon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  display: grid;
+  place-items: center;
+}
+
+.np-type-icon--security {
+  color: #f87171;
+}
+.np-type-icon--financial {
+  color: #34d399;
+}
+.np-type-icon--reminder {
+  color: #fbbf24;
+}
+.np-type-icon--info {
+  color: #60a5fa;
+}
+
+.np-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.np-card__header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.np-card__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f1f5f9;
+  line-height: 1.3;
+}
+
+.np-card__time {
+  font-size: 11px;
+  color: #64748b;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.np-card__message {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.np-card__action-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #60a5fa;
+}
+
+.np-unread-dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
+}
+
+/* Empty & Loading States */
+.np-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  text-align: center;
+  color: #94a3b8;
+  gap: 8px;
+}
+
+.np-empty__icon {
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.np-empty__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.np-empty__subtitle {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.np-empty.np-error {
+  color: #f87171;
+}
+
+.np-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: np-spin 0.8s linear infinite;
+  margin-bottom: 8px;
+}
+
+@keyframes np-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.np-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1290;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}

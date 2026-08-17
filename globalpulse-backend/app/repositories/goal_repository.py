@@ -3,7 +3,7 @@ GoalRepository and GoalProgressRepository for Financial Goals management.
 """
 from typing import Any, List, Optional
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.goal_model import GoalModel, GoalProgressModel, InvestmentTypeModel
@@ -17,7 +17,7 @@ class GoalRepository(BaseRepository[GoalModel, Any, Any]):
     async def get_active_goals_by_user(self, user_id: int) -> List[GoalModel]:
         stmt = (
             select(GoalModel)
-            .where(GoalModel.user_id == user_id, GoalModel.is_deleted == False)
+            .where(GoalModel.user_id == user_id, GoalModel.status != "CANCELLED")
             .order_by(GoalModel.created_at.desc())
         )
         res = await self.session.execute(stmt)
@@ -27,7 +27,7 @@ class GoalRepository(BaseRepository[GoalModel, Any, Any]):
         stmt = (
             update(GoalModel)
             .where(GoalModel.goal_id == goal_id, GoalModel.user_id == user_id)
-            .values(is_deleted=True, deleted_at=func.now())
+            .values(status="CANCELLED")
         )
         res = await self.session.execute(stmt)
         await self.session.commit()
@@ -37,7 +37,7 @@ class GoalRepository(BaseRepository[GoalModel, Any, Any]):
         stmt = (
             select(func.count())
             .select_from(GoalModel)
-            .where(GoalModel.user_id == user_id, GoalModel.is_deleted == False)
+            .where(GoalModel.user_id == user_id, GoalModel.status != "CANCELLED")
         )
         res = await self.session.execute(stmt)
         return res.scalar_one()

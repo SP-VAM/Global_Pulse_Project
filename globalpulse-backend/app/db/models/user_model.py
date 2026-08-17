@@ -43,13 +43,12 @@ class OtpVerificationModel(Base):
 
     otp_id: Mapped[int] = mapped_column(BigIntegerPK, primary_key=True, autoincrement=True)
     user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=True)
-    target_value: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     mobile_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     otp_code: Mapped[str] = mapped_column(String(10), nullable=False)
     otp_type: Mapped[str] = mapped_column(String(30), default="MOBILE_VERIFICATION", nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    is_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

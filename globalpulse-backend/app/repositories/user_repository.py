@@ -53,9 +53,9 @@ class OtpRepository(BaseRepository[OtpVerificationModel, Any, Any]):
         stmt = (
             select(OtpVerificationModel)
             .where(
-                (OtpVerificationModel.target_value == target_val) | (OtpVerificationModel.mobile_number == target_val),
+                (OtpVerificationModel.email == target_val) | (OtpVerificationModel.mobile_number == target_val),
                 OtpVerificationModel.otp_code == otp_code,
-                OtpVerificationModel.is_used == False,
+                OtpVerificationModel.is_verified == False,
                 OtpVerificationModel.expires_at > now,
             )
             .order_by(OtpVerificationModel.created_at.desc())
@@ -65,7 +65,7 @@ class OtpRepository(BaseRepository[OtpVerificationModel, Any, Any]):
 
     async def mark_as_used(self, otp_id: int) -> None:
         now = datetime.now(timezone.utc)
-        stmt = update(OtpVerificationModel).where(OtpVerificationModel.otp_id == otp_id).values(is_used=True, is_verified=True, verified_at=now)
+        stmt = update(OtpVerificationModel).where(OtpVerificationModel.otp_id == otp_id).values(is_verified=True, verified_at=now)
         await self.session.execute(stmt)
         await self.session.commit()
 

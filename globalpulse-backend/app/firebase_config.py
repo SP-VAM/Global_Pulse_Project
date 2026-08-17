@@ -1,7 +1,11 @@
+import logging
 import os
 import json
 import firebase_admin
 from firebase_admin import credentials, auth
+
+logger = logging.getLogger("globalpulse.firebase")
+
 
 def initialize_firebase():
     """
@@ -17,32 +21,33 @@ def initialize_firebase():
     if service_account_path and os.path.exists(service_account_path):
         cred = credentials.Certificate(service_account_path)
         app = firebase_admin.initialize_app(cred)
-        print(f"[Firebase Admin] Initialized using service account file: {service_account_path}")
+        logger.info("[Firebase Admin] Initialized using service account file: %s", service_account_path)
         return app
     elif service_account_json:
         try:
             cert_dict = json.loads(service_account_json)
             cred = credentials.Certificate(cert_dict)
             app = firebase_admin.initialize_app(cred)
-            print("[Firebase Admin] Initialized using service account JSON string.")
+            logger.info("[Firebase Admin] Initialized using service account JSON string.")
             return app
         except Exception as e:
-            print(f"[Firebase Admin Warning] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: {e}")
+            logger.warning("[Firebase Admin Warning] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: %s", e)
 
     # Fallback to default app initialization (works with Firebase public ID token verification)
     try:
         app = firebase_admin.initialize_app()
-        print("[Firebase Admin] Initialized using default configuration.")
+        logger.info("[Firebase Admin] Initialized using default configuration.")
         return app
     except Exception as err:
-        print(f"[Firebase Admin Warning] Default initialization: {err}")
+        logger.warning("[Firebase Admin Warning] Default initialization: %s", err)
         return None
+
 
 # Initialize on module load
 try:
     initialize_firebase()
 except Exception as e:
-    print(f"[Firebase Admin Warning] Initialization error: {e}")
+    logger.warning("[Firebase Admin Warning] Initialization error: %s", e)
 
 def verify_firebase_token(id_token: str) -> dict:
     """

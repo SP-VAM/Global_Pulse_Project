@@ -127,3 +127,30 @@ export async function deleteBudget(budgetId) {
   })
   return handleResponse(res, "Failed to delete budget.")
 }
+
+export async function getFilteredTransactions(params = {}) {
+  const query = new URLSearchParams()
+  if (params.year) query.append("year", params.year)
+  if (params.month) query.append("month", params.month)
+  if (params.keyword) query.append("keyword", params.keyword)
+  if (params.categoryId) query.append("category_id", params.categoryId)
+  if (params.transactionType) query.append("transaction_type", params.transactionType)
+  if (params.dateFrom) query.append("date_from", params.dateFrom)
+  if (params.dateTo) query.append("date_to", params.dateTo)
+  if (params.amountMin !== undefined && params.amountMin !== "" && params.amountMin !== null) {
+    query.append("amount_min", params.amountMin)
+  }
+  if (params.amountMax !== undefined && params.amountMax !== "" && params.amountMax !== null) {
+    query.append("amount_max", params.amountMax)
+  }
+
+  const res = await fetch(`/api/v1/expenses/transactions?${query.toString()}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+  })
+  return handleResponse(res, "Failed to fetch transactions.")
+}
+

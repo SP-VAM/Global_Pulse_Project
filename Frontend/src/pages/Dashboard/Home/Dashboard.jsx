@@ -16,6 +16,8 @@ import {
   marketOverview,
   sectors,
   sparklines,
+  constituents,
+  topMovers,
 } from "../../../data/marketData.js"
 
 import "./Dashboard.css"
@@ -163,18 +165,25 @@ export default function Dashboard() {
     "Investor"
 
   const displayCompanies = useMemo(() => {
-    if (!liveMarketItems || liveMarketItems.length === 0) return []
-    return liveMarketItems.map((item) => {
-      const priceVal = item.current_price ?? item.previous_close ?? 0
-      const changePct = item.change_percent ?? 0
+    const sourceList = (liveMarketItems && liveMarketItems.length > 0)
+      ? liveMarketItems
+      : constituents
+    if (!sourceList || sourceList.length === 0) return []
+    return sourceList.map((item) => {
+      const priceVal = item.current_price ?? item.previous_close ?? item.price ?? 0
+      const changePct = item.change_percent ?? item.change ?? 0
       const positive = changePct >= 0
-      const series = item.price_history ? item.price_history.map((p) => p.close || 0) : []
+      const sym = (item.symbol || item.ticker || "").replace(".NS", "").toUpperCase()
+      const compName = item.company_name || item.name || sym
+      const series = item.price_history && item.price_history.length > 0
+        ? item.price_history.map((p) => p.close || 0)
+        : (sparklines[sym.toLowerCase()] || sparklines[sym] || [])
       return {
-        id: item.symbol.toLowerCase(),
-        name: item.company_name,
-        ticker: item.symbol,
-        price: `₹${priceVal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-        change: `${positive ? "+" : ""}${changePct.toFixed(2)}%`,
+        id: sym.toLowerCase(),
+        name: compName,
+        ticker: sym,
+        price: typeof priceVal === "number" ? `₹${priceVal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : priceVal,
+        change: `${positive ? "+" : ""}${typeof changePct === "number" ? changePct.toFixed(2) : changePct}%`,
         positive,
         series,
       }
@@ -214,34 +223,39 @@ export default function Dashboard() {
   }, [advanceCarousel, query, displayCompanies.length])
 
   const filtered = useMemo(() => {
-    if (query.trim()) {
-      const q = query.toLowerCase()
+    const q = query.trim().toLowerCase()
+    if (q) {
       return displayCompanies.filter(
-        (c) => c.name.toLowerCase().includes(q) || c.ticker.toLowerCase().includes(q)
+        (c) =>
+          (c.name && c.name.toLowerCase().includes(q)) ||
+          (c.ticker && c.ticker.toLowerCase().includes(q))
       )
     }
     const start = carouselIndex * CARDS_PER_PAGE
     return displayCompanies.slice(start, start + CARDS_PER_PAGE)
   }, [displayCompanies, query, carouselIndex])
 
+
   const displayTopMovers = useMemo(() => {
-    if (!liveMarketItems || liveMarketItems.length === 0) return []
-    const sorted = [...liveMarketItems]
-      .sort((a, b) => Math.abs(b.change_percent ?? 0) - Math.abs(a.change_percent ?? 0))
-      .slice(0, 4)
-    return sorted.map((item) => {
-      const priceVal = item.current_price ?? item.previous_close ?? 0
-      const changePct = item.change_percent ?? 0
-      const positive = changePct >= 0
-      return {
-        id: item.symbol.toLowerCase(),
-        name: item.company_name ? item.company_name.split(" ")[0] : item.symbol,
-        ticker: item.symbol,
-        value: priceVal.toLocaleString("en-IN", { minimumFractionDigits: 2 }),
-        change: `${positive ? "+" : ""}${changePct.toFixed(2)}%`,
-        positive,
-      }
-    })
+    if (liveMarketItems && liveMarketItems.length > 0) {
+      const sorted = [...liveMarketItems]
+        .sort((a, b) => Math.abs(b.change_percent ?? 0) - Math.abs(a.change_percent ?? 0))
+        .slice(0, 4)
+      return sorted.map((item) => {
+        const priceVal = item.current_price ?? item.previous_close ?? 0
+        const changePct = item.change_percent ?? 0
+        const positive = changePct >= 0
+        return {
+          id: item.symbol.toLowerCase(),
+          name: item.company_name ? item.company_name.split(" ")[0] : item.symbol,
+          ticker: item.symbol,
+          value: typeof priceVal === "number" ? priceVal.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : priceVal,
+          change: `${positive ? "+" : ""}${typeof changePct === "number" ? changePct.toFixed(2) : changePct}%`,
+          positive,
+        }
+      })
+    }
+    return topMovers || []
   }, [liveMarketItems])
 
   return (
@@ -287,19 +301,7 @@ export default function Dashboard() {
             onMouseEnter={() => { isHovering.current = true }}
             onMouseLeave={() => { isHovering.current = false }}
           >
-            {loadingMarket ? (
-              <div style={{ textAlign: "center", padding: "40px", color: "#94a3b8", gridColumn: "1 / -1" }}>
-                <RefreshCw size={24} className="animate-spin" style={{ margin: "0 auto 12px auto", display: "block" }} />
-                <div>Fetching live market snapshot...</div>
-              </div>
-            ) : marketError ? (
-              <div style={{ textAlign: "center", padding: "40px", color: "#f87171", gridColumn: "1 / -1" }}>
-                <div>⚠️ {marketError}</div>
-                <button onClick={fetchLiveSnapshot} style={{ marginTop: 12, padding: "6px 16px", borderRadius: 6, background: "#1e293b", color: "#fff", border: "1px solid #334155", cursor: "pointer" }}>
-                  Retry Live Fetch
-                </button>
-              </div>
-            ) : filtered.length > 0 ? (
+            {filtered.length > 0 ? (
               <div
                 className="dashboard__carousel-wrap"
                 style={{
@@ -318,26 +320,22 @@ export default function Dashboard() {
                   />
                 ))}
               </div>
+            ) : marketError && displayCompanies.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px", color: "#f87171", gridColumn: "1 / -1" }}>
+                <div>⚠️ {marketError}</div>
+                <button onClick={fetchLiveSnapshot} style={{ marginTop: 12, padding: "6px 16px", borderRadius: 6, background: "#1e293b", color: "#fff", border: "1px solid #334155", cursor: "pointer" }}>
+                  Retry Live Fetch
+                </button>
+              </div>
             ) : (
               <p className="dashboard__empty">No companies match &ldquo;{query}&rdquo;.</p>
             )}
           </div>
 
           <div className="dashboard__movers-col">
-            {loadingMarket ? (
-              <div style={{ textAlign: "center", padding: "30px", color: "#94a3b8", background: "#1e293b", borderRadius: "12px" }}>
-                <RefreshCw size={20} className="animate-spin" style={{ margin: "0 auto 8px auto", display: "block" }} />
-                <div>Loading top movers...</div>
-              </div>
-            ) : marketError ? (
-              <div style={{ textAlign: "center", padding: "30px", color: "#f87171", background: "#1e293b", borderRadius: "12px" }}>
-                <div>⚠️ Top movers unavailable</div>
-              </div>
-            ) : (
-              <TopMovers movers={displayTopMovers} style={{ animationDelay: "120ms" }} />
-            )}
+            <TopMovers movers={displayTopMovers} style={{ animationDelay: "120ms" }} />
 
-            {!loadingMarket && !marketError && !query.trim() && totalCarouselPages > 1 && (
+            {!query.trim() && totalCarouselPages > 1 && (
               <div className="dashboard__carousel-dots">
                 {Array.from({ length: totalCarouselPages }).map((_, idx) => (
                   <button

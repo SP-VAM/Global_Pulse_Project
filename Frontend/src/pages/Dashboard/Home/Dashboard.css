@@ -204,11 +204,10 @@
 }
 
 .dashboard__intel-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-4);
-  flex-wrap: wrap;
   width: 100%;
 }
 
@@ -216,9 +215,11 @@
   position: relative;
   display: flex;
   align-items: center;
-  width: 320px;
+  width: 100%;
+  max-width: 340px;
   height: 40px;
 }
+
 
 .dashboard__search-icon {
   position: absolute;

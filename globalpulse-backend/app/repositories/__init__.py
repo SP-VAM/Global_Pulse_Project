@@ -12,6 +12,7 @@ from app.repositories.market_repository import (
     SentimentRepository,
     StockHistoryRepository,
 )
+from app.repositories.notification_repository import NotificationRepository
 from app.repositories.user_repository import (
     AuditRepository,
     OtpRepository,
@@ -38,4 +39,5 @@ __all__ = [
     "SentimentRepository",
     "LearningRepository",
     "BillingRepository",
+    "NotificationRepository",
 ]

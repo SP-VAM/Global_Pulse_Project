@@ -26,14 +26,13 @@ build/
 *.sqlite
 *.sqlite3
 
-# Large Binary ML Models & Datasets
+# Large Binary ML Models
 *.bin
 *.onnx
 *.h5
 *.h5py
 *.pt
 *.pth
-*.csv
 
 # IDE & System
 .vscode/
@@ -41,10 +40,7 @@ build/
 .DS_Store
 Thumbs.db
 
-# Temporary Audit Files & Excluded Folders
-new.csv
-old.csv
-commands.md
+# Temporary Folders & Archives
 legacy_archive/
 _legacy_archive/
 _project_cleanup_archive/

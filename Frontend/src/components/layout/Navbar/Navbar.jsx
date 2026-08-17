@@ -1,36 +1,24 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Bell, ChevronDown, User, LogOut } from "lucide-react"
 
 import Logo from "../../common/Logo/Logo.jsx"
 import NotificationPanel from "../../../pages/dashboard/Goals/components/NotificationPanel/NotificationPanel.jsx"
-import { getMarketSnapshot, getLatestNews } from "../../../api/marketApi.js"
+import {
+  fetchNotifications,
+  fetchUnreadCount,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "../../../api/notificationApi.js"
 import "./Navbar.css"
-
-function formatRelativeTime(isoString) {
-  if (!isoString) return "just now"
-  try {
-    const pubDate = new Date(isoString)
-    const now = new Date()
-    const diffSec = Math.floor((now.getTime() - pubDate.getTime()) / 1000)
-    if (isNaN(diffSec) || diffSec < 60) return "just now"
-    const diffMin = Math.floor(diffSec / 60)
-    if (diffMin < 60) return `${diffMin}m ago`
-    const diffHours = Math.floor(diffMin / 60)
-    if (diffHours < 24) return `${diffHours}h ago`
-    const diffDays = Math.floor(diffHours / 24)
-    return `${diffDays}d ago`
-  } catch (e) {
-    return "just now"
-  }
-}
 
 export default function Navbar({ onLogoutClick }) {
   const [openMenu, setOpenMenu] = useState(null) // "notif" | "profile" | null
   const navRef = useRef(null)
   const navigate = useNavigate()
 
-  const [feedItems, setFeedItems] = useState([])
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -43,30 +31,79 @@ export default function Navbar({ onLogoutClick }) {
     }
   })
 
+  // Synchronize unread count from backend
+  const refreshUnreadCount = useCallback(async () => {
+    const token = localStorage.getItem("token") || localStorage.getItem("access_token")
+    if (!token) {
+      setUnreadCount(0)
+      return
+    }
+    try {
+      const res = await fetchUnreadCount()
+      if (typeof res?.unread_count === "number") {
+        setUnreadCount(res.unread_count)
+      }
+    } catch (err) {
+      // Non-blocking: fail silently
+      console.debug("[Navbar] Unread count fetch skipped:", err)
+    }
+  }, [])
+
   useEffect(() => {
     function onClick(e) {
       if (navRef.current && !navRef.current.contains(e.target)) setOpenMenu(null)
     }
+
     function refreshUser() {
       try {
         const saved = localStorage.getItem("user")
-        if (saved) setCurrentUser(JSON.parse(saved))
+        const parsed = saved ? JSON.parse(saved) : null
+        setCurrentUser(parsed)
+        if (!parsed) {
+          setUnreadCount(0)
+          setNotifications([])
+        } else {
+          refreshUnreadCount()
+        }
       } catch (e) {
         console.error("Failed to refresh user in Navbar", e)
       }
     }
+
+    function handleNotificationEvent(e) {
+      refreshUnreadCount()
+    }
+
     refreshUser()
+    refreshUnreadCount()
+
+    // Register service worker for background web push if supported
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/firebase-messaging-sw.js")
+        .catch((swErr) => console.debug("[SW] Push worker registration note:", swErr))
+    }
+
     document.addEventListener("mousedown", onClick)
     window.addEventListener("user-updated", refreshUser)
     window.addEventListener("storage", refreshUser)
+    window.addEventListener("notification-received", handleNotificationEvent)
+
+    // Periodic lightweight background sync for new unread notifications (every 30s)
+    const timer = setInterval(() => {
+      refreshUnreadCount()
+    }, 30000)
+
     return () => {
       document.removeEventListener("mousedown", onClick)
       window.removeEventListener("user-updated", refreshUser)
       window.removeEventListener("storage", refreshUser)
+      window.removeEventListener("notification-received", handleNotificationEvent)
+      clearInterval(timer)
     }
-  }, [])
+  }, [refreshUnreadCount])
 
-  // Fetch live market movers and news feed dynamically when notification dropdown opens
+  // Fetch notifications and mark as read when notification panel opens
   useEffect(() => {
     if (openMenu !== "notif") return
 
@@ -74,72 +111,72 @@ export default function Navbar({ onLogoutClick }) {
     setLoading(true)
     setError(null)
 
-    Promise.all([
-      getMarketSnapshot().catch(() => null),
-      getLatestNews(50).catch(() => null), // Fetch all relevant news (no artificial limit of 3)
-    ])
-      .then(([snapshotRes, newsRes]) => {
+    const token = localStorage.getItem("token") || localStorage.getItem("access_token")
+    if (!token) {
+      setNotifications([])
+      setLoading(false)
+      return
+    }
+
+    fetchNotifications({ limit: 50 })
+      .then(async (res) => {
         if (!isMounted) return
-
-        const items = []
-        const seenIds = new Set()
-
-        // 1. Process market movers (change_percent >= 1.5% or <= -1.5%)
-        if (snapshotRes && snapshotRes.items) {
-          const movers = snapshotRes.items.filter(
-            (item) => Math.abs(item.change_percent || 0) >= 1.5
-          )
-          movers.forEach((item) => {
-            const isPos = (item.change_percent || 0) >= 0
-            const id = `mover-${item.symbol}`
-            if (!seenIds.has(id)) {
-              seenIds.add(id)
-              items.push({
-                id,
-                title: `${item.symbol} ${isPos ? "up +" : "down "}${item.change_percent.toFixed(2)}%`,
-                meta: `${item.company_name} · ${isPos ? "Top NIFTY Gainer" : "Top NIFTY Decliner"}`,
-                time: "Today",
-                timestamp: Date.now(),
-              })
-            }
-          })
-        }
-
-        // 2. Process live news articles (dynamic window: today & yesterday)
-        if (newsRes && newsRes.articles) {
-          newsRes.articles.forEach((art) => {
-            const id = `news-${art.id}`
-            if (!seenIds.has(id)) {
-              seenIds.add(id)
-              const pubTime = art.published_at_utc || art.published_at_ist
-              items.push({
-                id,
-                title: art.headline,
-                meta: `${art.source_name || "Market News"} · ${art.primary_category || "General"}`,
-                time: formatRelativeTime(pubTime),
-                timestamp: pubTime ? new Date(pubTime).getTime() : Date.now(),
-              })
-            }
-          })
-        }
-
-        // Sort items descending by publication/received timestamp (most recent first)
-        items.sort((a, b) => b.timestamp - a.timestamp)
-
-        setFeedItems(items)
+        const notifs = res.notifications || []
+        setNotifications(notifs)
         setLoading(false)
+
+        // If unread notifications exist, mark them as read immediately upon viewing
+        const hasUnread = notifs.some((n) => !n.is_read) || unreadCount > 0
+        if (hasUnread) {
+          // Optimistically reset unread count and badge to 0
+          setUnreadCount(0)
+          setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+
+          try {
+            await markAllNotificationsRead()
+          } catch (err) {
+            console.debug("[Navbar] Mark all read sync skipped:", err)
+          }
+        }
       })
       .catch((err) => {
         if (!isMounted) return
-        console.warn("[Navbar] Feed fetch error:", err)
-        setError("Notifications unavailable")
+        console.warn("[Navbar] Notification fetch error:", err)
+        setError("Notifications temporarily unavailable")
         setLoading(false)
       })
 
     return () => {
       isMounted = false
     }
-  }, [openMenu])
+  }, [openMenu, unreadCount])
+
+  const handleMarkAllRead = async () => {
+    setUnreadCount(0)
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+    try {
+      await markAllNotificationsRead()
+    } catch (e) {
+      console.warn("Failed to mark all read:", e)
+    }
+  }
+
+  const handleNotificationClick = async (notif) => {
+    if (!notif.is_read) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.notification_id === notif.notification_id ? { ...n, is_read: true } : n))
+      )
+      try {
+        await markNotificationRead(notif.notification_id)
+      } catch (e) {
+        console.debug("Single mark read skipped:", e)
+      }
+    }
+    if (notif.action_url) {
+      setOpenMenu(null)
+      navigate(notif.action_url)
+    }
+  }
 
   const toggle = (menu) => setOpenMenu((cur) => (cur === menu ? null : menu))
 
@@ -163,17 +200,19 @@ export default function Navbar({ onLogoutClick }) {
             aria-expanded={openMenu === "notif"}
           >
             <Bell size={20} />
-            {feedItems.length > 0 && (
-              <span className="navbar__badge">{feedItems.length}</span>
+            {unreadCount > 0 && (
+              <span className="navbar__badge">{unreadCount}</span>
             )}
           </button>
 
           <NotificationPanel
             open={openMenu === "notif"}
             onClose={() => setOpenMenu(null)}
-            notifications={feedItems}
+            notifications={notifications}
             loading={loading}
             error={error}
+            onMarkAllRead={handleMarkAllRead}
+            onNotificationClick={handleNotificationClick}
           />
         </div>
 
@@ -188,41 +227,40 @@ export default function Navbar({ onLogoutClick }) {
               {userAvatar ? (
                 <img src={userAvatar} alt="Avatar" />
               ) : (
-                <User size={18} />
+                (displayName || "J").charAt(0).toUpperCase()
               )}
             </span>
-            <ChevronDown size={16} className="navbar__chevron" />
+            <span className="navbar__name">{displayName}</span>
+            <ChevronDown size={14} className="navbar__chevron" />
           </button>
 
           {openMenu === "profile" && (
-            <div className="navbar__dropdown navbar__dropdown--profile" role="menu">
-              <div className="navbar__profile-head">
-                <span className="navbar__avatar navbar__avatar--lg">
-                  {userAvatar ? (
-                    <img src={userAvatar} alt="Avatar" />
-                  ) : (
-                    <User size={22} />
-                  )}
-                </span>
-                <div>
-                  <p className="navbar__profile-name">{displayName}</p>
-                  <p className="navbar__profile-email">{displayEmail}</p>
-                </div>
+            <div className="navbar__dropdown">
+              <div className="navbar__user-info">
+                <div className="navbar__user-name">{displayName}</div>
+                <div className="navbar__user-email">{displayEmail}</div>
               </div>
-              <div className="navbar__menu-group">
-                <Link to="/dashboard/profile" className="navbar__menu-item" onClick={() => setOpenMenu(null)}>
-                  <User size={16} /> Profile
-                </Link>
-              </div>
+              <div className="navbar__divider" />
+              <Link
+                to="/dashboard/profile"
+                className="navbar__dropdown-link"
+                onClick={() => setOpenMenu(null)}
+              >
+                <User size={16} />
+                <span>My Profile</span>
+              </Link>
               <button
                 type="button"
-                className="navbar__menu-item navbar__menu-item--danger"
+                className="navbar__dropdown-link navbar__dropdown-link--danger"
                 onClick={() => {
                   setOpenMenu(null)
+                  setUnreadCount(0)
+                  setNotifications([])
                   if (onLogoutClick) onLogoutClick()
                 }}
               >
-                <LogOut size={16} /> Logout
+                <LogOut size={16} />
+                <span>Sign Out</span>
               </button>
             </div>
           )}

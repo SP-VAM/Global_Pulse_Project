@@ -17,6 +17,9 @@ import {
   RefreshCw,
   AlertCircle,
   FolderPlus,
+  Filter,
+  Search,
+  X,
 } from "lucide-react";
 
 import {
@@ -67,6 +70,37 @@ export default function ExpenseTracker() {
   const [txModal, setTxModal] = useState(null); // { mode, type, initial }
   const [detailTx, setDetailTx] = useState(null);
   const [budgetModal, setBudgetModal] = useState(null); // { mode, initial }
+
+  // -------------------------------------------------------------
+  // FRD-022: Filter & Search State
+  // -------------------------------------------------------------
+  const [filterKeyword, setFilterKeyword] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterType, setFilterType] = useState("all"); // "all" | "expense" | "income"
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterAmountMin, setFilterAmountMin] = useState("");
+  const [filterAmountMax, setFilterAmountMax] = useState("");
+
+  const handleResetFilters = () => {
+    setFilterKeyword("");
+    setFilterCategory("all");
+    setFilterType("all");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setFilterAmountMin("");
+    setFilterAmountMax("");
+  };
+
+  const isFiltering = Boolean(
+    filterKeyword.trim() ||
+    filterCategory !== "all" ||
+    filterType !== "all" ||
+    filterDateFrom ||
+    filterDateTo ||
+    filterAmountMin !== "" ||
+    filterAmountMax !== ""
+  );
 
   // Ref for native month/year calendar picker
   const monthInputRef = useRef(null);
@@ -241,6 +275,62 @@ export default function ExpenseTracker() {
     [dayTx]
   );
 
+  /* ---------------------------------------------------------------------------
+   * FRD-022: Multi-Criteria Filtered Transactions
+   * Combines keyword, category, type, date range, and amount boundaries
+   * --------------------------------------------------------------------------- */
+  const filteredTransactions = useMemo(() => {
+    return allTransactions.filter((t) => {
+      // 1. Keyword search (case-insensitive across notes, method, categoryName)
+      if (filterKeyword.trim()) {
+        const kw = filterKeyword.toLowerCase().trim();
+        const notesMatch = t.notes && t.notes.toLowerCase().includes(kw);
+        const methodMatch = t.method && t.method.toLowerCase().includes(kw);
+        const catMatch = t.categoryName && t.categoryName.toLowerCase().includes(kw);
+        if (!notesMatch && !methodMatch && !catMatch) return false;
+      }
+      // 2. Category filter
+      if (filterCategory !== "all") {
+        if (t.type !== "expense") return false;
+        if (t.category !== filterCategory) return false;
+      }
+      // 3. Transaction type filter
+      if (filterType !== "all" && t.type !== filterType) {
+        return false;
+      }
+      // 4. Date Range
+      if (filterDateFrom && t.date < filterDateFrom) {
+        return false;
+      }
+      if (filterDateTo && t.date > filterDateTo) {
+        return false;
+      }
+      // 5. Amount Range
+      if (filterAmountMin !== "" && !isNaN(Number(filterAmountMin))) {
+        if (t.amount < Number(filterAmountMin)) return false;
+      }
+      if (filterAmountMax !== "" && !isNaN(Number(filterAmountMax))) {
+        if (t.amount > Number(filterAmountMax)) return false;
+      }
+      return true;
+    });
+  }, [
+    allTransactions,
+    filterKeyword,
+    filterCategory,
+    filterType,
+    filterDateFrom,
+    filterDateTo,
+    filterAmountMin,
+    filterAmountMax,
+  ]);
+
+  const activeDisplayTxs = isFiltering ? filteredTransactions : dayTx;
+  const activeDisplayTotal = useMemo(
+    () => activeDisplayTxs.reduce((s, t) => s + (t.type === "expense" ? t.amount : 0), 0),
+    [activeDisplayTxs]
+  );
+
   /* Sorted Budget Buckets by Risk (Highest % Spent First) */
   const sortedBudgets = useMemo(() => {
     return [...activeMonthBudgets].sort((a, b) => {
@@ -311,6 +401,9 @@ export default function ExpenseTracker() {
       setTxModal(null);
       // Refetch authoritative backend summary
       await loadSummary(view.year, view.month);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("expense-updated"));
+      }
     } catch (err) {
       alert(`Error saving transaction: ${err.message}`);
     } finally {
@@ -330,6 +423,9 @@ export default function ExpenseTracker() {
       setDetailTx(null);
       // Refetch authoritative backend summary to update UI
       await loadSummary(view.year, view.month);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("expense-updated"));
+      }
     } catch (err) {
       alert(`Error deleting transaction: ${err.message}`);
     }
@@ -348,6 +444,9 @@ export default function ExpenseTracker() {
 
       setBudgetModal(null);
       await loadSummary(view.year, view.month);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("expense-updated"));
+      }
     } catch (err) {
       alert(`Error saving budget: ${err.message}`);
     }
@@ -358,6 +457,9 @@ export default function ExpenseTracker() {
       await deleteBudgetApi(budgetId);
       setBudgetModal(null);
       await loadSummary(view.year, view.month);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("expense-updated"));
+      }
     } catch (err) {
       alert(`Error deleting budget: ${err.message}`);
     }
@@ -506,6 +608,162 @@ export default function ExpenseTracker() {
         </div>
       </div>
 
+      {/* ------------------- FRD-017: BUDGET ALERT BANNER ------------------- */}
+      {summaryData?.budgetAlerts && summaryData.budgetAlerts.length > 0 && (
+        <div
+          className={`et-budget-alert-banner ${
+            summaryData.budgetAlerts.some((a) => a.alertType === "exceeded")
+              ? "et-budget-alert-banner--exceeded"
+              : ""
+          }`}
+        >
+          {summaryData.budgetAlerts.map((alert, idx) => {
+            const isExceeded = alert.alertType === "exceeded";
+            return (
+              <div
+                key={idx}
+                className={`et-budget-alert-item ${
+                  isExceeded ? "et-budget-alert-item--exceeded" : "et-budget-alert-item--approaching"
+                }`}
+              >
+                <AlertCircle size={15} />
+                <span>
+                  {isExceeded ? (
+                    <strong>
+                      ⚠️ {alert.categoryName} Budget Exceeded! ({alert.utilizationPct}% used — spent {formatINR(alert.spent)} of {formatINR(alert.limit)})
+                    </strong>
+                  ) : (
+                    <span>
+                      ⚡ <strong>{alert.categoryName} Budget Approaching Limit</strong> ({alert.utilizationPct}% used — spent {formatINR(alert.spent)} of {formatINR(alert.limit)})
+                    </span>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ------------------- FRD-022: SEARCH & FILTER BAR ------------------- */}
+      <div className="et-filter-section">
+        <div className="et-filter-header">
+          <div className="et-filter-header__title">
+            <Filter size={16} />
+            <span>Search & Filter Transactions</span>
+            {isFiltering && (
+              <span
+                style={{
+                  background: "rgba(56, 189, 248, 0.15)",
+                  color: "#38bdf8",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                }}
+              >
+                {filteredTransactions.length} results
+              </span>
+            )}
+          </div>
+          {isFiltering && (
+            <div className="et-filter-header__actions">
+              <button
+                type="button"
+                className="et-filter-btn-reset"
+                onClick={handleResetFilters}
+              >
+                <X size={13} />
+                <span>Reset Filters</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="et-filter-grid">
+          {/* Keyword Field */}
+          <div className="et-filter-field">
+            <span className="et-filter-label">Keyword</span>
+            <div style={{ position: "relative" }}>
+              <input
+                type="text"
+                className="et-filter-input"
+                placeholder="Search notes, payment method..."
+                value={filterKeyword}
+                onChange={(e) => setFilterKeyword(e.target.value)}
+                style={{ paddingLeft: "28px" }}
+              />
+              <Search
+                size={14}
+                style={{
+                  position: "absolute",
+                  left: "9px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "#6b7385",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Category Dropdown */}
+          <div className="et-filter-field">
+            <span className="et-filter-label">Category</span>
+            <select
+              className="et-filter-select"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="all">All Categories</option>
+              {CATEGORIES.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Transaction Type Dropdown */}
+          <div className="et-filter-field">
+            <span className="et-filter-label">Type</span>
+            <select
+              className="et-filter-select"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+            >
+              <option value="all">All Types</option>
+              <option value="expense">Expense (-)</option>
+              <option value="income">Income (+)</option>
+            </select>
+          </div>
+
+          {/* Date From */}
+          <div className="et-filter-field">
+            <span className="et-filter-label">Date From</span>
+            <input
+              type="date"
+              className="et-filter-input"
+              value={filterDateFrom}
+              min={getMinDateISO()}
+              max={getMaxDateISO()}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+            />
+          </div>
+
+          {/* Date To */}
+          <div className="et-filter-field">
+            <span className="et-filter-label">Date To</span>
+            <input
+              type="date"
+              className="et-filter-input"
+              value={filterDateTo}
+              min={getMinDateISO()}
+              max={getMaxDateISO()}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* ------------------- SECTION 3: MAIN 2-COLUMN EQUAL GRID ------------------- */}
       <div className="goal-main-grid">
         {/* LEFT COLUMN: Calendar Navigation Panel */}
@@ -635,9 +893,13 @@ export default function ExpenseTracker() {
         <div className="goal-panel et-tx-panel">
           <div className="goal-panel__head">
             <History size={16} className="goal-panel__head-icon" />
-            <h3 className="goal-panel__title">Transactions</h3>
-            <span className="et-panel__tag">{dayTx.length} items</span>
-            <span className="et-tx__date-sub">{prettyDate(selected)}</span>
+            <h3 className="goal-panel__title">
+              {isFiltering ? "Filtered Transactions" : "Transactions"}
+            </h3>
+            <span className="et-panel__tag">{activeDisplayTxs.length} items</span>
+            <span className="et-tx__date-sub">
+              {isFiltering ? "Matching search & filter criteria" : prettyDate(selected)}
+            </span>
           </div>
 
           <div className="et-tx__list">
@@ -646,20 +908,35 @@ export default function ExpenseTracker() {
                 <div className="et-skeleton-bar" />
                 <div className="et-skeleton-bar" />
               </div>
-            ) : dayTx.length === 0 ? (
+            ) : activeDisplayTxs.length === 0 ? (
               <div className="et-empty-state">
-                <p>No transactions recorded for this date.</p>
-                <button
-                  type="button"
-                  className="goal-hero__btn-secondary"
-                  style={{ marginTop: "12px", padding: "6px 12px", fontSize: "12px" }}
-                  onClick={() => setTxModal({ mode: "add", type: "expense" })}
-                >
-                  + Add Expense for {prettyDate(selected).slice(0, 6)}
-                </button>
+                <p>
+                  {isFiltering
+                    ? "No transactions match your search / filter criteria."
+                    : "No transactions recorded for this date."}
+                </p>
+                {isFiltering ? (
+                  <button
+                    type="button"
+                    className="goal-hero__btn-secondary"
+                    style={{ marginTop: "12px", padding: "6px 12px", fontSize: "12px" }}
+                    onClick={handleResetFilters}
+                  >
+                    Clear Filters
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="goal-hero__btn-secondary"
+                    style={{ marginTop: "12px", padding: "6px 12px", fontSize: "12px" }}
+                    onClick={() => setTxModal({ mode: "add", type: "expense" })}
+                  >
+                    + Add Expense for {prettyDate(selected).slice(0, 6)}
+                  </button>
+                )}
               </div>
             ) : (
-              dayTx.map((t) => {
+              activeDisplayTxs.map((t) => {
                 const isExpense = t.type === "expense";
                 const catObj = CATEGORY_MAP[t.category] || {};
                 const IconComp = isExpense ? catObj.icon || Wallet : ArrowRightLeft;
@@ -688,6 +965,8 @@ export default function ExpenseTracker() {
                         )}
                         <span>{t.method}</span>
                         <span>•</span>
+                        <span>{t.date}</span>
+                        <span>•</span>
                         <span>{t.time}</span>
                       </div>
                     </div>
@@ -707,8 +986,8 @@ export default function ExpenseTracker() {
           </div>
 
           <div className="et-tx__footer">
-            <span>Total Spent Today</span>
-            <strong>{formatINR(dayTotal)}</strong>
+            <span>{isFiltering ? "Total Filtered Expenses" : "Total Spent Today"}</span>
+            <strong>{formatINR(activeDisplayTotal)}</strong>
           </div>
         </div>
       </div>
@@ -823,11 +1102,21 @@ export default function ExpenseTracker() {
                 const rem = limit > spent ? limit - spent : 0;
                 const pct = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
                 const isOver = over > 0;
+                const isApproaching = !isOver && pct >= 80;
                 const catObj = CATEGORY_MAP[b.category] || {};
                 const IconComp = catObj.icon || Wallet;
 
                 return (
-                  <div key={b.id} className={`et-budget-card ${isOver ? "et-budget-card--over" : ""}`}>
+                  <div
+                    key={b.id}
+                    className={`et-budget-card ${
+                      isOver
+                        ? "et-budget-card--over"
+                        : isApproaching
+                        ? "et-budget-card--approaching"
+                        : ""
+                    }`}
+                  >
                     <div className="et-budget-card__head">
                       <div className="et-budget-card__identity">
                         <div
@@ -835,8 +1124,14 @@ export default function ExpenseTracker() {
                           style={{
                             backgroundColor: isOver
                               ? "rgba(239, 68, 68, 0.15)"
+                              : isApproaching
+                              ? "rgba(245, 158, 11, 0.15)"
                               : `${catObj.color || "#4f83ff"}1f`,
-                            color: isOver ? "#ef4444" : catObj.color || "#4f83ff",
+                            color: isOver
+                              ? "#ef4444"
+                              : isApproaching
+                              ? "#f59e0b"
+                              : catObj.color || "#4f83ff",
                           }}
                         >
                           <IconComp size={15} />
@@ -859,10 +1154,20 @@ export default function ExpenseTracker() {
 
                     <div className="et-budget-card__track">
                       <div
-                        className={`et-budget-card__fill ${isOver ? "et-budget-card__fill--over" : ""}`}
+                        className={`et-budget-card__fill ${
+                          isOver
+                            ? "et-budget-card__fill--over"
+                            : isApproaching
+                            ? "et-budget-card__fill--approaching"
+                            : ""
+                        }`}
                         style={{
                           width: `${pct}%`,
-                          backgroundColor: isOver ? "#ef4444" : catObj.color || "#4f83ff",
+                          backgroundColor: isOver
+                            ? "#ef4444"
+                            : isApproaching
+                            ? "#f59e0b"
+                            : catObj.color || "#4f83ff",
                         }}
                       />
                     </div>
@@ -874,6 +1179,10 @@ export default function ExpenseTracker() {
                       {isOver ? (
                         <span className="et-budget-card__tag et-budget-card__tag--over">
                           Over by {formatINR(over)}
+                        </span>
+                      ) : isApproaching ? (
+                        <span className="et-budget-card__tag et-budget-card__tag--approaching">
+                          ⚡ Approaching limit ({pct}%)
                         </span>
                       ) : (
                         <span className="et-budget-card__tag">

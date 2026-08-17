@@ -157,13 +157,41 @@
  
 .lh-video-modal {
   width: 94vw !important;
-  max-width: 980px !important;
+  max-width: min(980px, calc((92vh - 190px) * 16 / 9)) !important;
   max-height: 92vh !important;
   background: var(--card, rgba(13, 17, 27, 0.94)) !important;
   border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.12)) !important;
   border-radius: 16px !important;
   box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 30px -5px rgba(47, 107, 255, 0.3) !important;
 }
+
+.lh-modal-header {
+  padding: 14px 20px;
+}
+
+.lh-modal-controls {
+  padding: 12px 20px;
+}
+
+.lh-modal-footer {
+  padding: 12px 20px;
+}
+
+@media (max-height: 680px) {
+  .lh-video-modal {
+    max-width: min(980px, calc((92vh - 140px) * 16 / 9)) !important;
+  }
+  .lh-modal-header {
+    padding: 8px 16px;
+  }
+  .lh-modal-controls {
+    padding: 8px 16px;
+  }
+  .lh-modal-footer {
+    padding: 8px 16px;
+  }
+}
+
  
 .lh-video-wrapper {
   position: relative;
@@ -180,4 +208,19 @@
   width: 100%;
   height: 100%;
   border: none;
+}
+
+@keyframes pulse-playing {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.6;
+  }
 }

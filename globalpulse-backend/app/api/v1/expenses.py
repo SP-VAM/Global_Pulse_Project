@@ -3,7 +3,7 @@ FastAPI Expense Tracker Endpoints.
 Prefix: /expenses
 Protected by JWT authentication dependency (get_current_active_user).
 """
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
@@ -22,6 +22,8 @@ from app.schemas.expense import (
     IncomeCreate,
     IncomeResponse,
     IncomeUpdate,
+    TransactionFilterParams,
+    TransactionListResponse,
 )
 from app.services.expense_service import ExpenseService
 
@@ -136,3 +138,43 @@ async def delete_budget(
     await service.delete_budget(current_user.user_id, budget_id)
     return {"message": "Budget record deleted successfully."}
 
+
+@router.get("/transactions", response_model=TransactionListResponse, status_code=status.HTTP_200_OK)
+async def list_transactions(
+    # Optional scope — defaults to current month when both are omitted
+    year: Optional[int] = Query(None, ge=2000, le=2100, description="Filter by year"),
+    month: Optional[int] = Query(None, ge=1, le=12, description="Filter by month (1-12)"),
+    # Search / text filter
+    keyword: Optional[str] = Query(None, max_length=200, description="Keyword search in notes/payment method"),
+    # Category filter (expense only — ignored for income rows)
+    category_id: Optional[int] = Query(None, gt=0, description="Filter expenses by category ID"),
+    # Type filter
+    transaction_type: Optional[str] = Query(None, description="'expense' | 'income' | omit for both"),
+    # Date range (ISO YYYY-MM-DD)
+    date_from: Optional[date] = Query(None, description="Start date (inclusive) YYYY-MM-DD"),
+    date_to: Optional[date] = Query(None, description="End date (inclusive) YYYY-MM-DD"),
+    # Amount range
+    amount_min: Optional[float] = Query(None, ge=0, description="Minimum transaction amount"),
+    amount_max: Optional[float] = Query(None, ge=0, description="Maximum transaction amount"),
+    current_user: UserModel = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> TransactionListResponse:
+    """
+    FRD-022: Search and filter transactions (expenses + incomes) with multiple criteria.
+
+    All active filters are combined with AND logic.
+    Results are restricted to the authenticated user — cross-user access is impossible.
+    """
+    params = TransactionFilterParams(
+        year=year,
+        month=month,
+        keyword=keyword,
+        category_id=category_id,
+        transaction_type=transaction_type,
+        date_from=date_from,
+        date_to=date_to,
+        amount_min=amount_min,
+        amount_max=amount_max,
+    )
+    service = ExpenseService(db)
+    return await service.get_filtered_transactions(current_user.user_id, params)

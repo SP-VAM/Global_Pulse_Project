@@ -3,6 +3,7 @@ GlobalPulse FastAPI Application Entry Point
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
@@ -50,15 +51,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     setup_logging()
 
-    # ── Database Schema Initialization ─────────────────────────────────
+    # ── Database Schema Verification ───────────────────────────────────
     from app.db.models import Base
     from app.db.session import async_engine
-    try:
-        async with async_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables verified/created successfully.")
-    except Exception as exc:
-        logger.warning("Database schema initialization error: %s", exc)
+    async def _init_db() -> None:
+        try:
+            async with async_engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database tables verified/created successfully.")
+        except Exception as exc:
+            logger.warning("Database schema initialization error: %s", exc)
+
+    asyncio.create_task(_init_db())
 
     # ── Phase 1A–1C: Finnhub market data ──────────────────────────────
     finnhub_provider = FinnhubMarketProvider(
@@ -151,6 +155,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.STOCK_MODEL_DIR,
         )
 
+    # Asynchronously warm up the stock market snapshot in the background without blocking server startup
+    async def _warmup_market_snapshot() -> None:
+        try:
+            logger.info("Starting background market snapshot cache warm-up...")
+            items = await app.state.stock_prediction_service.get_market_snapshot()
+            logger.info("Market snapshot warm-up completed successfully (%d items cached).", len(items))
+        except Exception as e:
+            logger.warning("Background market snapshot warm-up skipped/failed: %s", e)
+
+    warmup_task = asyncio.create_task(_warmup_market_snapshot())
+
     logger.info(
         "GlobalPulse startup complete. Providers: FinnhubMarketProvider, "
         "TradingEconomicsProvider, NewsApiProvider, StockMarketProvider (%s). Phase 1–6 Ready.",
@@ -159,8 +174,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield  # Application is running
 
-    # Shutdown — close all HTTP clients
+    # Shutdown — cancel warmup if still running, and close all HTTP clients
     logger.info("GlobalPulse shutting down...")
+    if not warmup_task.done():
+        warmup_task.cancel()
     await finnhub_provider.close()
     await te_provider.close()
     await news_provider.close()
@@ -230,9 +247,9 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
-        allow_credentials=False,  # Never combine with wildcard; set True only with explicit origins in prod
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        allow_credentials=True if not _is_dev and cors_origins else False,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID", "Accept", "Origin"],
     )
 
     # H-5: Trusted host enforcement (outermost — first to process request)

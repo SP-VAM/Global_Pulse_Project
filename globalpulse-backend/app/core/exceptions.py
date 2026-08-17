@@ -163,16 +163,20 @@ class ExplanationProviderResponseError(ExplanationProviderError):
 # ---------------------------------------------------------------------------
 
 
-def _error_response(code: str, message: str, http_status: int) -> JSONResponse:
+def _error_response(code: str, message: str, http_status: int, request: Optional[Request] = None) -> JSONResponse:
+    content: dict = {
+        "error": {
+            "code": code,
+            "message": message,
+            "timestampUtc": datetime.now(timezone.utc).isoformat(),
+        }
+    }
+    if request and hasattr(request, "state") and hasattr(request.state, "request_id"):
+        content["error"]["requestId"] = request.state.request_id
+
     return JSONResponse(
         status_code=http_status,
-        content={
-            "error": {
-                "code": code,
-                "message": message,
-                "timestampUtc": datetime.now(timezone.utc).isoformat(),
-            }
-        },
+        content=content,
     )
 
 
@@ -188,45 +192,72 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def globalpulse_error_handler(
         request: Request, exc: GlobalPulseError
     ) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", "-") if hasattr(request, "state") else "-"
         logger.error(
             "Domain error [%s]: %s | path=%s",
             exc.error_code,
             exc.message,
             request.url.path,
+            extra={"event": "domain_error", "error_code": exc.error_code, "request_id": req_id, "path": request.url.path},
         )
-        return _error_response(exc.error_code, exc.message, exc.http_status)
+        return _error_response(exc.error_code, exc.message, exc.http_status, request=request)
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", "-") if hasattr(request, "state") else "-"
+        level = logging.WARNING if exc.status_code < 500 else logging.ERROR
+        logger.log(
+            level,
+            "HTTP exception %d at %s: %s",
+            exc.status_code,
+            request.url.path,
+            exc.detail,
+            extra={"event": "http_exception", "status_code": exc.status_code, "request_id": req_id, "path": request.url.path},
+        )
         return _error_response(
             code=f"HTTP_{exc.status_code}",
             message=str(exc.detail),
             http_status=exc.status_code,
+            request=request,
         )
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", "-") if hasattr(request, "state") else "-"
         errors = exc.errors()
         first_msg = errors[0].get("msg", "Validation error") if errors else "Invalid request body or parameters."
         field = ".".join(str(x) for x in errors[0].get("loc", []) if x not in ("body",)) if errors else ""
         clean_msg = f"{field}: {first_msg}" if field else first_msg
+
+        logger.warning(
+            "Request validation error at %s: %s",
+            request.url.path,
+            clean_msg,
+            extra={"event": "validation_error", "request_id": req_id, "path": request.url.path},
+        )
         return _error_response(
             code="VALIDATION_ERROR",
             message=clean_msg,
             http_status=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            request=request,
         )
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(
         request: Request, exc: Exception
     ) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", "-") if hasattr(request, "state") else "-"
         logger.exception(
-            "Unhandled exception at %s: %s", request.url.path, type(exc).__name__
+            "Unhandled exception at %s: %s",
+            request.url.path,
+            type(exc).__name__,
+            extra={"event": "unhandled_exception", "request_id": req_id, "error_type": type(exc).__name__, "path": request.url.path},
         )
         return _error_response(
             "INTERNAL_ERROR",
             "An unexpected error occurred. Please try again later.",
             status.HTTP_500_INTERNAL_SERVER_ERROR,
+            request=request,
         )
 
     @app.exception_handler(404)
@@ -235,6 +266,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             "NOT_FOUND",
             f"The requested path '{request.url.path}' does not exist.",
             status.HTTP_404_NOT_FOUND,
+            request=request,
         )
 
     @app.exception_handler(405)
@@ -245,4 +277,5 @@ def register_exception_handlers(app: FastAPI) -> None:
             "METHOD_NOT_ALLOWED",
             f"Method '{request.method}' is not allowed on '{request.url.path}'.",
             status.HTTP_405_METHOD_NOT_ALLOWED,
+            request=request,
         )

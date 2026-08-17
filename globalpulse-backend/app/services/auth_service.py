@@ -69,12 +69,11 @@ class AuthService:
         await self.otp_repo.create(
             {
                 "user_id": user_id,
-                "target_value": target,
+                "email": target if "@" in target else None,
                 "mobile_number": target if "@" not in target else None,
                 "otp_code": code,
                 "otp_type": otp_type,
                 "expires_at": expires,
-                "is_used": False,
                 "is_verified": False,
             }
         )
@@ -213,6 +212,21 @@ class AuthService:
             {"user_id": user.user_id, "table_name": "users", "action": "USER_LOGIN", "description": "User logged in."}
         )
 
+        # Security notification
+        try:
+            from app.services.notification_service import NotificationService
+            notif_svc = NotificationService(self.session)
+            await notif_svc.create_and_send_notification(
+                user_id=user.user_id,
+                title="Security Alert: New Sign-in",
+                message=f"Sign-in detected on {device or 'Web Browser'}.",
+                notification_type="SECURITY",
+                action_url="/dashboard/profile",
+                send_push=False,
+            )
+        except Exception as notif_err:
+            logger.debug("Login notification skipped: %s", notif_err)
+
         return TokenResponse(access_token=access, user=UserResponse.model_validate(user))
 
     async def forgot_password(self, req: ForgotPasswordRequest) -> dict:
@@ -289,6 +303,21 @@ class AuthService:
                 "description": "Password reset successfully.",
             }
         )
+
+        # Security notification
+        try:
+            from app.services.notification_service import NotificationService
+            notif_svc = NotificationService(self.session)
+            await notif_svc.create_and_send_notification(
+                user_id=user.user_id,
+                title="Security Alert: Password Changed",
+                message="Your account password was recently changed. If you did not make this request, contact support immediately.",
+                notification_type="SECURITY",
+                action_url="/dashboard/profile",
+                send_push=True,
+            )
+        except Exception as notif_err:
+            logger.debug("Password reset notification skipped: %s", notif_err)
 
         return {"message": "Password has been reset successfully. Please log in with your new password."}
 

@@ -125,25 +125,44 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 
 
+import time
+from app.core.logging import log_api_request, request_id_ctx
+
+
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """
-    Ensures every request and response carries an ``X-Request-ID`` header.
-
-    Behaviour:
-      - If the incoming request already contains ``X-Request-ID``, that value
-        is echoed back in the response (pass-through for upstream correlation).
-      - If the header is absent, a fresh UUID4 is generated and attached to
-        both the response and the request scope so that downstream handlers
-        (exception handlers, loggers) can read it.
-
-    The generated/echoed ID is stored in ``request.state.request_id`` so
-    that it is accessible anywhere a ``Request`` object is available.
+    Ensures every request and response carries an ``X-Request-ID`` header
+    and automatically logs structured request/response events.
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:  # type: ignore[override]
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         request.state.request_id = request_id
+        token = request_id_ctx.set(request_id)
+        t0 = time.time()
 
-        response = await call_next(request)
-        response.headers["X-Request-ID"] = request_id
-        return response
+        try:
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            duration_ms = round((time.time() - t0) * 1000, 2)
+            log_api_request(
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                request_id=request_id,
+            )
+            return response
+        except Exception as exc:
+            duration_ms = round((time.time() - t0) * 1000, 2)
+            log_api_request(
+                method=request.method,
+                path=request.url.path,
+                status_code=500,
+                duration_ms=duration_ms,
+                request_id=request_id,
+                error=type(exc).__name__,
+            )
+            raise
+        finally:
+            request_id_ctx.reset(token)
