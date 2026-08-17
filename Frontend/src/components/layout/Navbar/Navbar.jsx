@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { Bell, ChevronDown, User, LogOut } from "lucide-react"
 
 import Logo from "../../common/Logo/Logo.jsx"
-import NotificationPanel from "../../../pages/dashboard/Goals/components/NotificationPanel/NotificationPanel.jsx"
+import NotificationPanel from "../../../pages/Dashboard/Goals/components/NotificationPanel/NotificationPanel.jsx"
 import {
   fetchNotifications,
   fetchUnreadCount,
