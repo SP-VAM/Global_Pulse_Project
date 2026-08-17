@@ -34,6 +34,16 @@ import logging
 router = APIRouter(prefix="/stocks", tags=["Stock ML Predictions & Indicators"])
 
 
+def get_prediction_service(request: Request) -> StockPredictionService:
+    """Dependency helper to extract stock_prediction_service from app.state."""
+    return request.app.state.stock_prediction_service
+
+
+def get_indicator_service(request: Request) -> TechnicalIndicatorService:
+    """Dependency helper to extract technical_indicator_service from app.state."""
+    return request.app.state.technical_indicator_service
+
+
 @router.get(
     "/_diag/yfinance",
     summary="Diagnostic: single yfinance fetch (internal use)",
@@ -113,15 +123,6 @@ _SYMBOL_PATH = Path(
     description="Stock symbol (e.g. RELIANCE, HDFCBANK, TCS)",
 )
 
-
-def get_prediction_service(request: Request) -> StockPredictionService:
-    """Dependency helper to extract stock_prediction_service from app.state."""
-    return request.app.state.stock_prediction_service
-
-
-def get_indicator_service(request: Request) -> TechnicalIndicatorService:
-    """Dependency helper to extract technical_indicator_service from app.state."""
-    return request.app.state.technical_indicator_service
 
 
 @router.get(
