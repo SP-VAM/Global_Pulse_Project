@@ -3,6 +3,7 @@ GlobalPulse FastAPI Application Entry Point
 """
 from __future__ import annotations
 
+import os
 import asyncio
 import logging
 from contextlib import asynccontextmanager
