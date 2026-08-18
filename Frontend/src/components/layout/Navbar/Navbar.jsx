@@ -179,9 +179,13 @@ export default function Navbar({ onLogoutClick }) {
     setOpenMenu(null)
 
     if (notif.action_url) {
-      // Exhaustive map of every possible action_url → confirmed existing route.
-      // Any unmapped/unknown URL stays inside the dashboard instead of hitting
-      // the catch-all which redirects to "/" and looks like a logout.
+      // Parse the raw action_url — it may contain a ?symbol=HCLTECH query param
+      const raw = notif.action_url
+
+      // Split path and query string
+      const [rawPath, rawQuery] = raw.split("?")
+
+      // Exhaustive path → confirmed existing route map
       const ROUTE_MAP = {
         // Expense / income / budget
         "/dashboard/expenses":        "/dashboard/expense-tracker",
@@ -192,7 +196,7 @@ export default function Navbar({ onLogoutClick }) {
         // Goals
         "/dashboard/goals":           "/dashboard/goals",
         "/dashboard/goal":            "/dashboard/goals",
-        // Market / stocks
+        // Market / stocks (base path — query params handled separately below)
         "/dashboard/market-analysis": "/dashboard/market-analysis",
         "/dashboard/market":          "/dashboard/market-analysis",
         "/dashboard/stocks":          "/dashboard/market-analysis",
@@ -209,18 +213,21 @@ export default function Navbar({ onLogoutClick }) {
         "/dashboard/learn":           "/dashboard/learning-hub",
       }
 
-      // Also handle /dashboard/stocks/SYMBOL patterns
-      const raw = notif.action_url
-      let targetUrl =
-        ROUTE_MAP[raw] ||
-        (raw.startsWith("/dashboard/stocks") ? "/dashboard/market-analysis" : null) ||
-        (raw.startsWith("/dashboard/expense") ? "/dashboard/expense-tracker" : null) ||
-        (raw.startsWith("/dashboard/goal") ? "/dashboard/goals" : null) ||
-        "/dashboard"   // absolute safe fallback — stays inside dashboard
+      // Resolve the confirmed route for the path portion
+      const resolvedPath =
+        ROUTE_MAP[rawPath] ||
+        (rawPath.startsWith("/dashboard/stocks")   ? "/dashboard/market-analysis" : null) ||
+        (rawPath.startsWith("/dashboard/expense")  ? "/dashboard/expense-tracker"  : null) ||
+        (rawPath.startsWith("/dashboard/goal")     ? "/dashboard/goals"            : null) ||
+        "/dashboard"   // absolute safe fallback — always stays inside dashboard
+
+      // Re-attach the original query string (e.g. ?symbol=HCLTECH) if present
+      const targetUrl = rawQuery ? `${resolvedPath}?${rawQuery}` : resolvedPath
 
       navigate(targetUrl)
     }
   }
+
 
 
   const toggle = (menu) => setOpenMenu((cur) => (cur === menu ? null : menu))

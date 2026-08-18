@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   ResponsiveContainer,
   LineChart,
@@ -130,10 +131,20 @@ const CustomOverviewTooltip = ({ active, payload, label }) => {
 }
 
 export default function MarketAnalysis() {
-  const [selectedSymbol, setSelectedSymbol] = useState("RELIANCE")
+  // Read ?symbol= query param from the URL (set by notification click)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const [selectedSymbol, setSelectedSymbol] = useState(() => {
+    // Initialise from ?symbol= if present; validated against company list later
+    const urlSymbol = searchParams.get("symbol")
+    return urlSymbol ? urlSymbol.toUpperCase().trim() : "RELIANCE"
+  })
   const [selectedRange, setSelectedRange] = useState("1Y")
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
+
+  // Track whether the URL-param boot has been applied already
+  const urlSymbolAppliedRef = useRef(false)
 
   // Client-side in-memory analysis cache for instant sub-millisecond tab/symbol switching
   const analysisCacheRef = useRef(new Map())
@@ -169,6 +180,36 @@ export default function MarketAnalysis() {
   const activeCompanies = useMemo(() => {
     return companies.length > 0 ? companies : FALLBACK_NIFTY_COMPANIES
   }, [companies])
+
+  // Once activeCompanies is available, validate and apply the ?symbol= URL param.
+  // Runs only once — prevents infinite re-render loops.
+  useEffect(() => {
+    if (urlSymbolAppliedRef.current) return          // already applied
+    if (activeCompanies.length === 0) return         // list not loaded yet
+
+    const urlSymbol = searchParams.get("symbol")
+    if (!urlSymbol) {
+      urlSymbolAppliedRef.current = true
+      return
+    }
+
+    const normalised = urlSymbol.toUpperCase().trim()
+    const match = activeCompanies.find((c) => c.symbol === normalised)
+
+    if (match) {
+      setSelectedSymbol(match.symbol)  // set the dropdown
+      setSearchQuery("")               // clear any stale search text
+    } else {
+      console.warn(
+        `[MarketAnalysis] URL symbol "${normalised}" not found in company list — ignoring`
+      )
+    }
+
+    // Clean ?symbol= from URL after applying so back-button works cleanly
+    setSearchParams({}, { replace: true })
+    urlSymbolAppliedRef.current = true
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanies])
 
   // Filter company dropdown list by search query
   const filteredCompanies = useMemo(() => {
