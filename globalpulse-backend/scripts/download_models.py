@@ -1,38 +1,32 @@
 """
 GlobalPulse — ML Model Downloader (runs at Render container startup)
 =====================================================================
-Downloads essential .pkl model files from Hugging Face Hub into the models
-directory. Skips files that already exist on disk.
-
-Memory-safe: Prioritizes lightweight models (<250MB) to stay well within
-Render Free Tier (512MB RAM limit).
+Downloads ONLY 1-Day prediction model files and metadata encoders.
+Completely excludes 10d, 5d, and heavy multi-gigabyte models to ensure
+fast startup, minimal memory usage, and zero disk bloat.
 """
 
 import os
 import sys
 import time
 
-# Priority list of model files needed by the prediction service
-PRIORITY_FILES = [
+# Only 1-Day prediction models and shared encoders
+TARGET_FILES = [
     "label_encoder.pkl",
     "model_features.pkl",
-    "model_5d_binary.pkl",
-    "model_5d_binary_encoder.pkl",
-    "model_5d_binary_features.pkl",
     "model_1d_binary.pkl",
     "model_1d_binary_encoder.pkl",
     "model_1d_binary_features.pkl",
-    "model_5d_3class.pkl",
-    "model_5d_3class_encoder.pkl",
-    "model_5d_3class_features.pkl",
-    "model_10d_binary.pkl",
-    "model_10d_binary_encoder.pkl",
-    "model_10d_binary_features.pkl",
+    "model_1d_3class_encoder.pkl",
+    "model_1d_3class_features.pkl",
 ]
+
+# Explicitly ignore 10d, 5d, and heavy models
+IGNORE_PATTERNS = ["10d", "5d", "xgboost_model"]
 
 def main() -> None:
     print("=" * 60, flush=True)
-    print("GlobalPulse — ML Model Download Check (Hugging Face Hub)", flush=True)
+    print("GlobalPulse — 1-Day ML Model Download (Hugging Face Hub)", flush=True)
     print("=" * 60, flush=True)
 
     hf_repo_id = os.environ.get("HF_REPO_ID", "").strip()
@@ -61,17 +55,19 @@ def main() -> None:
         print(f"ERROR: Could not list files in {hf_repo_id}: {e}", flush=True)
         return
 
-    if not all_remote:
-        print(f"WARNING: No .pkl files found in {hf_repo_id}", flush=True)
-        return
+    # Filter: Keep target files, exclude any with 10d/5d/xgboost_model
+    selected_files = [
+        f for f in all_remote
+        if f in TARGET_FILES or (not any(pat in f.lower() for pat in IGNORE_PATTERNS))
+    ]
 
-    # Order files: priority files first, then rest
-    ordered_files = [f for f in PRIORITY_FILES if f in all_remote]
-    ordered_files += [f for f in all_remote if f not in ordered_files]
+    print(f"Downloading {len(selected_files)} 1-Day model files (10d & 5d excluded):", flush=True)
+    for f in selected_files:
+        print(f"  • {f}", flush=True)
 
     downloaded = skipped = failed = 0
 
-    for filename in ordered_files:
+    for filename in selected_files:
         dest = os.path.join(model_dir, filename)
 
         if os.path.exists(dest) and os.path.getsize(dest) > 100:
