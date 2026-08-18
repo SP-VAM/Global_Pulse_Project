@@ -54,9 +54,9 @@ export function invalidateExpenseCache() {
 }
 
 export async function getExpenseSummary(year, month) {
-  const cacheKey = `${year}_${month}`;
+  const token = localStorage.getItem("access_token") || "anonymous";
+  const cacheKey = `${token}_${year}_${month}`;
   if (summaryCache.has(cacheKey)) {
-    // Return cached summary instantly in 0ms
     return summaryCache.get(cacheKey);
   }
 
@@ -72,7 +72,9 @@ export async function getExpenseSummary(year, month) {
     },
   });
   const data = await handleResponse(res, "Failed to fetch expense summary.");
-  summaryCache.set(cacheKey, data);
+  if (data) {
+    summaryCache.set(cacheKey, data);
+  }
   return data;
 }
 

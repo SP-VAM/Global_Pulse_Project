@@ -27,6 +27,7 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.providers.base.stock_provider import StockMarketDataProvider
 from app.services.stock_artifact_loader import get_stock_artifact_loader
 from app.services.technical_indicator_service import TechnicalIndicatorService
+from app.services.stock_alert_service import broadcast_stock_price_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,7 @@ class StockPredictionService:
         self,
         provider: StockMarketDataProvider,
         indicator_service: TechnicalIndicatorService,
+        db_session_factory: Optional[Any] = None,
     ) -> None:
         self.provider = provider
         self.indicator_service = indicator_service
@@ -104,6 +106,8 @@ class StockPredictionService:
         self._sentiment_cache: Dict[str, float] = {}
         self._sentiment_mtime: float = 0.0
         self._is_refreshing: bool = False
+        # Optional DB session factory for broadcasting stock price alerts to users
+        self._db_session_factory = db_session_factory
 
     def normalize_symbol(self, raw_symbol: str) -> str:
         clean = raw_symbol.upper().strip().replace(".NS", "")
@@ -419,6 +423,14 @@ class StockPredictionService:
         if is_full_snapshot and snapshot_items:
             self._snapshot_cache = snapshot_items
             self._snapshot_cache_timestamp = time.time()
+
+        # Broadcast stock price change notifications to all active users
+        if snapshot_items and self._db_session_factory is not None:
+            try:
+                async with self._db_session_factory() as alert_session:
+                    await broadcast_stock_price_alerts(alert_session, snapshot_items)
+            except Exception as alert_err:
+                logger.warning("[StockAlert] Failed to broadcast price alerts: %s", alert_err)
 
         return snapshot_items
 

@@ -138,6 +138,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.services.stock_artifact_loader import get_stock_artifact_loader
     from app.services.stock_prediction_service import StockPredictionService
     from app.services.technical_indicator_service import TechnicalIndicatorService
+    from app.db.session import AsyncSessionLocal
 
     stock_provider = get_stock_provider()
     app.state.stock_provider = stock_provider
@@ -145,7 +146,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.stock_prediction_service = StockPredictionService(
         provider=stock_provider,
         indicator_service=app.state.technical_indicator_service,
+        db_session_factory=AsyncSessionLocal,
     )
+
 
     # Validate stock model artifacts at startup
     artifact_loader = get_stock_artifact_loader()

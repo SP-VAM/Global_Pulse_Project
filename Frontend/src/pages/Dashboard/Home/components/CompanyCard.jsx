@@ -83,11 +83,13 @@ export default function CompanyCard({ company, series, sparkline, style }) {
       <div className="company-card__chart">
         <Sparkline
           points={chartData}
-          color="var(--blue-bright)"
+          history={company?.price_history}
+          color={company?.positive ? "#10b981" : "#f43f5e"}
+          area
           dots
           labels={axisLabels}
-          height={55}
-          strokeWidth={2}
+          height={60}
+          strokeWidth={2.2}
         />
       </div>
     </article>

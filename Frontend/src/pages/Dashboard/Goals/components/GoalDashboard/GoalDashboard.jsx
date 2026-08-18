@@ -256,7 +256,9 @@ export default function GoalDashboard({
             <div className="kpi-card__icon">
               <Check size={16} />
             </div>
-            <span className="kpi-card__label">Goal Completed ✓</span>
+            <span className="kpi-card__label">
+              {extraSaved > 0 ? "Extra Saved" : "Goal Completed ✓"}
+            </span>
             <div className="kpi-card__val">
               {extraSaved > 0 ? formatINR(extraSaved) : "Target Reached"}
             </div>

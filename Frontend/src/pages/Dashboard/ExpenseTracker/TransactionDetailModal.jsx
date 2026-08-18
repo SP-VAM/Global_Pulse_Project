@@ -54,9 +54,18 @@ export default function TransactionDetailModal({ open, tx, onClose, onEdit, onDe
             }}
           >
             <div style={{ fontSize: "14px", fontWeight: 700, color: "#ffffff" }}>
-              {tx.type === "expense" && tx.category === "other"
-                ? cat?.label || "Other"
-                : tx.notes || (cat ? cat.label : "Income")}
+              {(() => {
+                let title = tx.notes && String(tx.notes).trim()
+                  ? String(tx.notes).trim()
+                  : (tx.type === "expense" ? (cat?.label || tx.categoryName || "Expense") : "Income Deposit");
+                if (typeof title === "string" && title.trim().startsWith("{")) {
+                  try {
+                    const parsed = JSON.parse(title);
+                    title = parsed.notes || parsed.specify_expense || parsed.name || (cat?.label || "Expense");
+                  } catch (e) {}
+                }
+                return title;
+              })()}
             </div>
             <div
               style={{

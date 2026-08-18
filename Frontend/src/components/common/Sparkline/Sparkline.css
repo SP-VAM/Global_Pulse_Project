@@ -1,28 +1,69 @@
 .sparkline {
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow: hidden;
+  user-select: none;
 }
 
 .sparkline__svg {
   width: 100%;
   height: auto;
   display: block;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .sparkline__line {
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: stroke 200ms ease;
 }
 
 .sparkline__area {
-  opacity: 0.8;
+  opacity: 0.85;
+  transition: fill 200ms ease;
 }
 
 .sparkline__dot {
-  opacity: 1;
+  pointer-events: none;
+  transition: r 120ms ease, stroke-width 120ms ease;
+}
+
+.sparkline__dot--active {
+  /* Crisp clean white ring highlight on active node — zero white light blob bleeding */
+  transition: r 120ms ease, stroke 120ms ease;
+}
+
+.sparkline__tooltip-badge {
+  position: absolute;
+  top: -2px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.sparkline__tooltip-price {
+  font-family: var(--font-mono, monospace);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.sparkline__tooltip-date {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #94a3b8;
 }
 
 .sparkline__labels {
@@ -31,5 +72,7 @@
   font-family: var(--font-mono, monospace);
   font-size: 11px;
   color: var(--text-3, #64748b);
-  padding: 0 2px;
+  padding: 0 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 6px;
 }

@@ -394,14 +394,19 @@ export default function ExpenseTracker() {
     const isExpense = t.type === "expense";
     const catObj = CATEGORY_MAP[t.category] || {};
     const IconComp = isExpense ? catObj.icon || Wallet : ArrowRightLeft;
-    const isOthers = t.category === "other";
+    let rawTitle = isExpense
+      ? (t.notes && String(t.notes).trim() ? String(t.notes).trim() : (catObj.label || t.categoryName || "Expense"))
+      : (t.notes && String(t.notes).trim() ? String(t.notes).trim() : "Income Deposit");
 
-    // When viewing Others, do not display the Note in this specific view
-    const titleText = isExpense
-      ? isOthers
-        ? catObj.label || "Other"
-        : t.notes || catObj.label || "Expense"
-      : t.notes || "Income Deposit";
+    if (typeof rawTitle === "object" && rawTitle !== null) {
+      rawTitle = rawTitle.notes || rawTitle.specify_expense || rawTitle.name || (catObj.label || "Expense");
+    } else if (typeof rawTitle === "string" && rawTitle.trim().startsWith("{")) {
+      try {
+        const parsed = JSON.parse(rawTitle);
+        rawTitle = parsed.notes || parsed.specify_expense || parsed.name || (catObj.label || "Expense");
+      } catch (e) {}
+    }
+    const titleText = String(rawTitle);
 
     return (
       <div
@@ -433,7 +438,7 @@ export default function ExpenseTracker() {
           <div className="et-tx-item__title">{titleText}</div>
           <div className="et-tx-item__meta">
             {isExpense && (
-              <span className="et-tx-item__badge">{catObj.label || t.categoryName}</span>
+              <span className="et-tx-item__badge">{catObj.label || t.categoryName || "Other"}</span>
             )}
             <span>{t.method}</span>
             <span>•</span>
@@ -1485,6 +1490,7 @@ export default function ExpenseTracker() {
           open={Boolean(budgetModal)}
           mode={budgetModal.mode}
           initial={budgetModal.initial}
+          existingBudgets={activeMonthBudgets}
           onClose={() => setBudgetModal(null)}
           onSave={saveBudget}
           onDelete={() => handleDeleteBudget(budgetModal.initial?.rawId || budgetModal.initial?.id)}

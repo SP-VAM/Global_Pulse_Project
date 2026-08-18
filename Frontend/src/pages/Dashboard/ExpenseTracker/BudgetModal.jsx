@@ -19,7 +19,7 @@ const BLANK = { category: "food", label: "Food", limit: "", notes: "" };
  * Add / Edit Budget Bucket Modal.
  * Uses exact Goals DeleteConfirmationModal system portaled to document.body.
  */
-export default function BudgetModal({ open, mode, initial, onClose, onSave, onDelete, onDeleteBudget }) {
+export default function BudgetModal({ open, mode, initial, existingBudgets = [], onClose, onSave, onDelete, onDeleteBudget }) {
   const isEdit = mode === "edit";
   const [form, setForm] = useState(BLANK);
   const [error, setError] = useState("");
@@ -27,6 +27,15 @@ export default function BudgetModal({ open, mode, initial, onClose, onSave, onDe
  
   const initialLimit = isEdit ? Number(initial?.limit || 0) : 0;
  
+  const checkDuplicateCategory = (targetCategoryKey) => {
+    if (isEdit || !existingBudgets || existingBudgets.length === 0) return false;
+    const normTarget = getCategoryKey(targetCategoryKey);
+    return existingBudgets.some((b) => {
+      const bKey = getCategoryKey(b.category || b.categoryName);
+      return bKey === normTarget;
+    });
+  };
+
   useEffect(() => {
     if (!open) return;
     if (initial) {
@@ -50,7 +59,7 @@ export default function BudgetModal({ open, mode, initial, onClose, onSave, onDe
   const handleLimitChange = (e) => {
     const clean = sanitizeFinancialInput(e.target.value, false);
     setForm((f) => ({ ...f, limit: clean }));
-    if (error) setError("");
+    if (error && error !== "This category already exists") setError("");
   };
  
   const handleCategoryChange = (e) => {
@@ -61,10 +70,20 @@ export default function BudgetModal({ open, mode, initial, onClose, onSave, onDe
       category: catId,
       label: catId === "other" ? (f.category === "other" ? f.label : "") : (f.label && isEdit ? f.label : catObj ? catObj.label : f.label),
     }));
+    if (checkDuplicateCategory(catId)) {
+      setError("This category already exists");
+    } else if (error === "This category already exists") {
+      setError("");
+    }
   };
  
   const submit = (e) => {
     e.preventDefault();
+
+    if (!isEdit && checkDuplicateCategory(form.category)) {
+      setError("This category already exists");
+      return;
+    }
 
     const catObj = CATEGORIES.find((c) => c.id === form.category);
     const categoryName = catObj ? catObj.label : (form.category || "General");

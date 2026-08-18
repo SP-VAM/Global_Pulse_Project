@@ -270,6 +270,8 @@ function transformBackendGoal(bg) {
   };
 }
 
+const getStorageKey = () => `gp_goals_v2_${localStorage.getItem("access_token") || "anon"}`;
+
 export function GoalsProvider({ children }) {
   const [goals, setGoals] = useState([]);
   const [activeGoalId, setActiveGoalId] = useState(null);
@@ -289,9 +291,9 @@ export function GoalsProvider({ children }) {
         }
       }
     } catch (e) {
-      console.warn("Failed to load goals from backend, falling back to local cache:", e);
+      console.warn("Failed to load goals from backend, checking user cache:", e);
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(getStorageKey());
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length > 0) {
@@ -300,7 +302,7 @@ export function GoalsProvider({ children }) {
           }
         }
       } catch (cacheErr) {
-        console.error("Local cache load failed:", cacheErr);
+        console.error("User cache load failed:", cacheErr);
       }
     } finally {
       setLoading(false);
@@ -314,10 +316,12 @@ export function GoalsProvider({ children }) {
 
   // Sync cache on updates
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
-    } catch (e) {
-      console.error("Failed to save goals cache", e);
+    if (goals.length > 0) {
+      try {
+        localStorage.setItem(getStorageKey(), JSON.stringify(goals));
+      } catch (e) {
+        console.error("Failed to save goals cache", e);
+      }
     }
   }, [goals]);
 

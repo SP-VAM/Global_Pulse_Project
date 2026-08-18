@@ -107,22 +107,23 @@ export default function Dashboard() {
   }, [fetchExpenseSummary])
 
   const liveSummaryCards = useMemo(() => {
-    if (!expenseSummary) return summaryCards
+    const spending = expenseSummary ? (expenseSummary.monthlySpending || 0) : null
+    const income = expenseSummary ? (expenseSummary.monthlyIncome || 0) : null
+    const savings = expenseSummary ? (expenseSummary.savings || 0) : null
+    const totalBudget = expenseSummary ? (expenseSummary.budgets || []).reduce((acc, b) => acc + (Number(b.budgetAmount) || 0), 0) : 0
+    const remainingBudget = totalBudget > 0 && spending !== null ? (totalBudget - spending) : 0
 
-    const spending = expenseSummary.monthlySpending || 0
-    const income = expenseSummary.monthlyIncome || 0
-    const savings = expenseSummary.savings || 0
-    const totalBudget = (expenseSummary.budgets || []).reduce((acc, b) => acc + (b.budgetAmount || 0), 0)
-    const remainingBudget = totalBudget > 0 ? (totalBudget - spending) : 0
-
-    const formatVal = (num) => "₹" + Math.round(num).toLocaleString("en-IN")
+    const formatVal = (num) => {
+      if (num === null || num === undefined) return "Loading..."
+      return "₹" + Math.round(num).toLocaleString("en-IN")
+    }
 
     return [
       {
         id: "spending",
         label: "Monthly Spending",
         value: formatVal(spending),
-        change: spending > 0 ? "Logged" : "₹0 spent",
+        change: spending !== null && spending > 0 ? "Logged" : "₹0 spent",
         positive: false,
         icon: "Wallet",
         tone: "blue",
@@ -131,7 +132,7 @@ export default function Dashboard() {
         id: "income",
         label: "Income",
         value: formatVal(income),
-        change: income > 0 ? "Logged" : "₹0 logged",
+        change: income !== null && income > 0 ? "Logged" : "₹0 logged",
         positive: true,
         icon: "TrendingUp",
         tone: "green",
@@ -139,7 +140,7 @@ export default function Dashboard() {
       {
         id: "budget",
         label: "Remaining Budget",
-        value: formatVal(remainingBudget),
+        value: expenseSummary ? formatVal(remainingBudget) : "Loading...",
         change: totalBudget === 0 ? "No budget set" : remainingBudget >= 0 ? "In budget" : "Over budget",
         positive: remainingBudget >= 0,
         icon: "PieChart",
@@ -149,8 +150,8 @@ export default function Dashboard() {
         id: "savings",
         label: "Savings",
         value: formatVal(savings),
-        change: savings >= 0 ? "Net positive" : "Deficit",
-        positive: savings >= 0,
+        change: savings !== null && savings >= 0 ? "Net positive" : "Deficit",
+        positive: savings !== null && savings >= 0,
         icon: "PiggyBank",
         tone: "green",
       },

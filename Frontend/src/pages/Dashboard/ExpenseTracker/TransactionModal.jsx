@@ -204,13 +204,13 @@ export default function TransactionModal({ open, mode, type, initial, selectedDa
       return;
     }
     if (isExpense && form.category === "other") {
-      const otherVal = validateTextLength(form.otherSpecify, 30, "Specify Expense", true);
+      const otherVal = validateTextLength(form.otherSpecify, 30, "Note", true);
       if (!otherVal.isValid) {
         setError(otherVal.error);
         return;
       }
     }
-    const noteVal = validateTextLength(form.notes, 30, "Note", false);
+    const noteVal = validateTextLength(form.notes, 30, "Note", isIncome);
     if (!noteVal.isValid) {
       setError(noteVal.error);
       return;
@@ -307,12 +307,12 @@ export default function TransactionModal({ open, mode, type, initial, selectedDa
           </div>
         )}
 
-        {/* SPECIFY EXPENSE (When Category = Other) */}
+        {/* NOTE (When Category = Other) */}
         {isExpense && form.category === "other" && (
           <div className="drawer-panel__field">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <label className="drawer-panel__label" htmlFor="tx-other-specify">
-                Specify Expense <span className="goal-creation__req">*</span>
+                Note <span className="goal-creation__req">*</span>
               </label>
               <span style={{ fontSize: "11px", color: form.otherSpecify.length >= 30 ? "#ef4444" : "#94a3b8" }}>
                 {form.otherSpecify.length}/30
@@ -325,7 +325,7 @@ export default function TransactionModal({ open, mode, type, initial, selectedDa
                 type="text"
                 maxLength={30}
                 className={`drawer-panel__input ${error && (!form.otherSpecify || !form.otherSpecify.trim()) ? "has-error" : ""}`}
-                placeholder="Enter type of expense (max 30 chars)..."
+                placeholder="Enter description or note (max 30 chars)..."
                 value={form.otherSpecify}
                 onChange={handleOtherSpecifyChange}
                 required
@@ -466,29 +466,41 @@ export default function TransactionModal({ open, mode, type, initial, selectedDa
         </div>
 
         {/* NOTE */}
-        <div className="drawer-panel__field">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <label className="drawer-panel__label" htmlFor="tx-notes">
-              Note <span className="goal-creation__opt">(Optional)</span>
-            </label>
-            <span style={{ fontSize: "11px", color: form.notes.length >= 30 ? "#ef4444" : "#94a3b8" }}>
-              {form.notes.length}/30
-            </span>
+        {!(isExpense && form.category === "other") && (
+          <div className="drawer-panel__field">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label className="drawer-panel__label" htmlFor="tx-notes">
+                Note{" "}
+                {isIncome ? (
+                  <span className="goal-creation__req">*</span>
+                ) : (
+                  <span className="goal-creation__opt">(Optional)</span>
+                )}
+              </label>
+              <span style={{ fontSize: "11px", color: form.notes.length >= 30 ? "#ef4444" : "#94a3b8" }}>
+                {form.notes.length}/30
+              </span>
+            </div>
+            <div className="drawer-panel__input-wrapper">
+              <FileText size={16} className="drawer-panel__icon" />
+              <input
+                id="tx-notes"
+                type="text"
+                maxLength={30}
+                className={`drawer-panel__input ${error && isIncome && (!form.notes || !form.notes.trim()) ? "has-error" : ""}`}
+                placeholder={
+                  isIncome
+                    ? "Enter income description or note..."
+                    : "Add description or note (max 30 chars)..."
+                }
+                value={form.notes}
+                onChange={handleNotesChange}
+                onPaste={handleNotesPaste}
+                required={isIncome}
+              />
+            </div>
           </div>
-          <div className="drawer-panel__input-wrapper">
-            <FileText size={16} className="drawer-panel__icon" />
-            <input
-              id="tx-notes"
-              type="text"
-              maxLength={30}
-              className="drawer-panel__input"
-              placeholder="Add description or notes (max 30 chars)..."
-              value={form.notes}
-              onChange={handleNotesChange}
-              onPaste={handleNotesPaste}
-            />
-          </div>
-        </div>
+        )}
 
         {error && <span className="drawer-panel__err-msg">{error}</span>}
 
