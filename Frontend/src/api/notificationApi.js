@@ -2,7 +2,7 @@
  * API client service for FRD-048 Push Notifications.
  * Strictly uses application access_token and relative API path.
  */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ""
+import { API_BASE_URL } from "../config/api.js";
 
 function getAuthHeader() {
   const token = localStorage.getItem("access_token") || localStorage.getItem("token")

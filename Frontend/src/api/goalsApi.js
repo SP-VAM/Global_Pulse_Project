@@ -2,7 +2,7 @@
  * API client service for Financial Goals (FRD-041).
  * Communicates with backend endpoints (/api/v1/goals).
  */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === "localhost" ? "http://localhost:8000" : "");
+import { API_BASE_URL } from "../config/api.js";
 
 function getAuthHeader() {
   const token = localStorage.getItem("token") || localStorage.getItem("access_token");

@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { API_BASE_URL } from "./api.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAl_ADzvszn-x0t0ZaxO89brx1Oo5IWRA0",
@@ -94,7 +95,6 @@ export const verifyFirebasePhoneOTP = async (otpCode) => {
 };
 
 export const authenticateWithBackend = async (idToken, username = null) => {
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === "localhost" ? "http://localhost:8000" : "");
   const response = await fetch(`${API_BASE_URL}/api/auth/firebase-login`, {
     method: "POST",
     headers: {
