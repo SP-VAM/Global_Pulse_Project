@@ -1,129 +1,90 @@
 """
-GlobalPulse — ML Model Downloader
-===================================
-Runs BEFORE uvicorn starts (see Dockerfile CMD).
-Downloads large .pkl model files from Google Drive into the models directory.
-Skips files that already exist on disk (safe to re-run).
+GlobalPulse — ML Model Downloader (runs at Render container startup)
+=====================================================================
+Downloads large .pkl model files from Hugging Face Hub into the models
+directory BEFORE uvicorn starts. Skips files that already exist on disk.
 
-HOW TO GET A GOOGLE DRIVE FILE ID:
-  1. Upload the .pkl file to Google Drive
-  2. Right-click → Share → Change to "Anyone with the link"
-  3. Copy the link: https://drive.google.com/file/d/FILE_ID_HERE/view
-  4. Paste just the FILE_ID_HERE into MODEL_FILES below
+Required environment variables (set in Render dashboard):
+  HF_REPO_ID  — e.g. "your_username/globalpulse-ml-models"
+  HF_TOKEN    — Hugging Face read token (keep private)
 """
 
 import os
 import sys
-import urllib.request
-import urllib.error
-
-# ── Configuration ─────────────────────────────────────────────────────────────
-# Directory where models will be saved (matches STOCK_MODEL_DIR in config.py)
-MODEL_DIR = os.environ.get("STOCK_MODEL_DIR", "app/data/stocks/models")
-
-# ── Model File Registry ────────────────────────────────────────────────────────
-# Format: "filename.pkl": "GOOGLE_DRIVE_FILE_ID"
-# Fill in the Google Drive File IDs after uploading your .pkl files.
-MODEL_FILES = {
-    "xgboost_model.pkl":                   os.environ.get("GDRIVE_XGBOOST_MODEL", ""),
-    "label_encoder.pkl":                   os.environ.get("GDRIVE_LABEL_ENCODER", ""),
-    "model_features.pkl":                  os.environ.get("GDRIVE_MODEL_FEATURES", ""),
-    "model_1d_3class.pkl":                 os.environ.get("GDRIVE_MODEL_1D_3CLASS", ""),
-    "model_1d_3class_encoder.pkl":         os.environ.get("GDRIVE_MODEL_1D_3CLASS_ENC", ""),
-    "model_1d_3class_features.pkl":        os.environ.get("GDRIVE_MODEL_1D_3CLASS_FEAT", ""),
-    "model_1d_binary.pkl":                 os.environ.get("GDRIVE_MODEL_1D_BINARY", ""),
-    "model_1d_binary_encoder.pkl":         os.environ.get("GDRIVE_MODEL_1D_BINARY_ENC", ""),
-    "model_1d_binary_features.pkl":        os.environ.get("GDRIVE_MODEL_1D_BINARY_FEAT", ""),
-    "model_5d_3class.pkl":                 os.environ.get("GDRIVE_MODEL_5D_3CLASS", ""),
-    "model_5d_3class_encoder.pkl":         os.environ.get("GDRIVE_MODEL_5D_3CLASS_ENC", ""),
-    "model_5d_3class_features.pkl":        os.environ.get("GDRIVE_MODEL_5D_3CLASS_FEAT", ""),
-    "model_5d_binary.pkl":                 os.environ.get("GDRIVE_MODEL_5D_BINARY", ""),
-    "model_5d_binary_encoder.pkl":         os.environ.get("GDRIVE_MODEL_5D_BINARY_ENC", ""),
-    "model_5d_binary_features.pkl":        os.environ.get("GDRIVE_MODEL_5D_BINARY_FEAT", ""),
-    "model_10d_3class.pkl":                os.environ.get("GDRIVE_MODEL_10D_3CLASS", ""),
-    "model_10d_3class_encoder.pkl":        os.environ.get("GDRIVE_MODEL_10D_3CLASS_ENC", ""),
-    "model_10d_3class_features.pkl":       os.environ.get("GDRIVE_MODEL_10D_3CLASS_FEAT", ""),
-    "model_10d_binary.pkl":                os.environ.get("GDRIVE_MODEL_10D_BINARY", ""),
-    "model_10d_binary_encoder.pkl":        os.environ.get("GDRIVE_MODEL_10D_BINARY_ENC", ""),
-    "model_10d_binary_features.pkl":       os.environ.get("GDRIVE_MODEL_10D_BINARY_FEAT", ""),
-    "model_10d_binary_sector.pkl":         os.environ.get("GDRIVE_MODEL_10D_SECTOR", ""),
-    "model_10d_binary_sector_encoder.pkl": os.environ.get("GDRIVE_MODEL_10D_SECTOR_ENC", ""),
-    "model_10d_binary_sector_features.pkl":os.environ.get("GDRIVE_MODEL_10D_SECTOR_FEAT", ""),
-}
-
-# JSON metric files — small, commit to git instead (these are skipped here)
-SKIP_EXTENSIONS = {".json"}
-
-# ── Download Helper ────────────────────────────────────────────────────────────
-
-def gdrive_url(file_id: str) -> str:
-    """Build the direct Google Drive download URL for a given file ID."""
-    return f"https://drive.google.com/uc?export=download&id={file_id}&confirm=t"
-
-
-def download_file(url: str, dest: str) -> None:
-    """Download a file from url to dest with progress logging."""
-    print(f"  ↓ Downloading → {os.path.basename(dest)}", flush=True)
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=600) as response, open(dest, "wb") as out:
-            total = int(response.headers.get("Content-Length", 0))
-            downloaded = 0
-            chunk = 1024 * 1024  # 1 MB chunks
-            while True:
-                data = response.read(chunk)
-                if not data:
-                    break
-                out.write(data)
-                downloaded += len(data)
-                if total:
-                    pct = downloaded * 100 // total
-                    print(f"    {pct}% ({downloaded // (1024*1024)} MB / {total // (1024*1024)} MB)", flush=True)
-        print(f"  ✓ Done: {os.path.basename(dest)}", flush=True)
-    except Exception as e:
-        print(f"  ✗ FAILED: {os.path.basename(dest)} — {e}", flush=True)
-        # Remove partial file
-        if os.path.exists(dest):
-            os.remove(dest)
-        raise
-
+import time
 
 def main() -> None:
     print("=" * 60, flush=True)
-    print("GlobalPulse — ML Model Download Check", flush=True)
+    print("GlobalPulse — ML Model Download Check (Hugging Face Hub)", flush=True)
     print("=" * 60, flush=True)
 
-    os.makedirs(MODEL_DIR, exist_ok=True)
+    # ── Read config from environment ──────────────────────────────────────────
+    hf_repo_id = os.environ.get("HF_REPO_ID", "").strip()
+    hf_token   = os.environ.get("HF_TOKEN", "").strip()
+    model_dir  = os.environ.get("STOCK_MODEL_DIR", "app/data/stocks/models").strip()
 
-    skipped = 0
-    downloaded = 0
-    failed = 0
+    if not hf_repo_id:
+        print("WARNING: HF_REPO_ID not set — skipping model download.", flush=True)
+        print("  Stock predictions will fail if model files are missing.", flush=True)
+        return
 
-    for filename, file_id in MODEL_FILES.items():
-        dest = os.path.join(MODEL_DIR, filename)
-        ext = os.path.splitext(filename)[1]
+    # ── Try importing huggingface_hub ─────────────────────────────────────────
+    try:
+        from huggingface_hub import HfApi, hf_hub_download, list_repo_files
+    except ImportError:
+        print("ERROR: huggingface_hub package not installed.", flush=True)
+        print("  Add 'huggingface_hub' to requirements.txt", flush=True)
+        sys.exit(1)
 
-        # Skip non-pkl files
-        if ext in SKIP_EXTENSIONS:
-            continue
+    os.makedirs(model_dir, exist_ok=True)
 
-        # Already on disk — skip
+    # ── Get list of files in the HF repo ─────────────────────────────────────
+    try:
+        api = HfApi(token=hf_token if hf_token else None)
+        remote_files = [
+            f for f in api.list_repo_files(repo_id=hf_repo_id, repo_type="model")
+            if f.endswith(".pkl")
+        ]
+    except Exception as e:
+        print(f"ERROR: Could not list files in {hf_repo_id}: {e}", flush=True)
+        print("  Check HF_REPO_ID and HF_TOKEN are correct.", flush=True)
+        return
+
+    if not remote_files:
+        print(f"WARNING: No .pkl files found in {hf_repo_id}", flush=True)
+        return
+
+    print(f"Found {len(remote_files)} model files in {hf_repo_id}", flush=True)
+
+    downloaded = skipped = failed = 0
+
+    for filename in remote_files:
+        dest = os.path.join(model_dir, filename)
+
+        # Already on disk with real content — skip
         if os.path.exists(dest) and os.path.getsize(dest) > 1024:
             size_mb = os.path.getsize(dest) / (1024 * 1024)
             print(f"  ✓ Already exists ({size_mb:.1f} MB): {filename}", flush=True)
             skipped += 1
             continue
 
-        # No Google Drive ID configured — skip with warning
-        if not file_id:
-            print(f"  ⚠ No GDRIVE ID set for {filename} — skipping", flush=True)
-            skipped += 1
-            continue
-
+        print(f"  ↓ Downloading: {filename} ...", flush=True)
+        t0 = time.time()
         try:
-            download_file(gdrive_url(file_id), dest)
+            local_path = hf_hub_download(
+                repo_id=hf_repo_id,
+                filename=filename,
+                repo_type="model",
+                token=hf_token if hf_token else None,
+                local_dir=model_dir,
+                local_dir_use_symlinks=False,
+            )
+            elapsed = time.time() - t0
+            size_mb = os.path.getsize(local_path) / (1024 * 1024)
+            print(f"  ✓ Done: {filename} ({size_mb:.1f} MB in {elapsed:.1f}s)", flush=True)
             downloaded += 1
-        except Exception:
+        except Exception as e:
+            print(f"  ✗ FAILED: {filename} — {e}", flush=True)
             failed += 1
 
     print("=" * 60, flush=True)

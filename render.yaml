@@ -24,7 +24,7 @@ services:
 
       # ── Database (Railway PostgreSQL — already running) ─────────────────────
       - key: DATABASE_URL
-        sync: false         # Set this manually in Render dashboard
+        sync: false
 
       # ── Security ────────────────────────────────────────────────────────────
       - key: JWT_SECRET_KEY
@@ -32,7 +32,7 @@ services:
       - key: SECRET_KEY
         sync: false
 
-      # ── API Keys ─────────────────────────────────────────────────────────────
+      # ── External API Keys ────────────────────────────────────────────────────
       - key: FINNHUB_API_KEY
         sync: false
       - key: NEWS_API_KEY
@@ -44,57 +44,15 @@ services:
       - key: FAST2SMS_API_KEY
         sync: false
 
-      # ── ML Model Google Drive File IDs (from your Google Drive uploads) ──────
-      - key: GDRIVE_XGBOOST_MODEL
+      # ── Hugging Face — ML Model Storage ─────────────────────────────────────
+      # HF_REPO_ID  : e.g. "your_username/globalpulse-ml-models"
+      # HF_TOKEN    : Hugging Face read token (from huggingface.co/settings/tokens)
+      - key: HF_REPO_ID
         sync: false
-      - key: GDRIVE_LABEL_ENCODER
-        sync: false
-      - key: GDRIVE_MODEL_FEATURES
-        sync: false
-      - key: GDRIVE_MODEL_1D_3CLASS
-        sync: false
-      - key: GDRIVE_MODEL_1D_3CLASS_ENC
-        sync: false
-      - key: GDRIVE_MODEL_1D_3CLASS_FEAT
-        sync: false
-      - key: GDRIVE_MODEL_1D_BINARY
-        sync: false
-      - key: GDRIVE_MODEL_1D_BINARY_ENC
-        sync: false
-      - key: GDRIVE_MODEL_1D_BINARY_FEAT
-        sync: false
-      - key: GDRIVE_MODEL_5D_3CLASS
-        sync: false
-      - key: GDRIVE_MODEL_5D_3CLASS_ENC
-        sync: false
-      - key: GDRIVE_MODEL_5D_3CLASS_FEAT
-        sync: false
-      - key: GDRIVE_MODEL_5D_BINARY
-        sync: false
-      - key: GDRIVE_MODEL_5D_BINARY_ENC
-        sync: false
-      - key: GDRIVE_MODEL_5D_BINARY_FEAT
-        sync: false
-      - key: GDRIVE_MODEL_10D_3CLASS
-        sync: false
-      - key: GDRIVE_MODEL_10D_3CLASS_ENC
-        sync: false
-      - key: GDRIVE_MODEL_10D_3CLASS_FEAT
-        sync: false
-      - key: GDRIVE_MODEL_10D_BINARY
-        sync: false
-      - key: GDRIVE_MODEL_10D_BINARY_ENC
-        sync: false
-      - key: GDRIVE_MODEL_10D_BINARY_FEAT
-        sync: false
-      - key: GDRIVE_MODEL_10D_SECTOR
-        sync: false
-      - key: GDRIVE_MODEL_10D_SECTOR_ENC
-        sync: false
-      - key: GDRIVE_MODEL_10D_SECTOR_FEAT
+      - key: HF_TOKEN
         sync: false
 
-      # ── CORS — allow frontend Render URL ────────────────────────────────────
+      # ── CORS ─────────────────────────────────────────────────────────────────
       - key: ALLOWED_ORIGINS
         value: '["https://globalpulse-frontend.onrender.com"]'
       - key: ALLOWED_HOSTS
@@ -106,7 +64,7 @@ services:
     runtime: docker
     dockerfilePath: ./Frontend/Dockerfile
     dockerContext: ./Frontend
-    plan: free              # Static frontend — free tier is fine
+    plan: free
     region: singapore
     autoDeploy: true
 
