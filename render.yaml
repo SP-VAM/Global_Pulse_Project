@@ -1,0 +1,115 @@
+# render.yaml — GlobalPulse Render Deployment Blueprint
+# This file auto-configures both services when connected to Render.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # ─── Backend (FastAPI + yfinance + XGBoost ML) ─────────────────────────────
+  - type: web
+    name: globalpulse-backend
+    runtime: docker
+    dockerfilePath: ./globalpulse-backend/Dockerfile
+    dockerContext: ./globalpulse-backend
+    plan: standard          # 2 GB RAM — required for XGBoost model loading
+    region: singapore       # Closest to India
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PORT
+        value: "8000"
+      - key: LOG_LEVEL
+        value: INFO
+
+      # ── Database (Railway PostgreSQL — already running) ─────────────────────
+      - key: DATABASE_URL
+        sync: false         # Set this manually in Render dashboard
+
+      # ── Security ────────────────────────────────────────────────────────────
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+
+      # ── API Keys ─────────────────────────────────────────────────────────────
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: NEWS_API_KEY
+        sync: false
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: TRADING_ECONOMICS_API_KEY
+        sync: false
+      - key: FAST2SMS_API_KEY
+        sync: false
+
+      # ── ML Model Google Drive File IDs (from your Google Drive uploads) ──────
+      - key: GDRIVE_XGBOOST_MODEL
+        sync: false
+      - key: GDRIVE_LABEL_ENCODER
+        sync: false
+      - key: GDRIVE_MODEL_FEATURES
+        sync: false
+      - key: GDRIVE_MODEL_1D_3CLASS
+        sync: false
+      - key: GDRIVE_MODEL_1D_3CLASS_ENC
+        sync: false
+      - key: GDRIVE_MODEL_1D_3CLASS_FEAT
+        sync: false
+      - key: GDRIVE_MODEL_1D_BINARY
+        sync: false
+      - key: GDRIVE_MODEL_1D_BINARY_ENC
+        sync: false
+      - key: GDRIVE_MODEL_1D_BINARY_FEAT
+        sync: false
+      - key: GDRIVE_MODEL_5D_3CLASS
+        sync: false
+      - key: GDRIVE_MODEL_5D_3CLASS_ENC
+        sync: false
+      - key: GDRIVE_MODEL_5D_3CLASS_FEAT
+        sync: false
+      - key: GDRIVE_MODEL_5D_BINARY
+        sync: false
+      - key: GDRIVE_MODEL_5D_BINARY_ENC
+        sync: false
+      - key: GDRIVE_MODEL_5D_BINARY_FEAT
+        sync: false
+      - key: GDRIVE_MODEL_10D_3CLASS
+        sync: false
+      - key: GDRIVE_MODEL_10D_3CLASS_ENC
+        sync: false
+      - key: GDRIVE_MODEL_10D_3CLASS_FEAT
+        sync: false
+      - key: GDRIVE_MODEL_10D_BINARY
+        sync: false
+      - key: GDRIVE_MODEL_10D_BINARY_ENC
+        sync: false
+      - key: GDRIVE_MODEL_10D_BINARY_FEAT
+        sync: false
+      - key: GDRIVE_MODEL_10D_SECTOR
+        sync: false
+      - key: GDRIVE_MODEL_10D_SECTOR_ENC
+        sync: false
+      - key: GDRIVE_MODEL_10D_SECTOR_FEAT
+        sync: false
+
+      # ── CORS — allow frontend Render URL ────────────────────────────────────
+      - key: ALLOWED_ORIGINS
+        value: '["https://globalpulse-frontend.onrender.com"]'
+      - key: ALLOWED_HOSTS
+        value: '["globalpulse-backend.onrender.com","localhost","127.0.0.1"]'
+
+  # ─── Frontend (React + Vite + Nginx) ───────────────────────────────────────
+  - type: web
+    name: globalpulse-frontend
+    runtime: docker
+    dockerfilePath: ./Frontend/Dockerfile
+    dockerContext: ./Frontend
+    plan: free              # Static frontend — free tier is fine
+    region: singapore
+    autoDeploy: true
+
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://globalpulse-backend.onrender.com
