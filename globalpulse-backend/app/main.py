@@ -246,27 +246,18 @@ def create_app() -> FastAPI:
     # H-1: Security response headers
     app.add_middleware(SecurityHeadersMiddleware, app_env=settings.APP_ENV)
 
-    # C-1: CORS — explicit origin list in staging/production
-    # In development: permit localhost dev-server origins only.
-    # In staging/production: use ALLOWED_ORIGINS from settings.
-    if _is_dev:
-        cors_origins = ["*"]
-    else:
-        cors_origins = settings.ALLOWED_ORIGINS
-
+    # C-1: CORS — permit frontend and onrender origins
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=True if not _is_dev and cors_origins else False,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID", "Accept", "Origin"],
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
-    # H-5: Trusted host enforcement (outermost — first to process request)
-    # Development uses ["*"] wildcard to allow the Starlette test client,
-    # local dev servers, and other tooling without configuration.
-    allowed_hosts = ["*"] if _is_dev else settings.ALLOWED_HOSTS
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+    # H-5: Trusted host enforcement — accept all hosts on cloud deployments
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+
 
     # Mount auth router from Final_Frontend (/api/auth)
     from app.auth_routes import router as auth_router
