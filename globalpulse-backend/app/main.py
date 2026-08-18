@@ -158,7 +158,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.STOCK_MODEL_DIR,
         )
 
-    # Asynchronously download missing ML model files from HuggingFace in background
+    # Asynchronously download missing ML model files from HuggingFace in background (lean, low-memory)
     async def _download_models_background() -> None:
         try:
             import subprocess
@@ -171,104 +171,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     model_download_task = asyncio.create_task(_download_models_background())
 
-    # Asynchronously warm up the stock market snapshot in the background
-    async def _warmup_market_snapshot() -> None:
-        try:
-            logger.info("Starting background market snapshot cache warm-up...")
-            items = await app.state.stock_prediction_service.get_market_snapshot()
-            logger.info("Market snapshot warm-up completed successfully (%d items cached).", len(items))
-        except Exception as e:
-            logger.warning("Background market snapshot warm-up skipped/failed: %s", e)
-
-    warmup_task = asyncio.create_task(_warmup_market_snapshot())
-
-
-
-    # Pre-warm full analysis cache for the 10 most-visited Nifty stocks.
-    # This eliminates the cold yfinance fetch delay for the most common user requests.
-    _TOP_STOCKS_TO_PREWARM = [
-        "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
-        "BHARTIARTL", "SBIN", "HCLTECH", "WIPRO", "AXISBANK",
-    ]
-
-    async def _prewarm_top_stock_analysis() -> None:
-        from app.api.v1.stocks import _full_analysis_cache, _ANALYSIS_CACHE_TTL
-        import time as _time
-        import pandas as pd
-
-        svc = app.state.stock_prediction_service
-        ind_svc = app.state.technical_indicator_service
-
-        logger.info("Starting background analysis pre-warm for top %d stocks...", len(_TOP_STOCKS_TO_PREWARM))
-
-        async def _prewarm_one(sym: str) -> None:
-            cache_key = f"{sym}_1y"
-            now = _time.time()
-            if cache_key in _full_analysis_cache:
-                cached_resp, cached_time = _full_analysis_cache[cache_key]
-                if now - cached_time < _ANALYSIS_CACHE_TTL:
-                    return  # already warm
-
-            try:
-                prices_df = await svc.provider.get_historical_prices(sym, period="1y")
-                pred_res = await svc.predict_stock_movement(symbol=sym, prices_df=prices_df)
-                pred_res.pop("prices_df", None)
-
-                enriched_df = ind_svc.compute_all_indicators(prices_df)
-                tech_summary = ind_svc.extract_summary(enriched_df)
-
-                historical_chart_data = []
-                for _, row in enriched_df.iterrows():
-                    dt_str = str(pd.to_datetime(row["Date"]).strftime("%Y-%m-%d")) if "Date" in row else ""
-                    close_val = round(float(row.get("Close", 0.0)), 2)
-                    historical_chart_data.append({
-                        "date": dt_str,
-                        "price": close_val,
-                        "open": round(float(row.get("Open", close_val)), 2),
-                        "high": round(float(row.get("High", close_val)), 2),
-                        "low": round(float(row.get("Low", close_val)), 2),
-                        "close": close_val,
-                        "volume": round(float(row.get("Volume", 0.0)), 2),
-                        "sma20": round(float(row["SMA20"]), 2) if ("SMA20" in row and not pd.isna(row["SMA20"]) and float(row["SMA20"]) > 0) else None,
-                        "sma50": round(float(row["SMA50"]), 2) if ("SMA50" in row and not pd.isna(row["SMA50"]) and float(row["SMA50"]) > 0) else None,
-                        "sma200": round(float(row["SMA200"]), 2) if ("SMA200" in row and not pd.isna(row["SMA200"]) and float(row["SMA200"]) > 0) else None,
-                        "rsi": round(float(row["RSI"]), 2) if ("RSI" in row and not pd.isna(row["RSI"])) else None,
-                        "macd": round(float(row["MACD"]), 4) if ("MACD" in row and not pd.isna(row["MACD"])) else None,
-                        "macd_signal": round(float(row["MACD_SIGNAL"]), 4) if ("MACD_SIGNAL" in row and not pd.isna(row["MACD_SIGNAL"])) else None,
-                        "macd_hist": round(float(row["MACD_HIST"]), 4) if ("MACD_HIST" in row and not pd.isna(row["MACD_HIST"])) else None,
-                        "upper_band": round(float(row["BB_UPPER"]), 2) if ("BB_UPPER" in row and not pd.isna(row["BB_UPPER"]) and float(row["BB_UPPER"]) > 0) else None,
-                        "middle_band": round(float(row["BB_MIDDLE"]), 2) if ("BB_MIDDLE" in row and not pd.isna(row["BB_MIDDLE"]) and float(row["BB_MIDDLE"]) > 0) else None,
-                        "lower_band": round(float(row["BB_LOWER"]), 2) if ("BB_LOWER" in row and not pd.isna(row["BB_LOWER"]) and float(row["BB_LOWER"]) > 0) else None,
-                    })
-
-                from app.schemas.stocks import StockFullAnalysisResponse, TechnicalSummarySchema
-                response = StockFullAnalysisResponse(
-                    symbol=sym,
-                    company_name=pred_res["company_name"],
-                    period="1y",
-                    as_of_date=pred_res["as_of_date"],
-                    current_close=pred_res["current_close"],
-                    price_change=pred_res.get("price_change", 0.0),
-                    price_change_percent=pred_res.get("price_change_percent", 0.0),
-                    prediction=pred_res["prediction"],
-                    technical_indicators=TechnicalSummarySchema(**tech_summary),
-                    top_influencing_features=pred_res["top_influencing_features"],
-                    sentiment_source=pred_res["sentiment_source"],
-                    price_history=pred_res.get("price_history", []),
-                    historical_chart_data=historical_chart_data,
-                )
-                _full_analysis_cache[cache_key] = (response, _time.time())
-                logger.info("[PreWarm] Cached analysis for %s", sym)
-            except Exception as e:
-                logger.debug("[PreWarm] Skipped %s: %s", sym, e)
-
-        # Fire all 10 concurrently so total wait = slowest single stock, not sum of all
-        await asyncio.gather(*[_prewarm_one(s) for s in _TOP_STOCKS_TO_PREWARM], return_exceptions=True)
-        logger.info("[PreWarm] Top stock analysis pre-warm complete.")
-
-    prewarm_analysis_task = asyncio.create_task(_prewarm_top_stock_analysis())
-
-
     logger.info(
         "GlobalPulse startup complete. Providers: FinnhubMarketProvider, "
         "TradingEconomicsProvider, NewsApiProvider, StockMarketProvider (%s). Phase 1–6 Ready.",
@@ -277,14 +179,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield  # Application is running
 
-    # Shutdown — cancel warmup if still running, and close all HTTP clients
+    # Shutdown — cancel model download task if still running, and close all HTTP clients
     logger.info("GlobalPulse shutting down...")
     if not model_download_task.done():
         model_download_task.cancel()
-    if not warmup_task.done():
-        warmup_task.cancel()
-    if not prewarm_analysis_task.done():
-        prewarm_analysis_task.cancel()
+
 
     await finnhub_provider.close()
     await te_provider.close()
