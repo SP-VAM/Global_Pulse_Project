@@ -158,16 +158,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.STOCK_MODEL_DIR,
         )
 
-    # Asynchronously warm up the stock market snapshot in the background without blocking server startup
-    async def _warmup_market_snapshot() -> None:
+    # Asynchronously download missing ML model files from HuggingFace in background
+    async def _download_models_background() -> None:
         try:
-            logger.info("Starting background market snapshot cache warm-up...")
-            items = await app.state.stock_prediction_service.get_market_snapshot()
-            logger.info("Market snapshot warm-up completed successfully (%d items cached).", len(items))
+            import subprocess
+            loop = asyncio.get_running_loop()
+            logger.info("Checking & downloading ML models in background from HuggingFace...")
+            await loop.run_in_executor(None, subprocess.run, ["python", "scripts/download_models.py"])
+            logger.info("Background ML model download check completed.")
         except Exception as e:
-            logger.warning("Background market snapshot warm-up skipped/failed: %s", e)
+            logger.warning("Background ML model download skipped/failed: %s", e)
+
+    model_download_task = asyncio.create_task(_download_models_background())
 
     warmup_task = asyncio.create_task(_warmup_market_snapshot())
+
 
     # Pre-warm full analysis cache for the 10 most-visited Nifty stocks.
     # This eliminates the cold yfinance fetch delay for the most common user requests.
@@ -264,6 +269,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Shutdown — cancel warmup if still running, and close all HTTP clients
     logger.info("GlobalPulse shutting down...")
+    if not model_download_task.done():
+        model_download_task.cancel()
     if not warmup_task.done():
         warmup_task.cancel()
     if not prewarm_analysis_task.done():
