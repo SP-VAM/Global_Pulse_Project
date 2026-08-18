@@ -204,10 +204,11 @@
 }
 
 .dashboard__intel-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 24px;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
   width: 100%;
 }
 

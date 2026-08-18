@@ -88,6 +88,8 @@ export default function App() {
           <Route path="market-analysis" element={<MarketAnalysis />} />
           <Route path="learning-hub" element={<LearningHub />} />
           <Route path="expense-tracker" element={<ExpenseTracker />} />
+          <Route path="expenses" element={<ExpenseTracker />} />
+          <Route path="expense" element={<ExpenseTracker />} />
           <Route path="upgrade" element={<Upgrade />} />
           <Route path="settings" element={<Settings />} />
           <Route path="profile" element={<Profile />} />

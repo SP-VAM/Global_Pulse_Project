@@ -162,19 +162,28 @@ export default function Navbar({ onLogoutClick }) {
   }
 
   const handleNotificationClick = async (notif) => {
-    if (!notif.is_read) {
+    if (!notif) return
+
+    if (!notif.is_read && (notif.notification_id || notif.id)) {
+      const notifId = notif.notification_id || notif.id
       setNotifications((prev) =>
-        prev.map((n) => (n.notification_id === notif.notification_id ? { ...n, is_read: true } : n))
+        prev.map((n) => ((n.notification_id || n.id) === notifId ? { ...n, is_read: true } : n))
       )
       try {
-        await markNotificationRead(notif.notification_id)
+        await markNotificationRead(notifId)
       } catch (e) {
-        console.debug("Single mark read skipped:", e)
+        console.debug("[Navbar] Single mark read skipped:", e)
       }
     }
+
+    setOpenMenu(null)
+
     if (notif.action_url) {
-      setOpenMenu(null)
-      navigate(notif.action_url)
+      let targetUrl = notif.action_url
+      if (targetUrl === "/dashboard/expenses" || targetUrl === "/dashboard/expense") {
+        targetUrl = "/dashboard/expense-tracker"
+      }
+      navigate(targetUrl)
     }
   }
 

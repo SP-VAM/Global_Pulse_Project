@@ -296,7 +296,7 @@ class ExpenseService:
                     f"for {cat_name} was added successfully."
                 ),
                 notification_type="FINANCIAL",
-                action_url="/dashboard/expenses",
+                action_url="/dashboard/expense-tracker",
                 send_push=True,
             )
 
@@ -357,7 +357,7 @@ class ExpenseService:
                         f"in {cat_name}. Please review your recent activity."
                     ),
                     notification_type="SECURITY",
-                    action_url="/dashboard/expenses",
+                    action_url="/dashboard/expense-tracker",
                     send_push=True,
                 )
 
@@ -422,7 +422,7 @@ class ExpenseService:
                             f"of ₹{budget_limit:,.2f}."
                         ),
                         notification_type="BUDGET_ALERT",
-                        action_url="/dashboard/expenses",
+                        action_url="/dashboard/expense-tracker",
                         send_push=True,
                     )
 
@@ -473,7 +473,7 @@ class ExpenseService:
                     "was added successfully."
                 ),
                 notification_type="FINANCIAL",
-                action_url="/dashboard/expenses",
+                action_url="/dashboard/expense-tracker",
                 send_push=True,
             )
 

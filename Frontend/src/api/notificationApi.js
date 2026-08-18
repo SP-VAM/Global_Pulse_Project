@@ -1,11 +1,15 @@
 /**
  * API client service for FRD-048 Push Notifications.
+ * Strictly uses application access_token and relative API path.
  */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === "localhost" ? "http://localhost:8000" : "")
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ""
 
 function getAuthHeader() {
-  const token = localStorage.getItem("token") || localStorage.getItem("access_token")
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  const token = localStorage.getItem("access_token") || localStorage.getItem("token")
+  if (token && token !== "demo_token" && token !== "null" && token !== "undefined") {
+    return { Authorization: `Bearer ${token}` }
+  }
+  return {}
 }
 
 export async function fetchNotifications({ limit = 50, offset = 0, unreadOnly = false } = {}) {
@@ -34,6 +38,7 @@ export async function fetchUnreadCount() {
 }
 
 export async function markNotificationRead(notificationId) {
+  if (!notificationId) return { success: false }
   const headers = {
     "Content-Type": "application/json",
     ...getAuthHeader(),

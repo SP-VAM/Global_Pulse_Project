@@ -11,7 +11,7 @@ export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const navigate = useNavigate()
-  const token = localStorage.getItem("access_token")
+  const token = localStorage.getItem("access_token") || localStorage.getItem("token")
 
   // Auth Guard: Require valid non-demo JWT token for protected dashboard layout
   if (!token || token === "demo_token" || token === "null" || token === "undefined") {
