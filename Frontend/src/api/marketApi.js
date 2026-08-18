@@ -130,7 +130,7 @@ export async function getMarketSnapshot(symbols) {
  * @param {string} symbol
  * @param {string} period
  */
-export async function getStockAnalysis(symbol, period = "1y") {
+export async function getStockAnalysis(symbol, period = "1y", fetchOptions = {}) {
   const cleanSymbol = String(symbol || "")
     .replace(".NS", "")
     .trim()
@@ -141,9 +141,8 @@ export async function getStockAnalysis(symbol, period = "1y") {
   }
 
   return request(
-    `/stocks/${encodeURIComponent(
-      cleanSymbol
-    )}/analysis?period=${encodeURIComponent(period)}`
+    `/stocks/${encodeURIComponent(cleanSymbol)}/analysis?period=${encodeURIComponent(period)}`,
+    fetchOptions
   );
 }
 

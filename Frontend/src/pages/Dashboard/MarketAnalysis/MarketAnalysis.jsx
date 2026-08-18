@@ -138,6 +138,8 @@ export default function MarketAnalysis() {
   // Client-side in-memory analysis cache for instant sub-millisecond tab/symbol switching
   const analysisCacheRef = useRef(new Map())
   const sentimentCacheRef = useRef(new Map())
+  const abortControllerRef = useRef(null)
+  const ongoingFetchRef = useRef(null)
 
   // Company List fetched directly from backend GET /api/v1/stocks/companies
   const [companies, setCompanies] = useState([])
@@ -194,11 +196,10 @@ export default function MarketAnalysis() {
 
   // Fetch full analysis with in-memory client-side cache
   useEffect(() => {
-    let isMounted = true
     const period = RANGE_TO_PERIOD[selectedRange] || "1y"
     const cacheKey = `${selectedSymbol}_${period}`
 
-    // Instant resolution if cached in client memory
+    // If cached, resolve instantly and ensure no network request
     if (analysisCacheRef.current.has(cacheKey)) {
       setLiveApiData(analysisCacheRef.current.get(cacheKey))
       setLoading(false)
@@ -206,12 +207,26 @@ export default function MarketAnalysis() {
       return
     }
 
+    // Abort any previous in-flight request when symbol/period changes
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort()
+      } catch (e) {
+        /* ignore */
+      }
+      abortControllerRef.current = null
+    }
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     setLoading(true)
     setApiError(null)
 
-    getStockAnalysis(selectedSymbol, period)
-      .then((res) => {
-        if (isMounted) {
+    // If a fetch for the same key is already in-flight, attach to it to avoid duplicate network calls
+    if (ongoingFetchRef.current && ongoingFetchRef.current.key === cacheKey) {
+      ongoingFetchRef.current.promise
+        .then((res) => {
           if (res && res.historical_chart_data) {
             analysisCacheRef.current.set(cacheKey, res)
             setLiveApiData(res)
@@ -220,23 +235,64 @@ export default function MarketAnalysis() {
             setApiError("Live market data unavailable")
             setLiveApiData(null)
           }
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
+        })
+        .catch((err) => {
+          if (err?.name === "AbortError") return
           console.warn("[MarketAnalysis] Live API fetch error:", err)
           setApiError("Live market data unavailable")
           setLiveApiData(null)
+        })
+        .finally(() => setLoading(false))
+
+      return () => {
+        // do not abort the shared in-flight request here; callers share it
+      }
+    }
+
+    const fetchPromise = (async () => {
+      try {
+        const res = await getStockAnalysis(selectedSymbol, period, { signal: controller.signal })
+        if (res && res.historical_chart_data) {
+          analysisCacheRef.current.set(cacheKey, res)
+          setLiveApiData(res)
+          setApiError(null)
+        } else {
+          setApiError("Live market data unavailable")
+          setLiveApiData(null)
         }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false)
+        return res
+      } catch (err) {
+        if (err?.name === "AbortError") {
+          // request was cancelled — do not treat as error
+          return Promise.reject(err)
         }
-      })
+        console.warn("[MarketAnalysis] Live API fetch error:", err)
+        setApiError("Live market data unavailable")
+        setLiveApiData(null)
+        return Promise.reject(err)
+      } finally {
+        setLoading(false)
+      }
+    })()
+
+    ongoingFetchRef.current = { key: cacheKey, promise: fetchPromise }
+
+    // Ensure ongoingFetchRef is cleared when this fetch completes
+    fetchPromise.finally(() => {
+      if (ongoingFetchRef.current && ongoingFetchRef.current.key === cacheKey) {
+        ongoingFetchRef.current = null
+      }
+    })
 
     return () => {
-      isMounted = false
+      // Cancel this particular request if still running when component unmounts or deps change
+      try {
+        controller.abort()
+      } catch (e) {
+        /* ignore */
+      }
+      // leave ongoingFetchRef to let other attachers continue
+      abortControllerRef.current = null
     }
   }, [selectedSymbol, selectedRange])
 
