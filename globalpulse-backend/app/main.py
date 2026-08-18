@@ -150,26 +150,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
 
 
-    # Validate stock model artifacts at startup
+    # Check stock model artifacts at startup
     artifact_loader = get_stock_artifact_loader()
-    if not artifact_loader.validate_artifacts_exist():
-        logger.warning(
-            "Stock ML model artifacts incomplete in %s. Stock predictions may fail.",
-            settings.STOCK_MODEL_DIR,
+    model_download_task = None
+    if artifact_loader.validate_artifacts_exist():
+        logger.info(
+            "Stock ML model artifacts verified on disk (%s). No download required.",
+            os.path.basename(artifact_loader.model_path),
         )
+    else:
+        # Only download if required artifacts are actually missing
+        async def _download_models_background() -> None:
+            try:
+                import subprocess
+                loop = asyncio.get_running_loop()
+                logger.info("Artifacts missing; checking & downloading from HuggingFace...")
+                await loop.run_in_executor(None, subprocess.run, ["python", "scripts/download_models.py"])
+                logger.info("Background ML model download check completed.")
+            except Exception as e:
+                logger.warning("Background ML model download skipped/failed: %s", e)
 
-    # Asynchronously download missing ML model files from HuggingFace in background (lean, low-memory)
-    async def _download_models_background() -> None:
-        try:
-            import subprocess
-            loop = asyncio.get_running_loop()
-            logger.info("Checking & downloading ML models in background from HuggingFace...")
-            await loop.run_in_executor(None, subprocess.run, ["python", "scripts/download_models.py"])
-            logger.info("Background ML model download check completed.")
-        except Exception as e:
-            logger.warning("Background ML model download skipped/failed: %s", e)
+        model_download_task = asyncio.create_task(_download_models_background())
 
-    model_download_task = asyncio.create_task(_download_models_background())
 
     logger.info(
         "GlobalPulse startup complete. Providers: FinnhubMarketProvider, "
@@ -181,7 +183,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Shutdown — cancel model download task if still running, and close all HTTP clients
     logger.info("GlobalPulse shutting down...")
-    if not model_download_task.done():
+    if model_download_task and not model_download_task.done():
         model_download_task.cancel()
 
 
