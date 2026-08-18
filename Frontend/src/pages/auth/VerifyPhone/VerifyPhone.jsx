@@ -174,7 +174,6 @@ function VerifyPhone() {
           ? `${API_BASE_URL}/api/auth/send-signup-otp`
           : `${API_BASE_URL}/api/auth/send-login-otp`;
 
-      let backendSuccess = false;
       try {
         const backendResp = await fetch(apiUrl, {
           method: "POST",
@@ -185,13 +184,14 @@ function VerifyPhone() {
             mobile_number: fullFormattedNumber,
           }),
         });
+
+        const resData = await backendResp.json().catch(() => ({}));
+
         if (backendResp.ok) {
           backendSuccess = true;
-          const resData = await backendResp.json().catch(() => ({}));
-          console.log("Backend OTP response:", resData);
+          console.log("Fast2SMS OTP sent successfully:", resData);
         } else {
-          const errData = await backendResp.json().catch(() => ({}));
-          const errMsg = errData.detail || errData.error?.message || errData.message;
+          const errMsg = resData.detail || resData.error?.message || resData.message;
           if (errMsg) {
             let msg = errMsg;
             if (msg.toLowerCase().includes("already registered") || msg.toLowerCase().includes("already exist")) {
@@ -206,35 +206,12 @@ function VerifyPhone() {
           return;
         }
       } catch (backendErr) {
-        console.warn("Backend API offline, trying Firebase Phone Auth:", backendErr);
+        console.error("Backend Fast2SMS error:", backendErr);
+        setErrorMessage("Network error connecting to authentication server. Please try again.");
+        setLoading(false);
+        return;
       }
 
-      // Dispatch Firebase Real SMS as fallback if backend was not used
-      let firebaseSent = false;
-      if (!backendSuccess) {
-        try {
-          await sendFirebasePhoneOTP(fullFormattedNumber, "recaptcha-container");
-          firebaseSent = true;
-        } catch (fbErr) {
-          console.error("Firebase Real SMS Error:", fbErr);
-          let userFacingErr = fbErr.message || "Failed to send SMS code.";
-          if (fbErr.code === "auth/invalid-phone-number") {
-            userFacingErr = "Invalid phone number format for selected country code.";
-          } else if (fbErr.code === "auth/billing-not-enabled" || fbErr.message?.includes("billing-not-enabled")) {
-            userFacingErr = "Firebase SMS requires the Blaze plan for real phone numbers. For development, register this number as a test phone number in Firebase Console → Authentication → Phone Numbers for Testing.";
-          } else if (fbErr.code === "auth/operation-not-allowed") {
-            userFacingErr = "Phone authentication disabled in Firebase Console. Please enable Phone provider under Sign-in method, or select India (+91) for free testing.";
-          } else if (fbErr.code === "auth/invalid-app-credential") {
-            userFacingErr = "Domain error: Please add 'localhost' to Authorized Domains in Firebase Console Settings.";
-          } else if (fbErr.code === "auth/quota-exceeded") {
-            userFacingErr = "Firebase SMS daily limit exceeded.";
-          } else if (fbErr.code === "auth/captcha-check-failed") {
-            userFacingErr = "reCAPTCHA verification failed. Please try again.";
-          }
-          setErrorMessage(userFacingErr);
-          return;
-        }
-      }
 
       navigate("/otp", {
         state: {
