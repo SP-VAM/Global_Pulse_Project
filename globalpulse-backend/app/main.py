@@ -171,7 +171,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     model_download_task = asyncio.create_task(_download_models_background())
 
+    # Asynchronously warm up the stock market snapshot in the background
+    async def _warmup_market_snapshot() -> None:
+        try:
+            logger.info("Starting background market snapshot cache warm-up...")
+            items = await app.state.stock_prediction_service.get_market_snapshot()
+            logger.info("Market snapshot warm-up completed successfully (%d items cached).", len(items))
+        except Exception as e:
+            logger.warning("Background market snapshot warm-up skipped/failed: %s", e)
+
     warmup_task = asyncio.create_task(_warmup_market_snapshot())
+
 
 
     # Pre-warm full analysis cache for the 10 most-visited Nifty stocks.
