@@ -114,7 +114,7 @@ async def diag_yfinance_fetch(
 _settings = get_settings()
 
 _full_analysis_cache: Dict[str, Tuple[StockFullAnalysisResponse, float]] = {}
-_ANALYSIS_CACHE_TTL: float = 180.0  # 3 minutes in-memory TTL for stock full analysis response
+_ANALYSIS_CACHE_TTL: float = 1800.0  # 30-minute in-memory TTL — eliminates repeated yfinance fetches
 
 _SYMBOL_PATH = Path(
     ...,

@@ -235,149 +235,121 @@ export default function MarketAnalysis() {
   const [sentimentLoading, setSentimentLoading] = useState(true)
   const [sentimentError, setSentimentError] = useState(null)
 
-  // Fetch full analysis with in-memory client-side cache
+  // Fetch analysis + sentiment in PARALLEL — both fire simultaneously.
+  // Analysis data renders chart/price instantly on arrival.
+  // Sentiment renders independently when it resolves.
   useEffect(() => {
     const period = RANGE_TO_PERIOD[selectedRange] || "1y"
-    const cacheKey = `${selectedSymbol}_${period}`
+    const analysisCacheKey = `${selectedSymbol}_${period}`
+    const sentimentCacheKey = selectedSymbol
+    let isMounted = true
 
-    // If cached, resolve instantly and ensure no network request
-    if (analysisCacheRef.current.has(cacheKey)) {
-      setLiveApiData(analysisCacheRef.current.get(cacheKey))
+    // ── Analysis ──────────────────────────────────────────────────────
+    const cachedAnalysis = analysisCacheRef.current.get(analysisCacheKey)
+    if (cachedAnalysis) {
+      setLiveApiData(cachedAnalysis)
       setLoading(false)
       setApiError(null)
-      return
-    }
-
-    // Abort any previous in-flight request when symbol/period changes
-    if (abortControllerRef.current) {
-      try {
-        abortControllerRef.current.abort()
-      } catch (e) {
-        /* ignore */
+    } else {
+      // Abort previous in-flight analysis request
+      if (abortControllerRef.current) {
+        try { abortControllerRef.current.abort() } catch (_) {}
+        abortControllerRef.current = null
       }
-      abortControllerRef.current = null
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+      setLoading(true)
+      setApiError(null)
     }
 
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-
-    setLoading(true)
-    setApiError(null)
-
-    // If a fetch for the same key is already in-flight, attach to it to avoid duplicate network calls
-    if (ongoingFetchRef.current && ongoingFetchRef.current.key === cacheKey) {
-      ongoingFetchRef.current.promise
-        .then((res) => {
-          if (res && res.historical_chart_data) {
-            analysisCacheRef.current.set(cacheKey, res)
-            setLiveApiData(res)
-            setApiError(null)
-          } else {
-            setApiError("Live market data unavailable")
-            setLiveApiData(null)
-          }
-        })
-        .catch((err) => {
-          if (err?.name === "AbortError") return
-          console.warn("[MarketAnalysis] Live API fetch error:", err)
-          setApiError("Live market data unavailable")
-          setLiveApiData(null)
-        })
-        .finally(() => setLoading(false))
-
-      return () => {
-        // do not abort the shared in-flight request here; callers share it
-      }
+    // ── Sentiment ─────────────────────────────────────────────────────
+    const cachedSentiment = sentimentCacheRef.current.get(sentimentCacheKey)
+    if (cachedSentiment) {
+      setSentimentData(cachedSentiment)
+      setSentimentLoading(false)
+      setSentimentError(null)
+    } else {
+      setSentimentLoading(true)
+      setSentimentError(null)
+      setSentimentData(null)
     }
 
-    const fetchPromise = (async () => {
-      try {
-        const res = await getStockAnalysis(selectedSymbol, period, { signal: controller.signal })
+    // If both already cached — nothing to fetch
+    if (cachedAnalysis && cachedSentiment) return
+
+    // Build the two fetch promises; skip whichever is already cached
+    const analysisPromise = cachedAnalysis
+      ? Promise.resolve(cachedAnalysis)
+      : (async () => {
+          const controller = abortControllerRef.current
+          const res = await getStockAnalysis(selectedSymbol, period, {
+            signal: controller?.signal,
+          })
+          return res
+        })()
+
+    const sentimentPromise = cachedSentiment
+      ? Promise.resolve(cachedSentiment)
+      : getStockSentiment(selectedSymbol)
+
+    // Track in-flight analysis for dedup
+    if (!cachedAnalysis) {
+      ongoingFetchRef.current = { key: analysisCacheKey, promise: analysisPromise }
+    }
+
+    // Fire both simultaneously — each settles independently
+    analysisPromise
+      .then((res) => {
+        if (!isMounted) return
         if (res && res.historical_chart_data) {
-          analysisCacheRef.current.set(cacheKey, res)
+          analysisCacheRef.current.set(analysisCacheKey, res)
           setLiveApiData(res)
           setApiError(null)
         } else {
           setApiError("Live market data unavailable")
           setLiveApiData(null)
         }
-        return res
-      } catch (err) {
-        if (err?.name === "AbortError") {
-          // request was cancelled — do not treat as error
-          return Promise.reject(err)
-        }
-        console.warn("[MarketAnalysis] Live API fetch error:", err)
+      })
+      .catch((err) => {
+        if (!isMounted || err?.name === "AbortError") return
+        console.warn("[MarketAnalysis] Analysis fetch error:", err)
         setApiError("Live market data unavailable")
         setLiveApiData(null)
-        return Promise.reject(err)
-      } finally {
-        setLoading(false)
-      }
-    })()
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false)
+        if (ongoingFetchRef.current?.key === analysisCacheKey) {
+          ongoingFetchRef.current = null
+        }
+      })
 
-    ongoingFetchRef.current = { key: cacheKey, promise: fetchPromise }
-
-    // Ensure ongoingFetchRef is cleared when this fetch completes
-    fetchPromise.finally(() => {
-      if (ongoingFetchRef.current && ongoingFetchRef.current.key === cacheKey) {
-        ongoingFetchRef.current = null
-      }
-    })
-
-    return () => {
-      // Cancel this particular request if still running when component unmounts or deps change
-      try {
-        controller.abort()
-      } catch (e) {
-        /* ignore */
-      }
-      // leave ongoingFetchRef to let other attachers continue
-      abortControllerRef.current = null
-    }
-  }, [selectedSymbol, selectedRange])
-
-  // Fetch dynamic news sentiment from backend API
-  useEffect(() => {
-    let isMounted = true
-    const cacheKey = selectedSymbol
-
-    if (sentimentCacheRef.current.has(cacheKey)) {
-      setSentimentData(sentimentCacheRef.current.get(cacheKey))
-      setSentimentLoading(false)
-      setSentimentError(null)
-      return
-    }
-
-    setSentimentLoading(true)
-    setSentimentError(null)
-    setSentimentData(null)
-
-    getStockSentiment(selectedSymbol)
+    sentimentPromise
       .then((res) => {
-        if (isMounted && res) {
-          sentimentCacheRef.current.set(cacheKey, res)
+        if (!isMounted) return
+        if (res) {
+          sentimentCacheRef.current.set(sentimentCacheKey, res)
           setSentimentData(res)
           setSentimentError(null)
         }
       })
       .catch((err) => {
-        if (isMounted) {
-          console.warn("[MarketAnalysis] Dynamic news sentiment fetch error:", err)
-          setSentimentError("Failed to load news sentiment data")
-          setSentimentData(null)
-        }
+        if (!isMounted) return
+        console.warn("[MarketAnalysis] Sentiment fetch error:", err)
+        setSentimentError("Failed to load news sentiment data")
+        setSentimentData(null)
       })
       .finally(() => {
-        if (isMounted) {
-          setSentimentLoading(false)
-        }
+        if (isMounted) setSentimentLoading(false)
       })
 
     return () => {
       isMounted = false
+      try { abortControllerRef.current?.abort() } catch (_) {}
+      abortControllerRef.current = null
     }
-  }, [selectedSymbol])
+  }, [selectedSymbol, selectedRange])
+
+
 
   // Derived Historical Chart Data Series
   const chartData = useMemo(() => {
