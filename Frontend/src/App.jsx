@@ -93,6 +93,8 @@ export default function App() {
           <Route path="upgrade" element={<Upgrade />} />
           <Route path="settings" element={<Settings />} />
           <Route path="profile" element={<Profile />} />
+          {/* Safety catch-all: unknown /dashboard/* stays inside dashboard */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
 
         {/* Catch-all Fallback */}

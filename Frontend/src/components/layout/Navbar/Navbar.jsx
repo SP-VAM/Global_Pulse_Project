@@ -179,13 +179,49 @@ export default function Navbar({ onLogoutClick }) {
     setOpenMenu(null)
 
     if (notif.action_url) {
-      let targetUrl = notif.action_url
-      if (targetUrl === "/dashboard/expenses" || targetUrl === "/dashboard/expense") {
-        targetUrl = "/dashboard/expense-tracker"
+      // Exhaustive map of every possible action_url → confirmed existing route.
+      // Any unmapped/unknown URL stays inside the dashboard instead of hitting
+      // the catch-all which redirects to "/" and looks like a logout.
+      const ROUTE_MAP = {
+        // Expense / income / budget
+        "/dashboard/expenses":        "/dashboard/expense-tracker",
+        "/dashboard/expense":         "/dashboard/expense-tracker",
+        "/dashboard/expense-tracker": "/dashboard/expense-tracker",
+        "/dashboard/budget":          "/dashboard/expense-tracker",
+        "/dashboard/income":          "/dashboard/expense-tracker",
+        // Goals
+        "/dashboard/goals":           "/dashboard/goals",
+        "/dashboard/goal":            "/dashboard/goals",
+        // Market / stocks
+        "/dashboard/market-analysis": "/dashboard/market-analysis",
+        "/dashboard/market":          "/dashboard/market-analysis",
+        "/dashboard/stocks":          "/dashboard/market-analysis",
+        "/dashboard/constituents":    "/dashboard/constituents",
+        // Investments
+        "/dashboard/investments":     "/dashboard",
+        "/dashboard/portfolio":       "/dashboard",
+        // Security / profile
+        "/dashboard/profile":         "/dashboard/profile",
+        "/dashboard/settings":        "/dashboard/settings",
+        "/dashboard/security":        "/dashboard/profile",
+        // Learning
+        "/dashboard/learning-hub":    "/dashboard/learning-hub",
+        "/dashboard/learn":           "/dashboard/learning-hub",
       }
+
+      // Also handle /dashboard/stocks/SYMBOL patterns
+      const raw = notif.action_url
+      let targetUrl =
+        ROUTE_MAP[raw] ||
+        (raw.startsWith("/dashboard/stocks") ? "/dashboard/market-analysis" : null) ||
+        (raw.startsWith("/dashboard/expense") ? "/dashboard/expense-tracker" : null) ||
+        (raw.startsWith("/dashboard/goal") ? "/dashboard/goals" : null) ||
+        "/dashboard"   // absolute safe fallback — stays inside dashboard
+
       navigate(targetUrl)
     }
   }
+
 
   const toggle = (menu) => setOpenMenu((cur) => (cur === menu ? null : menu))
 

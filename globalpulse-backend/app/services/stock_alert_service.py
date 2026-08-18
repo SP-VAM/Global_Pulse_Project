@@ -193,7 +193,7 @@ async def broadcast_stock_price_alerts(
                     message=message,
                     notification_type="MARKET_ALERT",
                     is_read=False,
-                    action_url=f"/dashboard/stocks/{symbol}",
+                    action_url="/dashboard/market-analysis",
                 )
                 session.add(notification)
                 sent_count += 1
