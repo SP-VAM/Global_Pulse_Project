@@ -275,7 +275,17 @@ def create_app() -> FastAPI:
     # Mount versioned API router (/api/v1)
     app.include_router(v1_router)
 
+    # Root health check endpoint
+    @app.get("/", summary="Root Health Check", tags=["Health"])
+    async def root_health():
+        return {
+            "status": "healthy",
+            "service": f"{settings.APP_NAME} API",
+            "version": settings.APP_VERSION,
+        }
+
     return app
+
 
 
 app = create_app()
