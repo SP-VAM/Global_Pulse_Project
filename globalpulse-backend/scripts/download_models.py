@@ -1,32 +1,32 @@
 """
 GlobalPulse — ML Model Downloader (runs at Render container startup)
 =====================================================================
-Downloads ONLY 1-Day prediction model files and metadata encoders.
-Completely excludes 10d, 5d, and heavy multi-gigabyte models to ensure
-fast startup, minimal memory usage, and zero disk bloat.
+Downloads lightweight, memory-safe model files (<250MB) suitable for
+the Render Free Tier (512MB RAM limit).
 """
 
 import os
 import sys
 import time
 
-# Only 1-Day prediction models and shared encoders
+# Lightweight models and metadata encoders
 TARGET_FILES = [
     "label_encoder.pkl",
     "model_features.pkl",
+    "model_5d_binary.pkl",
+    "model_5d_binary_encoder.pkl",
+    "model_5d_binary_features.pkl",
     "model_1d_binary.pkl",
     "model_1d_binary_encoder.pkl",
     "model_1d_binary_features.pkl",
-    "model_1d_3class_encoder.pkl",
-    "model_1d_3class_features.pkl",
 ]
 
-# Explicitly ignore 10d, 5d, and heavy models
-IGNORE_PATTERNS = ["10d", "5d", "xgboost_model"]
+# Explicitly ignore heavy multi-hundred-megabyte 3-class / multi-class models
+EXCLUDE_PATTERNS = ["3class", "sector", "10d", "xgboost_model"]
 
 def main() -> None:
     print("=" * 60, flush=True)
-    print("GlobalPulse — 1-Day ML Model Download (Hugging Face Hub)", flush=True)
+    print("GlobalPulse — Lightweight ML Model Downloader (<250MB)", flush=True)
     print("=" * 60, flush=True)
 
     hf_repo_id = os.environ.get("HF_REPO_ID", "").strip()
@@ -55,13 +55,14 @@ def main() -> None:
         print(f"ERROR: Could not list files in {hf_repo_id}: {e}", flush=True)
         return
 
-    # Filter: Keep target files, exclude any with 10d/5d/xgboost_model
+    # Keep only target files and exclude heavy multi-class models
     selected_files = [
         f for f in all_remote
-        if f in TARGET_FILES or (not any(pat in f.lower() for pat in IGNORE_PATTERNS))
+        if (f in TARGET_FILES or (not any(pat in f.lower() for pat in EXCLUDE_PATTERNS)))
+        and not any(pat in f.lower() for pat in EXCLUDE_PATTERNS)
     ]
 
-    print(f"Downloading {len(selected_files)} 1-Day model files (10d & 5d excluded):", flush=True)
+    print(f"Downloading {len(selected_files)} memory-safe model files:", flush=True)
     for f in selected_files:
         print(f"  • {f}", flush=True)
 
