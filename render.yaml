@@ -9,7 +9,7 @@ services:
     runtime: docker
     dockerfilePath: ./globalpulse-backend/Dockerfile
     dockerContext: ./globalpulse-backend
-    plan: standard          # 2 GB RAM — required for XGBoost model loading
+    plan: free              # 100% Free plan — no credit card required
     region: singapore       # Closest to India
     healthCheckPath: /api/v1/health
     autoDeploy: true
