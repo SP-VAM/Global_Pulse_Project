@@ -12,7 +12,7 @@ import "./styles/auth_legacy.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || "1087823527415-sampleclientid.apps.googleusercontent.com"}>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || "515335749994-cfdtgpa99tu6rni2hjggc7ktud1olp8b.apps.googleusercontent.com"}>
       <BrowserRouter>
         <App />
       </BrowserRouter>
