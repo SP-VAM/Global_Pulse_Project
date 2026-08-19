@@ -246,12 +246,22 @@ def create_app() -> FastAPI:
     # H-1: Security response headers
     app.add_middleware(SecurityHeadersMiddleware, app_env=settings.APP_ENV)
 
-    # C-1: CORS — permit frontend and onrender origins
+    # C-1: CORS — permit frontend localhost (any port) and all onrender origins
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:3000",
+        "https://globalpulse-frontend-axvx.onrender.com",
+        "https://globalpulse-frontend-axvv.onrender.com",
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_origin_regex=r"^https:\/\/.*\.onrender\.com$",
-        allow_credentials=False,
+        allow_origins=allowed_origins,
+        allow_origin_regex=r"^https?:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?$|^https:\/\/.*\.onrender\.com$",
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )

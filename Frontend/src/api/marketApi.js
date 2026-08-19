@@ -22,60 +22,71 @@ const API_BASE = `${API_BASE_URL}/api/v1`;
 // Generic API Request Helper
 // ---------------------------------------------------------
 
-async function request(endpoint, options = {}) {
+async function request(endpoint, options = {}, retries = 2) {
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
 
   // Get authentication token
-  const token = localStorage.getItem("access_token");
+  const token = localStorage.getItem("access_token") || localStorage.getItem("token");
 
   if (token && token !== "demo_token") {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  for (let attempt = 1; attempt <= retries + 1; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+      });
 
-  // Safely read response
-  const contentType = (
-    response.headers.get("content-type") || ""
-  ).toLowerCase();
+      // Safely read response
+      const contentType = (
+        response.headers.get("content-type") || ""
+      ).toLowerCase();
 
-  let data = null;
+      let data = null;
 
-  if (contentType.includes("application/json")) {
-    const text = await response.text();
+      if (contentType.includes("application/json")) {
+        const text = await response.text();
 
-    if (text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = null;
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = null;
+          }
+        }
+      } else {
+        const text = await response.text();
+
+        if (text) {
+          data = { detail: text };
+        }
       }
-    }
-  } else {
-    const text = await response.text();
 
-    if (text) {
-      data = { detail: text };
+      // Handle errors
+      if (!response.ok) {
+        const errorMessage =
+          data?.detail ||
+          data?.message ||
+          data?.error?.message ||
+          `HTTP error ${response.status}`;
+
+        throw new Error(errorMessage);
+      }
+
+      return data;
+    } catch (err) {
+      if (attempt <= retries && (err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError") || err.name === "TypeError")) {
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+        continue;
+      }
+      throw err;
     }
   }
-
-  // Handle errors
-  if (!response.ok) {
-    const errorMessage =
-      data?.detail ||
-      data?.message ||
-      `HTTP error ${response.status}`;
-
-    throw new Error(errorMessage);
-  }
-
-  return data;
 }
 
 // ---------------------------------------------------------

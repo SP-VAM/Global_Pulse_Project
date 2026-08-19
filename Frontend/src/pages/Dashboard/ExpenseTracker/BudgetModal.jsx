@@ -77,7 +77,7 @@ export default function BudgetModal({ open, mode, initial, existingBudgets = [],
     }
   };
  
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
 
     if (!isEdit && checkDuplicateCategory(form.category)) {
@@ -102,12 +102,16 @@ export default function BudgetModal({ open, mode, initial, existingBudgets = [],
       return;
     }
  
-    onSave({
-      category: form.category,
-      label: categoryName,
-      limit: limitVal.numValue,
-      notes: "",
-    });
+    try {
+      await onSave({
+        category: form.category,
+        label: categoryName,
+        limit: limitVal.numValue,
+        notes: "",
+      });
+    } catch (err) {
+      setError(err.message || "Failed to save budget.");
+    }
   };
  
   const handleDeleteConfirm = () => {

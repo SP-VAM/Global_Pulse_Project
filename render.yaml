@@ -54,7 +54,7 @@ services:
 
       # ── CORS ─────────────────────────────────────────────────────────────────
       - key: ALLOWED_ORIGINS
-        value: '["https://globalpulse-frontend-axvx.onrender.com","https://globalpulse-frontend.onrender.com","http://localhost:5173","http://127.0.0.1:5173"]'
+        value: '["https://globalpulse-frontend-axvx.onrender.com","https://globalpulse-frontend-axvv.onrender.com","https://globalpulse-frontend.onrender.com","http://localhost:5173","http://localhost:5174","http://127.0.0.1:5173","http://127.0.0.1:5174"]'
       - key: ALLOWED_HOSTS
         value: '["*"]'
 

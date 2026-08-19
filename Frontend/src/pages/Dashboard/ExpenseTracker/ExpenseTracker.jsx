@@ -560,7 +560,8 @@ export default function ExpenseTracker() {
         window.dispatchEvent(new CustomEvent("expense-updated"));
       }
     } catch (err) {
-      alert(`Error saving transaction: ${err.message}`);
+      console.error("[ExpenseTracker] Error saving transaction:", err);
+      throw err;
     } finally {
       isSavingRef.current = false;
     }
@@ -582,7 +583,8 @@ export default function ExpenseTracker() {
         window.dispatchEvent(new CustomEvent("expense-updated"));
       }
     } catch (err) {
-      alert(`Error deleting transaction: ${err.message}`);
+      console.error("[ExpenseTracker] Error deleting transaction:", err);
+      setError(err.message || "Failed to delete transaction.");
     }
   };
 
@@ -603,7 +605,9 @@ export default function ExpenseTracker() {
         window.dispatchEvent(new CustomEvent("expense-updated"));
       }
     } catch (err) {
-      alert(`Error saving budget: ${err.message}`);
+      console.error("[ExpenseTracker] Error saving budget:", err);
+      setError(err.message || "Failed to save budget.");
+      throw err;
     }
   };
 
@@ -616,7 +620,8 @@ export default function ExpenseTracker() {
         window.dispatchEvent(new CustomEvent("expense-updated"));
       }
     } catch (err) {
-      alert(`Error deleting budget: ${err.message}`);
+      console.error("[ExpenseTracker] Error deleting budget:", err);
+      setError(err.message || "Failed to delete budget.");
     }
   };
 
