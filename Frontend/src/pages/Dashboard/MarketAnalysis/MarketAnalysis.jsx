@@ -542,50 +542,64 @@ export default function MarketAnalysis() {
             <div className="smp-metric-item">
               <span className="smp-metric-item__label">Current Price</span>
               <div className="smp-metric-item__val">
-                ₹{currentPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                <span className={priceChange >= 0 ? "smp-badge--pos" : "smp-badge--neg"}>
-                  {priceChange >= 0 ? "+" : ""}
-                  {priceChangePct}%
-                </span>
+                {loading ? (
+                  <span style={{ color: "#94a3b8" }}>Loading...</span>
+                ) : currentPrice > 0 ? (
+                  <>
+                    ₹{currentPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    <span className={priceChange >= 0 ? "smp-badge--pos" : "smp-badge--neg"}>
+                      {priceChange >= 0 ? "+" : ""}
+                      {priceChangePct}%
+                    </span>
+                  </>
+                ) : (
+                  <span style={{ color: "#94a3b8" }}>Unavailable</span>
+                )}
               </div>
             </div>
 
             <div className="smp-metric-item">
               <span className="smp-metric-item__label">Prev Close</span>
               <div className="smp-metric-item__val">
-                ₹{(prevCandle ? prevCandle.close : currentPrice).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                {loading ? (
+                  <span style={{ color: "#94a3b8" }}>...</span>
+                ) : (prevCandle ? prevCandle.close : currentPrice) > 0 ? (
+                  `₹${(prevCandle ? prevCandle.close : currentPrice).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                ) : (
+                  "N/A"
+                )}
               </div>
             </div>
 
             <div className="smp-metric-item">
               <span className="smp-metric-item__label">Volume</span>
-              <div className="smp-metric-item__val">{latestCandle ? latestCandle.volume.toLocaleString("en-IN") : "N/A"}</div>
+              <div className="smp-metric-item__val">{loading ? "..." : (latestCandle && latestCandle.volume > 0 ? latestCandle.volume.toLocaleString("en-IN") : "N/A")}</div>
             </div>
 
             <div className="smp-metric-item">
               <span className="smp-metric-item__label">Open</span>
               <div className="smp-metric-item__val">
-                ₹{(latestCandle ? latestCandle.open : currentPrice).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                {loading ? "..." : (latestCandle && latestCandle.open > 0 ? `₹${latestCandle.open.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "N/A")}
               </div>
             </div>
 
             <div className="smp-metric-item">
               <span className="smp-metric-item__label">High</span>
               <div className="smp-metric-item__val">
-                ₹{(latestCandle ? latestCandle.high : currentPrice).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                {loading ? "..." : (latestCandle && latestCandle.high > 0 ? `₹${latestCandle.high.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "N/A")}
               </div>
             </div>
 
             <div className="smp-metric-item">
               <span className="smp-metric-item__label">Low</span>
               <div className="smp-metric-item__val">
-                ₹{(latestCandle ? latestCandle.low : currentPrice).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                {loading ? "..." : (latestCandle && latestCandle.low > 0 ? `₹${latestCandle.low.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "N/A")}
               </div>
             </div>
           </div>
 
           <div className="smp-header__subtext">
-            As of Date: {liveApiData?.as_of_date || latestCandle?.date || "Live"}
+            {loading ? "Fetching market data..." : `As of Date: ${liveApiData?.as_of_date || latestCandle?.date || "Live"}`}
           </div>
         </header>
 

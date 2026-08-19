@@ -400,6 +400,8 @@ async def test_stocks_indicators_endpoint_valid(stocks_app):
 @pytest.mark.asyncio
 async def test_stocks_analysis_endpoint_valid_single_fetch(stocks_app):
     """Verifies orchestrated endpoint single-fetches market data and returns priceHistory."""
+    from app.api.v1.stocks import _full_analysis_cache
+    _full_analysis_cache.clear()
     provider = stocks_app.state.stock_provider
     initial_fetch_count = provider.fetch_count
 

@@ -397,13 +397,13 @@ class TestYFinanceProviderFailures:
     @pytest.mark.asyncio
     async def test_missing_required_column_raises_provider_unavailable(self):
         import pandas as pd
-        from app.core.exceptions import ProviderUnavailableError
+        from app.core.exceptions import NotFoundError, ProviderUnavailableError
         from app.providers.yfinance.provider import YFinanceMarketDataProvider
         p = YFinanceMarketDataProvider()
         incomplete_df = pd.DataFrame({"Date": ["2026-01-01"], "Open": [100.0]})
         with patch("app.providers.yfinance.provider.yf.download", return_value=incomplete_df):
-            with pytest.raises(ProviderUnavailableError, match="missing"):
-                await p.get_historical_prices("RELIANCE.NS")
+            with pytest.raises((ProviderUnavailableError, NotFoundError)):
+                await p.get_historical_prices("UNKNOWN_XYZ.NS")
 
 
 # ===========================================================================

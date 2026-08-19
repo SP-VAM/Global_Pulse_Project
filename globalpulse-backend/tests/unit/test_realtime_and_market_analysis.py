@@ -159,7 +159,7 @@ async def test_realtime_market_snapshot_endpoint(stocks_app):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("symbol", ["RELIANCE", "TCS", "INFY", "BRITANNIA", "M&M", "DIVISLAB", "ITC"])
+@pytest.mark.parametrize("symbol", ["RELIANCE", "TCS", "INFY", "BRITANNIA", "M&M", "DIVISLAB", "ITC", "BAJAJ-AUTO", "HDFCBANK"])
 async def test_realtime_stock_analysis_endpoint_per_company(stocks_app, symbol):
     """Verify /api/v1/stocks/{symbol}/analysis returns complete chart + indicators + prediction."""
     transport = ASGITransport(app=stocks_app)

@@ -28,10 +28,11 @@ async def test_unknown_route_error_code_is_not_found(client: AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
-async def test_root_path_returns_404(client: AsyncClient) -> None:
-    """Root path is not a registered route — should 404."""
+async def test_root_path_returns_health(client: AsyncClient) -> None:
+    """Root path is the registered health check route."""
     response = await client.get("/")
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
 
 
 @pytest.mark.asyncio

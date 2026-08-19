@@ -6,12 +6,14 @@ resilient caching, single-flight locking, and graceful rate-limit handling.
 
 import asyncio
 import logging
+import os
 import time
 from typing import Dict, List, Optional
 
 import pandas as pd
 import yfinance as yf
 
+from app.core.config import get_settings
 from app.core.exceptions import NotFoundError, ProviderUnavailableError
 from app.providers.base.stock_provider import StockMarketDataProvider
 
@@ -37,6 +39,56 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
 
         # Async lock to serialize throttle checks and cache updates
         self._lock = asyncio.Lock()
+
+        # Indexed historical datasets by clean ticker symbol for instant fallback
+        self._historical_dataset_cache: Dict[str, pd.DataFrame] = {}
+        self._load_historical_dataset_index()
+
+    def _load_historical_dataset_index(self) -> None:
+        """Pre-index merged_dataset.csv in memory so historical fallback lookups take < 1ms."""
+        try:
+            settings = get_settings()
+            csv_path = os.path.join(settings.STOCK_DATA_DIR, "merged_dataset.csv")
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path, parse_dates=["Date"])
+                if "Ticker" in df.columns and "Close" in df.columns:
+                    df["Ticker_Clean"] = df["Ticker"].astype(str).str.replace(".NS", "", regex=False).str.upper().str.strip()
+                    required_cols = ["Date", "Open", "High", "Low", "Close", "Volume"]
+                    for col in required_cols:
+                        if col not in df.columns:
+                            if col in ["Open", "High", "Low"] and "Close" in df.columns:
+                                df[col] = df["Close"]
+                            elif col == "Volume":
+                                df[col] = 1000000.0
+
+                    grouped = df[required_cols + ["Ticker_Clean"]].groupby("Ticker_Clean")
+                    for ticker, group in grouped:
+                        clean_group = group[required_cols].dropna(subset=["Date", "Close"]).sort_values("Date").reset_index(drop=True)
+                        clean_group["Close"] = pd.to_numeric(clean_group["Close"], errors="coerce")
+                        clean_group = clean_group[clean_group["Close"] > 0]
+                        if not clean_group.empty:
+                            self._historical_dataset_cache[ticker] = clean_group
+                    logger.info("[YFinanceProvider] Pre-indexed historical data for %d Nifty symbols", len(self._historical_dataset_cache))
+        except Exception as e:
+            logger.warning("[YFinanceProvider] Could not pre-index historical dataset: %s", e)
+
+    def _get_historical_fallback_df(self, clean_symbol: str, period: str = "1y") -> Optional[pd.DataFrame]:
+        """Return slice of verified historical dataset matching requested period."""
+        base_df = self._historical_dataset_cache.get(clean_symbol)
+        if base_df is None or base_df.empty:
+            return None
+
+        period_days_map = {
+            "1d": 1,
+            "5d": 5,
+            "1mo": 22,
+            "3mo": 65,
+            "6mo": 130,
+            "1y": 252,
+            "5y": 1260,
+        }
+        limit = period_days_map.get(period, 252)
+        return base_df.tail(limit).reset_index(drop=True).copy()
 
     def _normalize_ticker(self, symbol: str) -> tuple[str, str]:
         """Returns (clean_symbol, ticker_symbol) e.g. ('RELIANCE', 'RELIANCE.NS')."""
@@ -257,11 +309,16 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
                     return cached_df.copy()
 
         # 2. Check rate limit cooldown
-        if now < self._rate_limit_cooldown_until and cached:
-            logger.warning("YFinance in rate-limit cooldown. Serving cached data for %s", ticker_symbol)
-            return cached[0].copy()
+        if now < self._rate_limit_cooldown_until:
+            if cached:
+                logger.info("YFinance in rate-limit cooldown. Serving cached data for %s", ticker_symbol)
+                return cached[0].copy()
+            fallback = self._get_historical_fallback_df(clean_symbol, period)
+            if fallback is not None and not fallback.empty:
+                logger.info("[MARKET_FALLBACK] In cooldown | Serving verified historical dataset for %s (%d rows)", clean_symbol, len(fallback))
+                return fallback
 
-        # 3. Controlled fetch with rate-limit protection
+        # 3. Controlled fetch with rate-limit protection & 6.0s timeout
         max_attempts = 2
         last_error: Optional[Exception] = None
 
@@ -285,39 +342,40 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
                     )
 
                 loop = asyncio.get_running_loop()
-                raw_df = await loop.run_in_executor(None, _fetch_sync)
+                raw_df = await asyncio.wait_for(loop.run_in_executor(None, _fetch_sync), timeout=6.0)
                 result_df = self._extract_and_format_single_df(raw_df, ticker_symbol)
 
-                if result_df is None or result_df.empty:
-                    if attempt < max_attempts:
-                        await asyncio.sleep(1.5)
-                        continue
-                    if cached:
-                        logger.warning("YFinance returned empty data for %s. Using stale cache.", ticker_symbol)
-                        return cached[0].copy()
-                    raise NotFoundError(f"No price history returned by Yahoo Finance for '{ticker_symbol}'.")
+                if result_df is not None and not result_df.empty:
+                    async with self._lock:
+                        self._df_cache[cache_key] = (result_df.copy(), time.time())
+                    return result_df
 
-                async with self._lock:
-                    self._df_cache[cache_key] = (result_df.copy(), time.time())
-
-                return result_df
+                if attempt < max_attempts:
+                    await asyncio.sleep(1.0)
+                    continue
 
             except Exception as exc:
                 last_error = exc
-                if self._is_rate_limit_exception(exc):
-                    self._rate_limit_cooldown_until = time.time() + 60.0
-                    logger.warning("YFinance rate limited on %s: %s. Setting 60s cooldown.", ticker_symbol, exc)
-                    if cached:
-                        return cached[0].copy()
-                    raise ProviderUnavailableError(f"Yahoo Finance rate limited for '{ticker_symbol}'. Please retry shortly.")
+                if self._is_rate_limit_exception(exc) or "Too Many Requests" in str(exc):
+                    self._rate_limit_cooldown_until = time.time() + 180.0
+                    logger.warning("[PROVIDER_RATE_LIMITED] YFinance rate limited on %s: %s. Setting 180s cooldown.", ticker_symbol, exc)
+                    break
 
                 if attempt < max_attempts:
-                    await asyncio.sleep(1.5)
+                    await asyncio.sleep(1.0)
                     continue
 
+        # 4. Graceful Fallback: cached data -> verified historical dataset -> error
         if cached:
-            logger.warning("All fetch attempts failed for %s. Serving stale cache.", ticker_symbol)
+            logger.warning("[MARKET_FALLBACK] Serving stale cache for %s", ticker_symbol)
             return cached[0].copy()
+
+        fallback = self._get_historical_fallback_df(clean_symbol, period)
+        if fallback is not None and not fallback.empty:
+            logger.info("[MARKET_FALLBACK] Serving verified historical dataset for %s (%d rows)", clean_symbol, len(fallback))
+            async with self._lock:
+                self._df_cache[cache_key] = (fallback.copy(), time.time())
+            return fallback
 
         if last_error:
             raise ProviderUnavailableError(f"Yahoo Finance unavailable for '{ticker_symbol}': {last_error}")

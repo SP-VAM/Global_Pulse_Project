@@ -347,24 +347,24 @@ async def get_stock_full_analysis(
     cache_key = f"{normalized}_{period}"
     now = time.time()
 
+    t_start = time.time()
+    logger.info("[ANALYSIS_REQUEST] symbol=%s | period=%s | client=%s", normalized, period, request.client.host if request.client else "unknown")
+
     if cache_key in _full_analysis_cache:
         cached_resp, cached_time = _full_analysis_cache[cache_key]
         if now - cached_time < _ANALYSIS_CACHE_TTL:
+            logger.info("[ANALYSIS_CACHE_HIT] symbol=%s | period=%s | age=%.1fs", normalized, period, now - cached_time)
             return cached_resp
 
     # Determine fetch period (fetch at least 1y if period is short to allow warm-up for SMA200)
     fetch_period = "1y" if period in ("1d", "5d", "1mo", "3mo", "6mo") else period
 
-    # 1. Fetch Historical Prices
+    # 1. Fetch Historical Prices (with automatic historical dataset fallback)
     try:
         prices_df = await prediction_service.provider.get_historical_prices(normalized, period=fetch_period)
     except Exception as e:
-        logger = logging.getLogger("app.stocks")
-        provider_name = getattr(prediction_service.provider, "__class__", type(prediction_service.provider)).__name__
         logger.warning(
-            "Stock provider error | provider=%s | requested_symbol=%s | normalized=%s | period=%s | error=%s",
-            provider_name,
-            symbol,
+            "[ANALYSIS_PROVIDER_ERROR] symbol=%s | period=%s | error=%s",
             normalized,
             fetch_period,
             type(e).__name__ + ": " + str(e),
@@ -432,6 +432,9 @@ async def get_stock_full_analysis(
             "middle_band": bb_middle,
             "lower_band": bb_lower,
         })
+
+    duration_ms = (time.time() - t_start) * 1000
+    logger.info("[ANALYSIS_SUCCESS] symbol=%s | period=%s | candles=%d | duration=%.1fms", normalized, period, len(historical_chart_data), duration_ms)
 
     response = StockFullAnalysisResponse(
         symbol=normalized,
