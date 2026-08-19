@@ -55,7 +55,7 @@ export function invalidateExpenseCache() {
   summaryCache.clear();
 }
 
-export async function getExpenseSummary(year, month) {
+export async function getExpenseSummary(year, month, retries = 2) {
   const token = localStorage.getItem("access_token") || "anonymous";
   const cacheKey = `${token}_${year}_${month}`;
   if (summaryCache.has(cacheKey)) {
@@ -66,18 +66,28 @@ export async function getExpenseSummary(year, month) {
   if (year) query.append("year", year);
   if (month) query.append("month", month);
 
-  const res = await fetch(`${API_BASE_URL}/api/v1/expenses/summary?${query.toString()}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeader(),
-    },
-  });
-  const data = await handleResponse(res, "Failed to fetch expense summary.");
-  if (data) {
-    summaryCache.set(cacheKey, data);
+  for (let attempt = 1; attempt <= retries + 1; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/expenses/summary?${query.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader(),
+        },
+      });
+      const data = await handleResponse(res, "Failed to fetch expense summary.");
+      if (data) {
+        summaryCache.set(cacheKey, data);
+      }
+      return data;
+    } catch (err) {
+      if (attempt <= retries && (err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError") || err.name === "TypeError")) {
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+        continue;
+      }
+      throw err;
+    }
   }
-  return data;
 }
 
 export async function createExpense(payload) {
