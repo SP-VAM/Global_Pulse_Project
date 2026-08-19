@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { Search, ArrowLeft, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, RefreshCw, AlertCircle } from "lucide-react"
 
@@ -44,19 +44,54 @@ const formatMcap = (mcap) => {
 
 export default function Constituents() {
   const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [status, setStatus] = useState("loading") // "loading" | "success" | "partial_success" | "error" | "empty"
   const [error, setError] = useState(null)
+  const [warning, setWarning] = useState(null)
 
   const [query, setQuery] = useState("")
   const [sector, setSector] = useState("All")
   const [sort, setSort] = useState({ key: "mcap", dir: "desc" })
   const [page, setPage] = useState(1)
 
+  const abortControllerRef = React.useRef(null)
+  const isFetchingRef = React.useRef(false)
+
   const fetchLiveConstituents = async () => {
-    setLoading(true)
+    // Cancel any previous in-flight fetch
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    isFetchingRef.current = true
+
+    setStatus("loading")
     setError(null)
+    setWarning(null)
+
+    const t0 = performance.now()
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[MARKET API] Request started | Fetching Nifty 50 constituents...")
+    }
+
+    // Set 10-second hard client timeout
+    const timeoutId = setTimeout(() => {
+      if (isFetchingRef.current) {
+        controller.abort()
+        console.warn("[MARKET API] Client request timeout after 10000ms")
+      }
+    }, 10000)
+
     try {
-      const res = await getMarketSnapshot()
+      const res = await getMarketSnapshot(undefined, { signal: controller.signal })
+      clearTimeout(timeoutId)
+
+      const elapsed = (performance.now() - t0).toFixed(1)
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[MARKET API] Response received in ${elapsed}ms | Total items: ${res?.items?.length || 0}`)
+      }
+
       if (res && res.items && res.items.length > 0) {
         const mapped = res.items.map((item) => {
           const sym = item.symbol.toUpperCase()
@@ -75,22 +110,41 @@ export default function Constituents() {
             mcap: formatMcap(mcapVal),
           }
         })
+
         setItems(mapped)
+        if (mapped.length < 50) {
+          setStatus("partial_success")
+          setWarning(`${mapped.length} of 50 Nifty constituents loaded. Some real-time updates may be delayed.`)
+        } else {
+          setStatus("success")
+        }
       } else {
-        setError("Live Nifty 50 market snapshot returned empty response.")
         setItems([])
+        setStatus("empty")
+        setError("Market data provider returned an empty response. Please retry in a few moments.")
       }
     } catch (err) {
-      console.error("[Constituents] Fetch error:", err)
-      setError(err.message || "Failed to fetch live Nifty 50 market data.")
-      setItems([])
+      clearTimeout(timeoutId)
+      if (err.name === "AbortError") {
+        console.warn("[MARKET API] Request aborted or timed out.")
+        setError("Market data request timed out. Please click Retry to refresh live prices.")
+      } else {
+        console.error("[MARKET API] Fetch error:", err)
+        setError(err.message || "Failed to fetch live Nifty 50 market data.")
+      }
+      setStatus("error")
     } finally {
-      setLoading(false)
+      isFetchingRef.current = false
     }
   }
 
   useEffect(() => {
     fetchLiveConstituents()
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [])
 
   const sectorsList = useMemo(() => {
@@ -139,6 +193,8 @@ export default function Constituents() {
     setPage(1)
   }
 
+  const loading = status === "loading"
+
   return (
     <div className="constituents">
       <header className="constituents__head">
@@ -161,8 +217,27 @@ export default function Constituents() {
         </div>
       </header>
 
+      {/* WARNING BANNER FOR PARTIAL SUCCESS */}
+      {warning && status === "partial_success" && (
+        <div style={{
+          background: "rgba(245, 165, 36, 0.12)",
+          border: "1px solid rgba(245, 165, 36, 0.3)",
+          borderRadius: "12px",
+          padding: "12px 18px",
+          marginBottom: "16px",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          color: "#f5a524",
+          fontSize: "14px",
+        }}>
+          <AlertCircle size={18} />
+          <span>{warning}</span>
+        </div>
+      )}
+
       {/* ERROR BANNER */}
-      {error && (
+      {error && status === "error" && (
         <div style={{
           background: "rgba(239, 68, 68, 0.12)",
           border: "1px solid rgba(239, 68, 68, 0.3)",
@@ -181,6 +256,7 @@ export default function Constituents() {
           <button
             type="button"
             onClick={fetchLiveConstituents}
+            disabled={loading}
             style={{
               background: "#ef4444",
               color: "#fff",
@@ -189,14 +265,15 @@ export default function Constituents() {
               padding: "6px 14px",
               fontSize: "13px",
               fontWeight: 600,
-              cursor: "pointer",
+              cursor: loading ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
-              gap: "6px"
+              gap: "6px",
+              opacity: loading ? 0.6 : 1,
             }}
           >
-            <RefreshCw size={14} />
-            <span>Retry Live Fetch</span>
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            <span>{loading ? "Retrying..." : "Retry Live Fetch"}</span>
           </button>
         </div>
       )}

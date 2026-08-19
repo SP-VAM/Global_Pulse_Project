@@ -32,6 +32,8 @@ from app.services.stock_prediction_service import TICKER_TO_COMPANY, StockPredic
 from app.services.technical_indicator_service import TechnicalIndicatorService
 import logging
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/stocks", tags=["Stock ML Predictions & Indicators"])
 
 
@@ -204,9 +206,20 @@ async def get_market_snapshot(
     Lightweight bulk stock market snapshot for supported Nifty companies.
     Returns current price, previous close, change, change_percent, and 30d sparkline.
     """
+    t_start = time.time()
+    logger.info("[MARKET] NIFTY50 request received | Client: %s", request.client.host if request.client else "unknown")
     symbol_list = [s.strip().upper() for s in symbols.split(",")] if symbols else None
+
+    logger.info("[MARKET] Cache & provider lookup started for %s symbols", len(symbol_list) if symbol_list else "all 50")
     items_data = await prediction_service.get_market_snapshot(symbols=symbol_list)
     items = [StockMarketSnapshotItemSchema(**item) for item in items_data]
+
+    duration_ms = (time.time() - t_start) * 1000
+    logger.info(
+        "[MARKET] Response generated | %d items returned | Total duration: %.1fms",
+        len(items),
+        duration_ms,
+    )
     return StockMarketSnapshotResponse(total=len(items), items=items)
 
 

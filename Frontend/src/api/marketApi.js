@@ -109,12 +109,12 @@ export async function getSupportedCompanies() {
  *
  * @param {string} symbols
  */
-export async function getMarketSnapshot(symbols) {
+export async function getMarketSnapshot(symbols, fetchOptions = {}) {
   const query = symbols
     ? `?symbols=${encodeURIComponent(symbols)}`
     : "";
 
-  return request(`/stocks/market-snapshot${query}`);
+  return request(`/stocks/market-snapshot${query}`, fetchOptions);
 }
 
 // ---------------------------------------------------------

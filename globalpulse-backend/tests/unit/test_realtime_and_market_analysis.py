@@ -60,6 +60,14 @@ class MockStockProvider(StockMarketDataProvider):
             "Volume": 2_500_000,
         })
 
+    async def get_batch_historical_prices(
+        self, symbols: list[str], period: str = "1mo", interval: str = "1d"
+    ) -> dict[str, pd.DataFrame]:
+        results = {}
+        for s in symbols:
+            results[s] = await self.get_historical_prices(s, period=period, interval=interval)
+        return results
+
     async def close(self) -> None:
         self.closed = True
 

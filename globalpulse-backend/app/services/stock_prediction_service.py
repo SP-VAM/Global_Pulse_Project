@@ -376,29 +376,31 @@ class StockPredictionService:
     async def _execute_snapshot_fetch(self, symbols: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         is_full_snapshot = (symbols is None or len(symbols) == len(TICKER_TO_COMPANY))
         target_tickers = symbols if symbols else list(TICKER_TO_COMPANY.keys())
+        t_start = time.time()
 
-        # 1. Single Batch Fetch for all symbols in ONE request
+        logger.info("[MARKET] External provider batch request started for %d symbols", len(target_tickers))
+
+        # 1. Single Batch Fetch for all symbols in ONE request with 12s hard timeout
         try:
-            batch_prices = await self.provider.get_batch_historical_prices(target_tickers, period="1mo")
+            batch_prices = await asyncio.wait_for(
+                self.provider.get_batch_historical_prices(target_tickers, period="1mo"),
+                timeout=12.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("[MARKET] External provider batch fetch TIMEOUT after 12.0s. Falling back to cache.")
+            batch_prices = {}
         except Exception as e:
-            logger.warning("Batch snapshot fetch error from provider: %s", e)
+            logger.warning("[MARKET] External provider batch fetch ERROR: %s", e)
             batch_prices = {}
 
         snapshot_items: List[Dict[str, Any]] = []
 
-        # 2. Parse results synchronously in memory
+        # 2. Parse results synchronously in memory without blocking sequential network loops
         for raw_symbol in target_tickers:
             try:
                 symbol = self.normalize_symbol(raw_symbol)
-                company_name = TICKER_TO_COMPANY[symbol]
+                company_name = TICKER_TO_COMPANY.get(symbol, symbol)
                 prices_df = batch_prices.get(symbol)
-
-                if prices_df is None or prices_df.empty:
-                    # Check if single historical prices can serve from cache
-                    try:
-                        prices_df = await self.provider.get_historical_prices(symbol, period="1mo")
-                    except Exception:
-                        prices_df = None
 
                 if prices_df is not None and not prices_df.empty:
                     current_close, change, change_pct = self.calculate_price_change(prices_df)
@@ -409,16 +411,30 @@ class StockPredictionService:
                     snapshot_items.append({
                         "symbol": symbol,
                         "company_name": company_name,
-                        "current_price": current_close,
-                        "previous_close": prev_close,
-                        "change": change,
-                        "change_percent": change_pct,
+                        "current_price": float(current_close),
+                        "previous_close": float(prev_close),
+                        "change": float(change),
+                        "change_percent": float(change_pct),
                         "market_cap": market_cap,
                         "price_history": price_history,
                     })
+                elif self._snapshot_cache:
+                    # Reuse cached item for this ticker if available
+                    for old_item in self._snapshot_cache:
+                        if old_item.get("symbol") == symbol:
+                            snapshot_items.append(old_item)
+                            break
             except Exception as item_err:
                 logger.debug("Failed processing snapshot item for %s: %s", raw_symbol, item_err)
                 continue
+
+        duration_ms = (time.time() - t_start) * 1000
+        logger.info(
+            "[MARKET] Snapshot processing completed | %d/%d symbols ready | Duration: %.1fms",
+            len(snapshot_items),
+            len(target_tickers),
+            duration_ms,
+        )
 
         if is_full_snapshot and snapshot_items:
             self._snapshot_cache = snapshot_items
@@ -432,7 +448,7 @@ class StockPredictionService:
             except Exception as alert_err:
                 logger.warning("[StockAlert] Failed to broadcast price alerts: %s", alert_err)
 
-        return snapshot_items if snapshot_items else self._snapshot_cache
+        return snapshot_items if snapshot_items else (self._snapshot_cache or [])
 
     async def get_stock_news_sentiment(self, symbol: str) -> Dict[str, Any]:
         """

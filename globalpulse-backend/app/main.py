@@ -174,6 +174,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         model_download_task = asyncio.create_task(_download_models_background())
 
 
+    # Warm up stock snapshot cache in background on startup
+    async def _warmup_snapshot() -> None:
+        try:
+            await app.state.stock_prediction_service.get_market_snapshot()
+            logger.info("Stock market snapshot cache pre-warmed on startup.")
+        except Exception as warmup_err:
+            logger.debug("Market snapshot warmup background task: %s", warmup_err)
+
+    asyncio.create_task(_warmup_snapshot())
+
     logger.info(
         "GlobalPulse startup complete. Providers: FinnhubMarketProvider, "
         "TradingEconomicsProvider, NewsApiProvider, StockMarketProvider (%s). Phase 1–6 Ready.",
