@@ -27,8 +27,6 @@ htmlcov
 *.sqlite3
 global_pulse.db
 
-# Logs & Temporary files
-logs/
-*.log
-tmp/
-scratch/
+# Large raw datasets (lightweight JSON seeds are used instead in container)
+*.csv
+app/data/stocks/merged_data/merged_dataset.csv

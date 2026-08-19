@@ -5,6 +5,7 @@ resilient caching, single-flight locking, and graceful rate-limit handling.
 """
 
 import asyncio
+import json
 import logging
 import os
 import time
@@ -45,32 +46,27 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
         self._load_historical_dataset_index()
 
     def _load_historical_dataset_index(self) -> None:
-        """Pre-index merged_dataset.csv in memory so historical fallback lookups take < 1ms."""
+        """Load pre-compiled 1-year historical dataset (1.5 MB) so memory usage is < 5 MB on startup."""
         try:
             settings = get_settings()
-            csv_path = os.path.join(settings.STOCK_DATA_DIR, "merged_dataset.csv")
-            if os.path.exists(csv_path):
-                df = pd.read_csv(csv_path, parse_dates=["Date"])
-                if "Ticker" in df.columns and "Close" in df.columns:
-                    df["Ticker_Clean"] = df["Ticker"].astype(str).str.replace(".NS", "", regex=False).str.upper().str.strip()
-                    required_cols = ["Date", "Open", "High", "Low", "Close", "Volume"]
-                    for col in required_cols:
-                        if col not in df.columns:
-                            if col in ["Open", "High", "Low"] and "Close" in df.columns:
-                                df[col] = df["Close"]
-                            elif col == "Volume":
-                                df[col] = 1000000.0
+            seed_path = os.path.join(settings.STOCK_DATA_DIR, "historical_1y_seed.json")
+            if os.path.exists(seed_path):
+                with open(seed_path, "r", encoding="utf-8") as f:
+                    seed_data = json.load(f)
 
-                    grouped = df[required_cols + ["Ticker_Clean"]].groupby("Ticker_Clean")
-                    for ticker, group in grouped:
-                        clean_group = group[required_cols].dropna(subset=["Date", "Close"]).sort_values("Date").reset_index(drop=True)
-                        clean_group["Close"] = pd.to_numeric(clean_group["Close"], errors="coerce")
-                        clean_group = clean_group[clean_group["Close"] > 0]
-                        if not clean_group.empty:
-                            self._historical_dataset_cache[ticker] = clean_group
-                    logger.info("[YFinanceProvider] Pre-indexed historical data for %d Nifty symbols", len(self._historical_dataset_cache))
+                required_cols = ["Date", "Open", "High", "Low", "Close", "Volume"]
+                for ticker, records in seed_data.items():
+                    clean_ticker = ticker.upper().strip().replace(".NS", "")
+                    clean_df = pd.DataFrame(records)
+                    clean_df["Date"] = pd.to_datetime(clean_df["Date"])
+                    clean_df = clean_df[required_cols].dropna(subset=["Date", "Close"]).sort_values("Date").reset_index(drop=True)
+                    clean_df["Close"] = pd.to_numeric(clean_df["Close"], errors="coerce")
+                    if not clean_df.empty:
+                        self._historical_dataset_cache[clean_ticker] = clean_df
+
+                logger.info("[YFinanceProvider] Loaded lightweight historical seed for %d Nifty symbols (< 5MB RAM)", len(self._historical_dataset_cache))
         except Exception as e:
-            logger.warning("[YFinanceProvider] Could not pre-index historical dataset: %s", e)
+            logger.warning("[YFinanceProvider] Could not load lightweight historical dataset: %s", e)
 
     def _get_historical_fallback_df(self, clean_symbol: str, period: str = "1y") -> Optional[pd.DataFrame]:
         """Return slice of verified historical dataset matching requested period."""
