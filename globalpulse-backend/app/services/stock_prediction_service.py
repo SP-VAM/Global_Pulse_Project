@@ -377,48 +377,48 @@ class StockPredictionService:
         is_full_snapshot = (symbols is None or len(symbols) == len(TICKER_TO_COMPANY))
         target_tickers = symbols if symbols else list(TICKER_TO_COMPANY.keys())
 
-        async def _fetch_single_item(raw_symbol: str) -> Optional[Dict[str, Any]]:
+        # 1. Single Batch Fetch for all symbols in ONE request
+        try:
+            batch_prices = await self.provider.get_batch_historical_prices(target_tickers, period="1mo")
+        except Exception as e:
+            logger.warning("Batch snapshot fetch error from provider: %s", e)
+            batch_prices = {}
+
+        snapshot_items: List[Dict[str, Any]] = []
+
+        # 2. Parse results synchronously in memory
+        for raw_symbol in target_tickers:
             try:
                 symbol = self.normalize_symbol(raw_symbol)
                 company_name = TICKER_TO_COMPANY[symbol]
-                prices_df = await self.provider.get_historical_prices(symbol, period="1mo")
-                current_close, change, change_pct = self.calculate_price_change(prices_df)
-                prev_close = round(current_close - change, 2) if len(prices_df) >= 2 else current_close
-                price_history = self.extract_price_history(prices_df, limit=30)
+                prices_df = batch_prices.get(symbol)
 
-                market_cap = self._mcap_cache.get(symbol)
-                if market_cap is None:
+                if prices_df is None or prices_df.empty:
+                    # Check if single historical prices can serve from cache
                     try:
-                        ticker_symbol = f"{symbol}.NS"
-                        loop = asyncio.get_event_loop()
-                        def _fetch_mcap_sync():
-                            tk = yf.Ticker(ticker_symbol)
-                            fi = tk.fast_info
-                            raw_mcap = fi.get("marketCap") or fi.get("market_cap")
-                            return float(raw_mcap) if raw_mcap and isinstance(raw_mcap, (int, float)) and raw_mcap > 0 else None
-                        market_cap = await loop.run_in_executor(None, _fetch_mcap_sync)
-                        if market_cap is not None:
-                            self._mcap_cache[symbol] = market_cap
-                    except Exception as mcap_err:
-                        logger.debug("Failed to fetch market_cap for %s: %s", symbol, mcap_err)
+                        prices_df = await self.provider.get_historical_prices(symbol, period="1mo")
+                    except Exception:
+                        prices_df = None
 
-                return {
-                    "symbol": symbol,
-                    "company_name": company_name,
-                    "current_price": current_close,
-                    "previous_close": prev_close,
-                    "change": change,
-                    "change_percent": change_pct,
-                    "market_cap": market_cap,
-                    "price_history": price_history,
-                }
-            except Exception as e:
-                logger.warning("Failed to fetch market snapshot item for %s: %s", raw_symbol, e)
-                return None
+                if prices_df is not None and not prices_df.empty:
+                    current_close, change, change_pct = self.calculate_price_change(prices_df)
+                    prev_close = round(current_close - change, 2) if len(prices_df) >= 2 else current_close
+                    price_history = self.extract_price_history(prices_df, limit=30)
+                    market_cap = self._mcap_cache.get(symbol)
 
-        tasks = [_fetch_single_item(s) for s in target_tickers]
-        results = await asyncio.gather(*tasks)
-        snapshot_items = [item for item in results if item is not None]
+                    snapshot_items.append({
+                        "symbol": symbol,
+                        "company_name": company_name,
+                        "current_price": current_close,
+                        "previous_close": prev_close,
+                        "change": change,
+                        "change_percent": change_pct,
+                        "market_cap": market_cap,
+                        "price_history": price_history,
+                    })
+            except Exception as item_err:
+                logger.debug("Failed processing snapshot item for %s: %s", raw_symbol, item_err)
+                continue
 
         if is_full_snapshot and snapshot_items:
             self._snapshot_cache = snapshot_items
@@ -432,7 +432,7 @@ class StockPredictionService:
             except Exception as alert_err:
                 logger.warning("[StockAlert] Failed to broadcast price alerts: %s", alert_err)
 
-        return snapshot_items
+        return snapshot_items if snapshot_items else self._snapshot_cache
 
     async def get_stock_news_sentiment(self, symbol: str) -> Dict[str, Any]:
         """

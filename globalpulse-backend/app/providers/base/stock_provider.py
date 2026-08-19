@@ -24,7 +24,27 @@ class StockMarketDataProvider(ABC):
         """
         pass
 
+    async def get_batch_historical_prices(
+        self,
+        symbols: list[str],
+        period: str = "1mo",
+        interval: str = "1d",
+    ) -> dict[str, pd.DataFrame]:
+        """
+        Fetch historical price DataFrames in batch for multiple ticker symbols.
+        Returns a mapping of symbol -> pd.DataFrame.
+        """
+        results = {}
+        for s in symbols:
+            try:
+                df = await self.get_historical_prices(s, period=period, interval=interval)
+                results[s] = df
+            except Exception:
+                continue
+        return results
+
     @abstractmethod
     async def close(self) -> None:
         """Close any underlying HTTP/network connections."""
         pass
+
