@@ -14,13 +14,7 @@
  *   http://localhost:8000
  */
 
-// ---------------------------------------------------------
-// API BASE URL
-// ---------------------------------------------------------
-
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || (typeof window !== "undefined" && window.location.hostname.includes("onrender.com") ? "https://globalpulse-backend-i6oa.onrender.com" : "http://localhost:8000")
-).replace(/\/$/, "");
+import { API_BASE_URL } from "../config/api.js";
 
 const API_BASE = `${API_BASE_URL}/api/v1`;
 
