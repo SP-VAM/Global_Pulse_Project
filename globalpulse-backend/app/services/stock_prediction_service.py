@@ -100,14 +100,52 @@ class StockPredictionService:
         self.artifact_loader = get_stock_artifact_loader()
         self._snapshot_cache: List[Dict[str, Any]] = []
         self._snapshot_cache_timestamp: float = 0.0
-        self._cache_ttl_seconds: float = 300.0  # 5 minutes cache TTL
+        self._cache_ttl_seconds: float = 60.0  # 60 seconds target freshness TTL
         self._mcap_cache: Dict[str, float] = {}
         self._snapshot_lock = asyncio.Lock()
         self._sentiment_cache: Dict[str, float] = {}
         self._sentiment_mtime: float = 0.0
         self._is_refreshing: bool = False
-        # Optional DB session factory for broadcasting stock price alerts to users
+        self._rate_limit_cooldown_until: float = 0.0
         self._db_session_factory = db_session_factory
+
+        # Pre-load market caps and baseline snapshot from disk immediately (< 5ms)
+        self._load_baseline_snapshot_and_fundamentals()
+
+    def _load_baseline_snapshot_and_fundamentals(self) -> None:
+        """Load market cap map and seed market snapshot from persistent disk files."""
+        settings = get_settings()
+        data_dir = settings.STOCK_DATA_DIR
+
+        # 1. Load fundamentals market cap
+        fund_csv = os.path.join(data_dir, "fundamentals_data.csv")
+        if os.path.exists(fund_csv):
+            try:
+                fund_df = pd.read_csv(fund_csv)
+                if "Ticker" in fund_df.columns and "Market_Cap" in fund_df.columns:
+                    for _, row in fund_df.iterrows():
+                        tk = str(row["Ticker"]).upper().strip().replace(".NS", "")
+                        val = row["Market_Cap"]
+                        if pd.notna(val):
+                            self._mcap_cache[tk] = float(val)
+            except Exception as e:
+                logger.debug("Failed loading fundamentals market caps: %s", e)
+
+        # 2. Load latest or baseline snapshot JSON
+        for fname in ["latest_market_snapshot.json", "baseline_market_snapshot.json"]:
+            snap_path = os.path.join(data_dir, fname)
+            if os.path.exists(snap_path):
+                try:
+                    import json
+                    with open(snap_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    if isinstance(data, list) and len(data) > 0:
+                        self._snapshot_cache = data
+                        self._snapshot_cache_timestamp = time.time() - 30.0  # Fresh baseline
+                        logger.info("[MARKET] Seeded %d Nifty 50 constituents from %s", len(data), fname)
+                        break
+                except Exception as e:
+                    logger.debug("Failed loading %s: %s", fname, e)
 
     def normalize_symbol(self, raw_symbol: str) -> str:
         clean = raw_symbol.upper().strip().replace(".NS", "")
@@ -366,10 +404,22 @@ class StockPredictionService:
         }
 
     async def _background_refresh_snapshot(self) -> None:
+        now = time.time()
+        if now < self._rate_limit_cooldown_until:
+            logger.debug("[MARKET] Background refresh skipped: in rate-limit cooldown (%.1fs left)", self._rate_limit_cooldown_until - now)
+            self._is_refreshing = False
+            return
+
         try:
+            logger.info("[PROVIDER_REFRESH_STARTED] Background market snapshot refresh started")
             await self._execute_snapshot_fetch()
+            logger.info("[PROVIDER_REFRESH_SUCCESS] Background market snapshot refresh succeeded")
         except Exception as e:
-            logger.debug("Background market snapshot refresh failed: %s", e)
+            if "Too Many Requests" in str(e) or "Rate limited" in str(e) or "YFRateLimitError" in type(e).__name__:
+                self._rate_limit_cooldown_until = time.time() + 180.0
+                logger.warning("[PROVIDER_RATE_LIMITED] yfinance rate-limited in background. Cooldown active for 180s.")
+            else:
+                logger.warning("[PROVIDER_FAILURE] Background market snapshot refresh error: %s", e)
         finally:
             self._is_refreshing = False
 
@@ -380,22 +430,28 @@ class StockPredictionService:
 
         logger.info("[MARKET] External provider batch request started for %d symbols", len(target_tickers))
 
-        # 1. Single Batch Fetch for all symbols in ONE request with 12s hard timeout
+        # 1. Single Batch Fetch for all symbols in ONE request with 10s hard timeout
         try:
             batch_prices = await asyncio.wait_for(
                 self.provider.get_batch_historical_prices(target_tickers, period="1mo"),
-                timeout=12.0,
+                timeout=10.0,
             )
         except asyncio.TimeoutError:
-            logger.warning("[MARKET] External provider batch fetch TIMEOUT after 12.0s. Falling back to cache.")
+            logger.warning("[PROVIDER_TIMEOUT] External provider batch fetch TIMEOUT after 10.0s. Falling back to cached snapshot.")
             batch_prices = {}
         except Exception as e:
-            logger.warning("[MARKET] External provider batch fetch ERROR: %s", e)
+            if "Too Many Requests" in str(e) or "Rate limited" in str(e) or "YFRateLimitError" in type(e).__name__:
+                self._rate_limit_cooldown_until = time.time() + 180.0
+                logger.warning("[PROVIDER_RATE_LIMITED] yfinance rate-limited. Circuit breaker active for 180s.")
+            else:
+                logger.warning("[PROVIDER_FAILURE] External provider batch fetch ERROR: %s", e)
             batch_prices = {}
 
+        # 2. Build map of existing cached items to merge with
+        existing_items_map = {item.get("symbol"): item for item in self._snapshot_cache}
         snapshot_items: List[Dict[str, Any]] = []
 
-        # 2. Parse results synchronously in memory without blocking sequential network loops
+        # 3. Parse results synchronously in memory without blocking sequential network loops
         for raw_symbol in target_tickers:
             try:
                 symbol = self.normalize_symbol(raw_symbol)
@@ -418,14 +474,13 @@ class StockPredictionService:
                         "market_cap": market_cap,
                         "price_history": price_history,
                     })
-                elif self._snapshot_cache:
-                    # Reuse cached item for this ticker if available
-                    for old_item in self._snapshot_cache:
-                        if old_item.get("symbol") == symbol:
-                            snapshot_items.append(old_item)
-                            break
+                elif symbol in existing_items_map:
+                    # Retain last valid cached item for this ticker
+                    snapshot_items.append(existing_items_map[symbol])
             except Exception as item_err:
                 logger.debug("Failed processing snapshot item for %s: %s", raw_symbol, item_err)
+                if symbol in existing_items_map:
+                    snapshot_items.append(existing_items_map[symbol])
                 continue
 
         duration_ms = (time.time() - t_start) * 1000
@@ -436,9 +491,19 @@ class StockPredictionService:
             duration_ms,
         )
 
-        if is_full_snapshot and snapshot_items:
+        if is_full_snapshot and len(snapshot_items) > 0:
             self._snapshot_cache = snapshot_items
             self._snapshot_cache_timestamp = time.time()
+
+            # Atomically save to latest_market_snapshot.json on disk
+            try:
+                settings = get_settings()
+                latest_path = os.path.join(settings.STOCK_DATA_DIR, "latest_market_snapshot.json")
+                import json
+                with open(latest_path, "w", encoding="utf-8") as f:
+                    json.dump(snapshot_items, f, indent=2)
+            except Exception as disk_err:
+                logger.debug("Failed persisting latest_market_snapshot.json: %s", disk_err)
 
         # Broadcast stock price change notifications to all active users
         if snapshot_items and self._db_session_factory is not None:
@@ -449,6 +514,35 @@ class StockPredictionService:
                 logger.warning("[StockAlert] Failed to broadcast price alerts: %s", alert_err)
 
         return snapshot_items if snapshot_items else (self._snapshot_cache or [])
+
+    async def get_market_snapshot(self, symbols: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """
+        Lightweight bulk stock market snapshot for supported Nifty companies.
+        Non-blocking Stale-While-Revalidate (SWR) with persistent cache.
+        Always returns immediately (< 5ms) without blocking on external network calls.
+        """
+        is_full_snapshot = (symbols is None or len(symbols) == len(TICKER_TO_COMPANY))
+        now = time.time()
+
+        # 1. Trigger background refresh if cache is stale and not in cooldown
+        if self._snapshot_cache and (now - self._snapshot_cache_timestamp > self._cache_ttl_seconds):
+            if not self._is_refreshing and now >= self._rate_limit_cooldown_until:
+                self._is_refreshing = True
+                asyncio.create_task(self._background_refresh_snapshot())
+
+        # 2. Return cached snapshot immediately
+        if self._snapshot_cache:
+            if not is_full_snapshot and symbols:
+                clean_symbols = {self.normalize_symbol(s) for s in symbols}
+                filtered = [item for item in self._snapshot_cache if item.get("symbol") in clean_symbols]
+                return filtered if filtered else self._snapshot_cache
+            return self._snapshot_cache
+
+        # 3. Rare fallback if cache is completely empty: perform bounded fetch
+        async with self._snapshot_lock:
+            if self._snapshot_cache:
+                return self._snapshot_cache
+            return await self._execute_snapshot_fetch(symbols)
 
     async def get_stock_news_sentiment(self, symbol: str) -> Dict[str, Any]:
         """
@@ -542,30 +636,4 @@ class StockPredictionService:
             "neutral_articles": neutral_articles,
             "news_list": news_list,
         }
-
-    async def get_market_snapshot(self, symbols: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        """
-        Lightweight bulk stock market snapshot for supported Nifty companies.
-        Non-blocking Stale-While-Revalidate (SWR) with 300s TTL.
-        """
-        is_full_snapshot = (symbols is None or len(symbols) == len(TICKER_TO_COMPANY))
-        now = time.time()
-
-        # 1. Fresh cache hit (< 1ms)
-        if is_full_snapshot and self._snapshot_cache and (now - self._snapshot_cache_timestamp < self._cache_ttl_seconds):
-            logger.debug("Returning fresh cached market snapshot (age: %.2fs)", now - self._snapshot_cache_timestamp)
-            return self._snapshot_cache
-
-        # 2. Stale cache hit (< 1ms) with async background refresh
-        if is_full_snapshot and self._snapshot_cache:
-            if not self._is_refreshing:
-                self._is_refreshing = True
-                asyncio.create_task(self._background_refresh_snapshot())
-            return self._snapshot_cache
-
-        # 3. Cold miss on startup: fetch with single-flight lock
-        async with self._snapshot_lock:
-            if is_full_snapshot and self._snapshot_cache:
-                return self._snapshot_cache
-            return await self._execute_snapshot_fetch(symbols)
 

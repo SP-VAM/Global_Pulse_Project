@@ -215,12 +215,25 @@ async def get_market_snapshot(
     items = [StockMarketSnapshotItemSchema(**item) for item in items_data]
 
     duration_ms = (time.time() - t_start) * 1000
+    is_stale = (time.time() - prediction_service._snapshot_cache_timestamp) > prediction_service._cache_ttl_seconds
+    updated_at = TimezoneService.now_utc().isoformat()
+
     logger.info(
-        "[MARKET] Response generated | %d items returned | Total duration: %.1fms",
+        "[MARKET_RESPONSE] Generated %d items | Duration: %.1fms | Stale: %s | Refreshing: %s",
         len(items),
         duration_ms,
+        is_stale,
+        prediction_service._is_refreshing,
     )
-    return StockMarketSnapshotResponse(total=len(items), items=items)
+    return StockMarketSnapshotResponse(
+        total=len(items),
+        items=items,
+        source="cache",
+        cached=True,
+        is_stale=is_stale,
+        refresh_in_progress=prediction_service._is_refreshing,
+        updated_at=updated_at,
+    )
 
 
 @router.get(

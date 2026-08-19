@@ -175,12 +175,23 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
                 )
             except Exception as e:
                 logger.warning("yf.download batch exception: %s", e)
-                if self._is_rate_limit_exception(e):
-                    self._rate_limit_cooldown_until = time.time() + 60.0
+                if self._is_rate_limit_exception(e) or "Too Many Requests" in str(e):
+                    self._rate_limit_cooldown_until = time.time() + 180.0
+                    logger.warning("[PROVIDER_RATE_LIMITED] yfinance rate-limited. Circuit breaker active for 180s.")
                 return None
 
         loop = asyncio.get_running_loop()
-        batch_df = await loop.run_in_executor(None, _fetch_batch_sync)
+        try:
+            batch_df = await asyncio.wait_for(
+                loop.run_in_executor(None, _fetch_batch_sync),
+                timeout=10.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("[PROVIDER_TIMEOUT] yf.download batch timed out after 10.0s")
+            batch_df = None
+        except Exception as batch_exc:
+            logger.warning("[PROVIDER_FAILURE] yf.download batch failed: %s", batch_exc)
+            batch_df = None
 
         # 4. Parse batch DataFrame and update cache
         if batch_df is not None and not batch_df.empty:
@@ -192,9 +203,10 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
                     try:
                         parsed_df = None
                         if isinstance(batch_df.columns, pd.MultiIndex):
-                            if ticker in batch_df.columns.levels[0]:
+                            tickers_level0 = set(batch_df.columns.get_level_values(0))
+                            if ticker in tickers_level0:
                                 parsed_df = self._extract_and_format_single_df(batch_df[ticker], ticker)
-                            elif clean in batch_df.columns.levels[0]:
+                            elif clean in tickers_level0:
                                 parsed_df = self._extract_and_format_single_df(batch_df[clean], ticker)
                         elif len(ticker_list) == 1:
                             parsed_df = self._extract_and_format_single_df(batch_df, ticker)

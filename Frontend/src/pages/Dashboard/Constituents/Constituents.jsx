@@ -66,7 +66,10 @@ export default function Constituents() {
     abortControllerRef.current = controller
     isFetchingRef.current = true
 
-    setStatus("loading")
+    // Only transition to loading spinner if we don't have cached data yet
+    if (items.length === 0) {
+      setStatus("loading")
+    }
     setError(null)
     setWarning(null)
 
@@ -75,13 +78,13 @@ export default function Constituents() {
       console.log("[MARKET API] Request started | Fetching Nifty 50 constituents...")
     }
 
-    // Set 10-second hard client timeout
+    // Set 8-second client timeout
     const timeoutId = setTimeout(() => {
       if (isFetchingRef.current) {
         controller.abort()
-        console.warn("[MARKET API] Client request timeout after 10000ms")
+        console.warn("[MARKET API] Client request timeout after 8000ms")
       }
-    }, 10000)
+    }, 8000)
 
     try {
       const res = await getMarketSnapshot(undefined, { signal: controller.signal })
@@ -112,27 +115,39 @@ export default function Constituents() {
         })
 
         setItems(mapped)
-        if (mapped.length < 50) {
+        if (res.is_stale) {
           setStatus("partial_success")
-          setWarning(`${mapped.length} of 50 Nifty constituents loaded. Some real-time updates may be delayed.`)
+          setWarning("Showing last verified market snapshot. Live background refresh is active.")
+        } else if (mapped.length < 50) {
+          setStatus("partial_success")
+          setWarning(`${mapped.length} of 50 Nifty constituents loaded. Real-time refresh in progress.`)
         } else {
           setStatus("success")
         }
-      } else {
+      } else if (items.length === 0) {
         setItems([])
         setStatus("empty")
-        setError("Market data provider returned an empty response. Please retry in a few moments.")
+        setError("Market data provider returned an empty response. Please click Retry.")
       }
     } catch (err) {
       clearTimeout(timeoutId)
       if (err.name === "AbortError") {
         console.warn("[MARKET API] Request aborted or timed out.")
-        setError("Market data request timed out. Please click Retry to refresh live prices.")
+        if (items.length === 0) {
+          setError("Market data request timed out. Please click Retry to refresh live prices.")
+          setStatus("error")
+        } else {
+          setWarning("Live refresh timed out. Showing cached market prices.")
+        }
       } else {
         console.error("[MARKET API] Fetch error:", err)
-        setError(err.message || "Failed to fetch live Nifty 50 market data.")
+        if (items.length === 0) {
+          setError(err.message || "Failed to fetch live Nifty 50 market data.")
+          setStatus("error")
+        } else {
+          setWarning("Live refresh temporarily unavailable. Showing cached market prices.")
+        }
       }
-      setStatus("error")
     } finally {
       isFetchingRef.current = false
     }
@@ -193,7 +208,8 @@ export default function Constituents() {
     setPage(1)
   }
 
-  const loading = status === "loading"
+  const loading = status === "loading" && items.length === 0
+  const isRefreshing = isFetchingRef.current && items.length > 0
 
   return (
     <div className="constituents">

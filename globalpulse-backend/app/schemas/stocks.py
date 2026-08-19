@@ -166,6 +166,11 @@ class StockMarketSnapshotItemSchema(BaseModel):
 class StockMarketSnapshotResponse(BaseModel):
     total: int
     items: List[StockMarketSnapshotItemSchema]
+    source: str = Field("cache", description="Data source e.g. cache, provider")
+    cached: bool = Field(True, description="Whether data was served from cache")
+    is_stale: bool = Field(False, description="Whether data is older than target freshness TTL")
+    refresh_in_progress: bool = Field(False, description="Whether background provider refresh is running")
+    updated_at: Optional[str] = Field(None, description="ISO timestamp of data update")
 
 
 class StockHealthResponse(BaseModel):
