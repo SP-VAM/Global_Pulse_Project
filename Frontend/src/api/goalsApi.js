@@ -5,8 +5,47 @@
 import { API_BASE_URL } from "../config/api.js";
 
 function getAuthHeader() {
-  const token = localStorage.getItem("token") || localStorage.getItem("access_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+  return (token && token !== "demo_token") ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function handleResponse(res, fallbackErrorMsg) {
+  if (res.status === 401) {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("token");
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login";
+    }
+    throw new Error("Session expired. Please log in again.");
+  }
+
+  if (!res.ok) {
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    let err = {};
+    if (ct.includes("application/json")) {
+      err = await res.json().catch(() => ({}));
+    } else {
+      const txt = await res.text().catch(() => "");
+      try {
+        err = txt ? JSON.parse(txt) : {};
+      } catch {
+        err = { detail: txt };
+      }
+    }
+    throw new Error(err.detail || err.error?.message || fallbackErrorMsg);
+  }
+
+  if (res.status === 204) return null;
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  if (!ct.includes("application/json")) return null;
+
+  const text = await res.text().catch(() => "");
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchGoals() {
@@ -15,10 +54,7 @@ export async function fetchGoals() {
     ...getAuthHeader(),
   };
   const res = await fetch(`${API_BASE_URL}/api/v1/goals`, { headers });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch goals: ${res.statusText}`);
-  }
-  return res.json();
+  return handleResponse(res, "Failed to fetch goals.");
 }
 
 export async function createGoalApi(goalData) {
@@ -39,11 +75,7 @@ export async function createGoalApi(goalData) {
       investment_name: goalData.assetType || "Savings",
     }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Failed to create goal: ${res.statusText}`);
-  }
-  return res.json();
+  return handleResponse(res, "Failed to create goal.");
 }
 
 export async function updateGoalApi(goalId, fields) {
@@ -63,11 +95,7 @@ export async function updateGoalApi(goalId, fields) {
     headers,
     body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Failed to update goal: ${res.statusText}`);
-  }
-  return res.json();
+  return handleResponse(res, "Failed to update goal.");
 }
 
 export async function deleteGoalApi(goalId) {
@@ -79,9 +107,7 @@ export async function deleteGoalApi(goalId) {
     method: "DELETE",
     headers,
   });
-  if (!res.ok && res.status !== 204) {
-    throw new Error(`Failed to delete goal: ${res.statusText}`);
-  }
+  await handleResponse(res, "Failed to delete goal.");
   return true;
 }
 
@@ -100,9 +126,5 @@ export async function addGoalProgressApi(goalId, { amount, assetType, date, rema
       asset_type: assetType || "Gold",
     }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Failed to record goal progress: ${res.statusText}`);
-  }
-  return res.json();
+  return handleResponse(res, "Failed to record goal progress.");
 }
