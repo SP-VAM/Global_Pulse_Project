@@ -8,8 +8,10 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Pass build-time environment variable for VITE_API_BASE_URL
+# Pass build-time environment variable for VITE_API_URL and VITE_API_BASE_URL
+ARG VITE_API_URL
 ARG VITE_API_BASE_URL
+ENV VITE_API_URL=${VITE_API_URL}
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 COPY package*.json ./

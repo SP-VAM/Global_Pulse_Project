@@ -1,9 +1,6 @@
-/**
- * Authentication API Client
- * Interacts with FastAPI /api/v1/auth and /api/auth endpoints
- */
+import { API_BASE_URL } from "../config/api.js";
 
-const API_BASE = '/api/v1/auth'
+const API_BASE = `${API_BASE_URL}/api/v1/auth`;
 
 async function request(endpoint, options = {}) {
   const headers = {
