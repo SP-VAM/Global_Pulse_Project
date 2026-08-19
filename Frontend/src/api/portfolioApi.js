@@ -2,6 +2,8 @@
  * Portfolio Management API Client
  */
 
+import { API_BASE_URL } from "../config/api.js";
+
 function getAuthHeader() {
   const token = localStorage.getItem("access_token")
   return (token && token !== "demo_token") ? { Authorization: `Bearer ${token}` } : {}
@@ -24,7 +26,7 @@ async function handleResponse(res, fallbackErrorMsg) {
 }
 
 export async function getPortfolioSummary() {
-  const res = await fetch("/api/v1/portfolio/summary", {
+  const res = await fetch(`${API_BASE_URL}/api/v1/portfolio/summary`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -35,7 +37,7 @@ export async function getPortfolioSummary() {
 }
 
 export async function addInvestment(payload) {
-  const res = await fetch("/api/v1/portfolio", {
+  const res = await fetch(`${API_BASE_URL}/api/v1/portfolio`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -47,7 +49,7 @@ export async function addInvestment(payload) {
 }
 
 export async function updateInvestment(investmentId, payload) {
-  const res = await fetch(`/api/v1/portfolio/${investmentId}`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/portfolio/${investmentId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -59,7 +61,7 @@ export async function updateInvestment(investmentId, payload) {
 }
 
 export async function deleteInvestment(investmentId) {
-  const res = await fetch(`/api/v1/portfolio/${investmentId}`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/portfolio/${investmentId}`, {
     method: "DELETE",
     headers: {
       ...getAuthHeader(),
@@ -67,3 +69,4 @@ export async function deleteInvestment(investmentId) {
   })
   return handleResponse(res, "Failed to delete investment.")
 }
+

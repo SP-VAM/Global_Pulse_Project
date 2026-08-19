@@ -2,6 +2,8 @@
  * Expense Tracker API Client
  */
 
+import { API_BASE_URL } from "../config/api.js";
+
 function getAuthHeader() {
   const token = localStorage.getItem("access_token")
   return (token && token !== "demo_token") ? { Authorization: `Bearer ${token}` } : {}
@@ -64,7 +66,7 @@ export async function getExpenseSummary(year, month) {
   if (year) query.append("year", year);
   if (month) query.append("month", month);
 
-  const res = await fetch(`/api/v1/expenses/summary?${query.toString()}`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/expenses/summary?${query.toString()}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -80,7 +82,7 @@ export async function getExpenseSummary(year, month) {
 
 export async function createExpense(payload) {
   invalidateExpenseCache();
-  const res = await fetch("/api/v1/expenses", {
+  const res = await fetch(`${API_BASE_URL}/api/v1/expenses`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -93,7 +95,7 @@ export async function createExpense(payload) {
 
 export async function updateExpense(expenseId, payload) {
   invalidateExpenseCache();
-  const res = await fetch(`/api/v1/expenses/${expenseId}`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/expenses/${expenseId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -106,7 +108,7 @@ export async function updateExpense(expenseId, payload) {
 
 export async function deleteExpense(expenseId) {
   invalidateExpenseCache();
-  const res = await fetch(`/api/v1/expenses/${expenseId}`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/expenses/${expenseId}`, {
     method: "DELETE",
     headers: {
       ...getAuthHeader(),
@@ -117,7 +119,7 @@ export async function deleteExpense(expenseId) {
 
 export async function createIncome(payload) {
   invalidateExpenseCache();
-  const res = await fetch("/api/v1/expenses/income", {
+  const res = await fetch(`${API_BASE_URL}/api/v1/expenses/income`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -130,7 +132,7 @@ export async function createIncome(payload) {
 
 export async function updateIncome(incomeId, payload) {
   invalidateExpenseCache();
-  const res = await fetch(`/api/v1/expenses/income/${incomeId}`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/expenses/income/${incomeId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -143,7 +145,7 @@ export async function updateIncome(incomeId, payload) {
 
 export async function deleteIncome(incomeId) {
   invalidateExpenseCache();
-  const res = await fetch(`/api/v1/expenses/income/${incomeId}`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/expenses/income/${incomeId}`, {
     method: "DELETE",
     headers: {
       ...getAuthHeader(),
@@ -154,7 +156,7 @@ export async function deleteIncome(incomeId) {
 
 export async function saveBudget(payload) {
   invalidateExpenseCache();
-  const res = await fetch("/api/v1/expenses/budgets", {
+  const res = await fetch(`${API_BASE_URL}/api/v1/expenses/budgets`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -167,7 +169,7 @@ export async function saveBudget(payload) {
 
 export async function deleteBudget(budgetId) {
   invalidateExpenseCache();
-  const res = await fetch(`/api/v1/expenses/budgets/${budgetId}`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/expenses/budgets/${budgetId}`, {
     method: "DELETE",
     headers: {
       ...getAuthHeader(),
@@ -192,7 +194,7 @@ export async function getFilteredTransactions(params = {}) {
     query.append("amount_max", params.amountMax)
   }
 
-  const res = await fetch(`/api/v1/expenses/transactions?${query.toString()}`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/expenses/transactions?${query.toString()}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",

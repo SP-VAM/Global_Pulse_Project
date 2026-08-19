@@ -5,6 +5,7 @@ import learningData from "./learningData.js";
 import LearningCard from "./components/LearningCard.jsx";
 import ActiveModuleCard from "./components/ActiveModuleCard.jsx";
 import LearningModal from "./components/LearningModal.jsx";
+import { API_BASE_URL } from "../../../config/api.js";
 import "./LearningHub.css";
 
 /**
@@ -78,7 +79,7 @@ export default function LearningHub() {
       if (!token) return;
 
       try {
-        const response = await fetch("/api/v1/learning/progress", {
+        const response = await fetch(`${API_BASE_URL}/api/v1/learning/progress`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -94,10 +95,10 @@ export default function LearningHub() {
               const pct = Math.min(100, Math.round((watchSec / totalSec) * 100));
               const isComp = rec.is_completed || pct >= 90;
               updated[rec.course_id] = {
-                progressSeconds: watchSec,
-                totalSeconds: totalSec,
-                progressPercentage: pct,
-                isCompleted: isComp,
+                 progressSeconds: watchSec,
+                 totalSeconds: totalSec,
+                 progressPercentage: pct,
+                 isCompleted: isComp,
               };
             });
             localStorage.setItem("lh_user_video_progress_v1", JSON.stringify(updated));
@@ -140,7 +141,7 @@ export default function LearningHub() {
     const token = localStorage.getItem("access_token") || localStorage.getItem("firebase_id_token");
     if (token) {
       try {
-        await fetch("/api/v1/learning/progress", {
+        await fetch(`${API_BASE_URL}/api/v1/learning/progress`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
