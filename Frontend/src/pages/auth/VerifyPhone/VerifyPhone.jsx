@@ -187,10 +187,7 @@ function VerifyPhone() {
 
         const resData = await backendResp.json().catch(() => ({}));
 
-        if (backendResp.ok) {
-          backendSuccess = true;
-          console.log("Fast2SMS OTP sent successfully:", resData);
-        } else {
+        if (!backendResp.ok) {
           const errMsg = resData.detail || resData.error?.message || resData.message;
           if (errMsg) {
             let msg = errMsg;
@@ -205,6 +202,8 @@ function VerifyPhone() {
           setLoading(false);
           return;
         }
+
+        console.log("Fast2SMS OTP sent successfully:", resData);
       } catch (backendErr) {
         console.error("Backend Fast2SMS error:", backendErr);
         setErrorMessage("Network error connecting to authentication server. Please try again.");
@@ -212,14 +211,13 @@ function VerifyPhone() {
         return;
       }
 
-
       navigate("/otp", {
         state: {
           from,
           mobileNumber: cleanedNumber,
           countryCode,
           fullPhoneNumber: fullFormattedNumber,
-          firebaseSent,
+          firebaseSent: false,
         },
       });
 
