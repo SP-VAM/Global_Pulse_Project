@@ -24,28 +24,14 @@ function formatPointDate(dateStr) {
 }
 
 /**
- * Generate smooth cubic Bezier path from coordinate points
+ * Generate sharp linear path from coordinate points for authentic real-world financial peaks and dips
  */
-function getSmoothPath(coords) {
+function getSharpPath(coords) {
   if (coords.length === 0) return ""
-  if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`
-  if (coords.length === 2) return `M ${coords[0].x} ${coords[0].y} L ${coords[1].x} ${coords[1].y}`
-
-  let d = `M ${coords[0].x.toFixed(2)} ${coords[0].y.toFixed(2)}`
-  for (let i = 0; i < coords.length - 1; i++) {
-    const p0 = coords[i === 0 ? i : i - 1]
-    const p1 = coords[i]
-    const p2 = coords[i + 1]
-    const p3 = coords[i + 2 < coords.length ? i + 2 : i + 1]
-
-    const cp1x = p1.x + (p2.x - p0.x) / 6
-    const cp1y = p1.y + (p2.y - p0.y) / 6
-    const cp2x = p2.x - (p3.x - p1.x) / 6
-    const cp2y = p2.y - (p3.y - p1.y) / 6
-
-    d += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`
-  }
-  return d
+  if (coords.length === 1) return `M ${coords[0].x.toFixed(2)} ${coords[0].y.toFixed(2)}`
+  return coords.reduce((acc, pt, idx) => {
+    return idx === 0 ? `M ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}` : `${acc} L ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`
+  }, "")
 }
 
 /**
@@ -56,10 +42,10 @@ export default function Sparkline({
   history = [],
   color = "var(--blue-bright)",
   area = true,
-  dots = true,
+  dots = false,
   labels = null,
   height = 65,
-  strokeWidth = 2.2,
+  strokeWidth = 1.4,
 }) {
   const gradId = useId()
   const [hoverIndex, setHoverIndex] = useState(null)
@@ -99,8 +85,8 @@ export default function Sparkline({
     return { x, y, value: p, originalIndex: i }
   })
 
-  const smoothLine = getSmoothPath(coords)
-  const areaPath = `${smoothLine} L ${coords[coords.length - 1].x.toFixed(2)} ${h} L ${coords[0].x.toFixed(2)} ${h} Z`
+  const sharpLine = getSharpPath(coords)
+  const areaPath = `${sharpLine} L ${coords[coords.length - 1].x.toFixed(2)} ${h} L ${coords[0].x.toFixed(2)} ${h} Z`
   const activeCoord = hoverIndex !== null && coords[hoverIndex] ? coords[hoverIndex] : null
 
   // Smooth flicker-free container mouse handler
@@ -135,7 +121,7 @@ export default function Sparkline({
       <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="sparkline__svg" role="img">
         <defs>
           <linearGradient id={`fill-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="0%" stopColor={color} stopOpacity="0.14" />
             <stop offset="100%" stopColor={color} stopOpacity="0.0" />
           </linearGradient>
         </defs>
@@ -143,7 +129,7 @@ export default function Sparkline({
         {area && <path d={areaPath} fill={`url(#fill-${gradId})`} className="sparkline__area" />}
 
         <path
-          d={smoothLine}
+          d={sharpLine}
           fill="none"
           stroke={color}
           strokeWidth={strokeWidth}
@@ -160,31 +146,26 @@ export default function Sparkline({
             y1={0}
             x2={activeCoord.x}
             y2={h}
-            stroke="rgba(255, 255, 255, 0.25)"
+            stroke="rgba(255, 255, 255, 0.2)"
             strokeWidth="1"
             strokeDasharray="2 2"
             vectorEffect="non-scaling-stroke"
           />
         )}
 
-        {/* Data points */}
-        {dots &&
-          coords.map((c, i) => {
-            const isHovered = hoverIndex === i
-            return (
-              <circle
-                key={i}
-                cx={c.x}
-                cy={c.y}
-                r={isHovered ? 3.5 : 2}
-                fill={color}
-                stroke={isHovered ? "#ffffff" : "none"}
-                strokeWidth={isHovered ? 1.5 : 0}
-                className={`sparkline__dot ${isHovered ? "sparkline__dot--active" : ""}`}
-                vectorEffect="non-scaling-stroke"
-              />
-            )
-          })}
+        {/* Current price endpoint dot or hovered point */}
+        {coords.length > 0 && (
+          <circle
+            cx={activeCoord ? activeCoord.x : coords[coords.length - 1].x}
+            cy={activeCoord ? activeCoord.y : coords[coords.length - 1].y}
+            r={activeCoord ? 3 : 2}
+            fill={color}
+            stroke="#ffffff"
+            strokeWidth={1}
+            className="sparkline__dot sparkline__dot--active"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
       </svg>
 
       {labels && (

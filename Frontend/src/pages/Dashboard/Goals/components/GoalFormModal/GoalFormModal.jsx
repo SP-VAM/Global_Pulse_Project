@@ -48,7 +48,7 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
       MAX_GOAL_NAME_LENGTH,
       "Goal Name",
       true,
-      "Goal Name cannot exceed 100 characters."
+      "Goal Name cannot exceed 30 characters."
     )
     if (!nameVal.isValid) {
       e.name = nameVal.error
@@ -59,7 +59,7 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
       MAX_GOAL_NOTE_LENGTH,
       "Note",
       false,
-      "Note cannot exceed 500 characters."
+      "Note cannot exceed 30 characters."
     )
     if (!noteVal.isValid) {
       e.notes = noteVal.error
@@ -168,7 +168,7 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <label className="gf-label">GOAL NAME</label>
               <span style={{ fontSize: "11px", color: "var(--text-3, #6b7385)", fontWeight: 600 }}>
-                {name.length}/100
+                {name.length}/30
               </span>
             </div>
             <input
@@ -190,7 +190,7 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <label className="gf-label">NOTE</label>
               <span style={{ fontSize: "11px", color: "var(--text-3, #6b7385)", fontWeight: 600 }}>
-                {notes.length}/500
+                {notes.length}/30
               </span>
             </div>
             <input

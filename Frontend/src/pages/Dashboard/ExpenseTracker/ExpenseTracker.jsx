@@ -469,8 +469,8 @@ export default function ExpenseTracker() {
     });
   }, [activeMonthBudgets]);
 
-  /* Calendar Grid Computation (42-cell standard month matrix) */
-  const cells = useMemo(() => {
+  /* Calendar Grid Computation (Dynamically sized to actual month rows) */
+  const { cells, numRows } = useMemo(() => {
     const totalDays = new Date(view.year, view.month + 1, 0).getDate();
     const firstDayIndex = new Date(view.year, view.month, 1).getDay(); // 0 is Sun
     const startOffset = (firstDayIndex + 6) % 7; // Monday = 0
@@ -479,8 +479,12 @@ export default function ExpenseTracker() {
     const out = [];
     for (let i = 0; i < startOffset; i++) out.push(null);
     for (let d = 1; d <= daysInMonth; d++) out.push(d);
-    while (out.length < 42) out.push(null);
-    return out;
+    
+    // Exact number of rows needed for this month (4, 5, or 6)
+    const requiredRows = Math.ceil(out.length / 7);
+    const targetLength = requiredRows * 7;
+    while (out.length < targetLength) out.push(null);
+    return { cells: out, numRows: requiredRows };
   }, [view]);
 
   /* Month Navigation */
@@ -1114,7 +1118,12 @@ export default function ExpenseTracker() {
             ))}
           </div>
 
-          <div className="et-cal__grid">
+          <div
+            className="et-cal__grid"
+            style={{
+              gridTemplateRows: `repeat(${numRows}, minmax(0, 1fr))`,
+            }}
+          >
             {cells.map((day, i) => {
               if (day === null)
                 return <span key={`e${i}`} className="et-cal__cell et-cal__cell--empty" />;

@@ -100,27 +100,116 @@ const FALLBACK_NIFTY_COMPANIES = [
   { symbol: "WIPRO", name: "Wipro Ltd" },
 ]
 
+const CandlestickBar = (props) => {
+  const { x, y, width, height, payload, yAxis } = props
+  if (!payload || !yAxis || typeof yAxis.scale !== "function") return null
+
+  const open = payload.open ?? payload.price ?? 0
+  const close = payload.close ?? payload.price ?? 0
+  const high = payload.high ?? Math.max(open, close)
+  const low = payload.low ?? Math.min(open, close)
+
+  if (open === 0 && close === 0) return null
+
+  const yOpen = yAxis.scale(open)
+  const yClose = yAxis.scale(close)
+  const yHigh = yAxis.scale(high)
+  const yLow = yAxis.scale(low)
+
+  const isBullish = close >= open
+  const candleColor = isBullish ? "#22c55e" : "#ef4444"
+
+  const bodyTop = Math.min(yOpen, yClose)
+  const bodyHeight = Math.max(Math.abs(yClose - yOpen), 2)
+  const barWidth = Math.max(Math.min(width * 0.72, 14), 3)
+  const barX = x + (width - barWidth) / 2
+  const wickX = x + width / 2
+
+  return (
+    <g className="candlestick-candle">
+      {/* High-Low Wick Line */}
+      <line
+        x1={wickX}
+        y1={yHigh}
+        x2={wickX}
+        y2={yLow}
+        stroke={candleColor}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      {/* Open-Close Candle Body */}
+      <rect
+        x={barX}
+        y={bodyTop}
+        width={barWidth}
+        height={bodyHeight}
+        fill={candleColor}
+        stroke={candleColor}
+        strokeWidth={1}
+        rx={1}
+      />
+    </g>
+  )
+}
+
+const VolumeBar = (props) => {
+  const { x, y, width, height, payload } = props
+  if (!payload) return null
+  const isBullish = (payload.close ?? payload.price ?? 0) >= (payload.open ?? payload.close ?? 0)
+  const color = isBullish ? "#22c55e" : "#ef4444"
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={Math.max(width - 1, 1)}
+      height={height}
+      fill={color}
+      opacity={0.45}
+      rx={1}
+    />
+  )
+}
+
 const CustomOverviewTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
+    const data = payload[0]?.payload || {}
+    const isUp = (data.close ?? data.price ?? 0) >= (data.open ?? data.close ?? 0)
+    const color = isUp ? "#22c55e" : "#ef4444"
+
     return (
       <div
         style={{
-          background: "#19202e",
-          border: "1px solid #334155",
+          background: "rgba(15, 23, 42, 0.95)",
+          border: "1px solid rgba(255, 255, 255, 0.14)",
           borderRadius: "10px",
-          padding: "12px 18px",
+          padding: "12px 16px",
           color: "#ffffff",
-          boxShadow: "0 10px 25px rgba(0,0,0,0.6)",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.8)",
+          backdropFilter: "blur(8px)",
+          minWidth: 200,
         }}
       >
-        <div style={{ fontWeight: "700", marginBottom: "8px", fontSize: "14px", color: "#f8fafc" }}>
+        <div style={{ fontWeight: "700", marginBottom: "8px", fontSize: "13.5px", color: "#f8fafc" }}>
           {label}
         </div>
-        {payload.map((entry, index) => (
-          <div key={index} style={{ fontSize: "13px", margin: "4px 0", display: "flex", gap: "6px" }}>
-            <span style={{ color: "#94a3b8" }}>{entry.name} :</span>
+        {data.open !== undefined && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "12px", marginBottom: "6px" }}>
+            <div><span style={{ color: "#94a3b8" }}>O: </span><span style={{ fontWeight: 600 }}>₹{Number(data.open).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+            <div><span style={{ color: "#94a3b8" }}>H: </span><span style={{ fontWeight: 600, color: "#22c55e" }}>₹{Number(data.high).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+            <div><span style={{ color: "#94a3b8" }}>L: </span><span style={{ fontWeight: 600, color: "#ef4444" }}>₹{Number(data.low).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+            <div><span style={{ color: "#94a3b8" }}>C: </span><span style={{ fontWeight: 600, color }}>₹{Number(data.close || data.price).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+          </div>
+        )}
+        {data.volume !== undefined && (
+          <div style={{ fontSize: "12px", color: "#94a3b8", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "4px", marginBottom: "4px" }}>
+            Volume: <strong style={{ color: "#cbd5e1" }}>{Number(data.volume).toLocaleString("en-IN")}</strong>
+          </div>
+        )}
+        {payload.filter(p => p.dataKey && p.dataKey.startsWith("sma")).map((entry, index) => (
+          <div key={index} style={{ fontSize: "12px", margin: "2px 0", display: "flex", justifyContent: "space-between", gap: "6px" }}>
+            <span style={{ color: entry.color || "#94a3b8" }}>{entry.name} :</span>
             <span style={{ fontWeight: "600", color: entry.color || "#60a5fa" }}>
-              {typeof entry.value === "number" ? entry.value.toLocaleString("en-IN") : entry.value}
+              ₹{typeof entry.value === "number" ? entry.value.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : entry.value}
             </span>
           </div>
         ))}
@@ -140,6 +229,7 @@ export default function MarketAnalysis() {
     return urlSymbol ? urlSymbol.toUpperCase().trim() : "RELIANCE"
   })
   const [selectedRange, setSelectedRange] = useState("1Y")
+  const [chartType, setChartType] = useState("candlestick") // "candlestick" | "line"
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
 
@@ -652,34 +742,87 @@ export default function MarketAnalysis() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {/* Chart 1: Price with Moving Averages */}
+              {/* Chart 1: Price with Moving Averages & Candlestick toggle */}
               <div className="smp-card">
-                <h3 className="smp-card__title">
-                  {currentCompany.symbol} - Price with Moving Averages ({selectedRange})
-                </h3>
-                <div style={{ width: "100%", height: 320 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                  <h3 className="smp-card__title" style={{ margin: 0 }}>
+                    {currentCompany.symbol} - Price Action & Moving Averages ({selectedRange})
+                  </h3>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.06)", padding: "3px 6px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)" }}>
+                    <button
+                      type="button"
+                      onClick={() => setChartType("candlestick")}
+                      style={{
+                        background: chartType === "candlestick" ? "#3b82f6" : "transparent",
+                        color: chartType === "candlestick" ? "#ffffff" : "#94a3b8",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "3px 10px",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        transition: "all 160ms ease",
+                      }}
+                    >
+                      Candlesticks
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChartType("line")}
+                      style={{
+                        background: chartType === "line" ? "#3b82f6" : "transparent",
+                        color: chartType === "line" ? "#ffffff" : "#94a3b8",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "3px 10px",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        transition: "all 160ms ease",
+                      }}
+                    >
+                      Line
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ width: "100%", height: 340 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                      <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} />
-                      <YAxis stroke="#64748b" tick={{ fontSize: 12 }} domain={["auto", "auto"]} />
-                      <Tooltip content={<CustomOverviewTooltip />} cursor={{ stroke: "#ffffff", strokeWidth: 1 }} />
-                      <Legend />
-                      <Line type="monotone" dataKey="price" name="Price (₹)" stroke="#22c55e" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="sma20" name="SMA 20" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
-                      <Line type="monotone" dataKey="sma50" name="SMA 50" stroke="#3b82f6" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
-                      <Line type="monotone" dataKey="sma200" name="SMA 200" stroke="#a855f7" strokeWidth={1.5} dot={false} connectNulls={false} />
-                    </LineChart>
+                    {chartType === "candlestick" ? (
+                      <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} />
+                        <YAxis stroke="#64748b" tick={{ fontSize: 12 }} domain={["auto", "auto"]} />
+                        <Tooltip content={<CustomOverviewTooltip />} />
+                        <Legend />
+                        <Bar dataKey="close" name="Price (OHLC)" shape={<CandlestickBar />} />
+                        <Line type="monotone" dataKey="sma20" name="SMA 20" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="sma50" name="SMA 50" stroke="#3b82f6" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="sma200" name="SMA 200" stroke="#a855f7" strokeWidth={1.5} dot={false} connectNulls={false} />
+                      </ComposedChart>
+                    ) : (
+                      <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} />
+                        <YAxis stroke="#64748b" tick={{ fontSize: 12 }} domain={["auto", "auto"]} />
+                        <Tooltip content={<CustomOverviewTooltip />} cursor={{ stroke: "#ffffff", strokeWidth: 1 }} />
+                        <Legend />
+                        <Line type="monotone" dataKey="price" name="Price (₹)" stroke="#22c55e" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="sma20" name="SMA 20" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="sma50" name="SMA 50" stroke="#3b82f6" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="sma200" name="SMA 200" stroke="#a855f7" strokeWidth={1.5} dot={false} connectNulls={false} />
+                      </LineChart>
+                    )}
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              {/* Chart 2: Price & Volume */}
+              {/* Chart 2: Price & Volume with OHLC & Colored Volume Bars */}
               <div className="smp-card">
                 <h3 className="smp-card__title">
-                  {currentCompany.symbol} - Price & Volume ({selectedRange})
+                  {currentCompany.symbol} - Price & Volume Breakdown ({selectedRange})
                 </h3>
-                <div style={{ width: "100%", height: 300 }}>
+                <div style={{ width: "100%", height: 320 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -688,8 +831,8 @@ export default function MarketAnalysis() {
                       <YAxis yAxisId="right" orientation="right" stroke="#64748b" tick={{ fontSize: 12 }} />
                       <Tooltip content={<CustomOverviewTooltip />} />
                       <Legend />
-                      <Line yAxisId="left" type="monotone" dataKey="price" name="Price (₹)" stroke="#ef4444" strokeWidth={2} dot={false} />
-                      <Bar yAxisId="right" dataKey="volume" name="Volume" fill="#22c55e" opacity={0.4} />
+                      <Bar yAxisId="left" dataKey="close" name="Price (OHLC)" shape={<CandlestickBar />} />
+                      <Bar yAxisId="right" dataKey="volume" name="Volume" shape={<VolumeBar />} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>

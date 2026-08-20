@@ -1,9 +1,16 @@
 import { Activity, TrendingUp, TrendingDown } from "lucide-react"
 
-export default function MarketOverviewCard({ data, style }) {
+export default function MarketOverviewCard({ data, style, onClick }) {
   const isOpen = data.status === "OPEN"
   return (
-    <article className="summary-card summary-card--market card-appear" style={style}>
+    <article
+      className="summary-card summary-card--market card-appear"
+      style={{ ...style, cursor: onClick ? "pointer" : "default" }}
+      onClick={onClick}
+      tabIndex={onClick ? 0 : undefined}
+      role={onClick ? "button" : undefined}
+      title={onClick ? "Click to view 50 Companies" : undefined}
+    >
       <div className="summary-card__market-head">
         <span className="summary-card__icon" aria-hidden="true">
           <Activity size={18} />

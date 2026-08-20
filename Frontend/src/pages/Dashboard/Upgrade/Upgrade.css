@@ -661,7 +661,8 @@
   right: 14px;
   font-size: 11px;
   color: #475569;
-  font-family: monospace;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
 

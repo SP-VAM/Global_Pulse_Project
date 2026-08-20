@@ -76,7 +76,7 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
       MAX_GOAL_NAME_LENGTH,
       "Goal Name",
       true,
-      "Goal Name cannot exceed 100 characters."
+      "Goal Name cannot exceed 30 characters."
     );
     if (!nameVal.isValid) {
       newErrors.name = nameVal.error;
@@ -87,7 +87,7 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
       MAX_GOAL_NOTE_LENGTH,
       "Note",
       false,
-      "Note cannot exceed 500 characters."
+      "Note cannot exceed 30 characters."
     );
     if (!noteVal.isValid) {
       newErrors.note = noteVal.error;
@@ -174,7 +174,7 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
                 Goal Name <span className="goal-creation__req">*</span>
               </label>
               <span style={{ fontSize: "11px", color: "var(--text-3, #6b7385)", fontWeight: 600 }}>
-                {name.length}/100
+                {name.length}/30
               </span>
             </div>
             <div className="drawer-panel__input-wrapper">
@@ -204,7 +204,7 @@ export default function GoalCreation({ onCancel, onCreateSuccess }) {
                 Note <span className="goal-creation__opt">(Optional)</span>
               </label>
               <span style={{ fontSize: "11px", color: "var(--text-3, #6b7385)", fontWeight: 600 }}>
-                {note.length}/500
+                {note.length}/30
               </span>
             </div>
             <div className="drawer-panel__input-wrapper">

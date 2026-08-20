@@ -61,8 +61,49 @@
   --sidebar-w-open: 260px;
   --navbar-h: 60px;
 
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+  /* Typography Scale Tokens (Desktop Baseline) */
+  --font-hero: clamp(42px, 5.5vw, 68px);
+  --lh-hero: 1.1;
+  --ls-hero: -0.03em;
+  --fw-hero: 800;
+
+  --font-h1: clamp(32px, 3.8vw, 44px);
+  --lh-h1: 1.18;
+  --ls-h1: -0.025em;
+  --fw-h1: 700;
+
+  --font-h2: clamp(24px, 2.8vw, 32px);
+  --lh-h2: 1.25;
+  --ls-h2: -0.02em;
+  --fw-h2: 650;
+
+  --font-h3: clamp(18px, 2vw, 22px);
+  --lh-h3: 1.3;
+  --ls-h3: -0.015em;
+  --fw-h3: 600;
+
+  --font-body: 15px;
+  --lh-body: 1.55;
+  --fw-body: 400;
+
+  --font-nav: 14.5px;
+  --fw-nav: 550;
+
+  --font-btn: 14px;
+  --fw-btn: 600;
+  --ls-btn: 0.01em;
+
+  --font-label: 12.5px;
+  --fw-label: 500;
+  --ls-label: 0.02em;
+
+  /* Financial Metrics Sizes (JetBrains Mono) */
+  --font-metric-lg: clamp(28px, 3.2vw, 36px);
+  --font-metric-md: 20px;
+  --font-metric-sm: 14px;
 }
 
 * {
@@ -79,11 +120,52 @@ body,
 
 body {
   font-family: var(--font-sans);
+  font-size: var(--font-body);
+  line-height: var(--lh-body);
+  font-weight: var(--fw-body);
   background-color: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+}
+
+/* ============================================================
+   Typography Hierarchy & Standardized Elements
+   ============================================================ */
+h1, .gp-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--font-h1);
+  font-weight: var(--fw-h1);
+  line-height: var(--lh-h1);
+  letter-spacing: var(--ls-h1);
+  color: var(--text);
+}
+
+h2, .gp-h2 {
+  font-family: var(--font-sans);
+  font-size: var(--font-h2);
+  font-weight: var(--fw-h2);
+  line-height: var(--lh-h2);
+  letter-spacing: var(--ls-h2);
+  color: var(--text);
+}
+
+h3, .gp-h3 {
+  font-family: var(--font-sans);
+  font-size: var(--font-h3);
+  font-weight: var(--fw-h3);
+  line-height: var(--lh-h3);
+  letter-spacing: var(--ls-h3);
+  color: var(--text);
+}
+
+p, .gp-body {
+  font-family: var(--font-sans);
+  font-size: var(--font-body);
+  font-weight: var(--fw-body);
+  line-height: var(--lh-body);
 }
 
 a {
@@ -91,16 +173,20 @@ a {
   text-decoration: none;
 }
 
-button {
-  font-family: inherit;
+button, .gp-btn {
+  font-family: var(--font-sans);
+  font-size: var(--font-btn);
+  font-weight: var(--fw-btn);
+  letter-spacing: var(--ls-btn);
   cursor: pointer;
   border: none;
   background: none;
   color: inherit;
 }
 
-input {
-  font-family: inherit;
+input, select, textarea {
+  font-family: var(--font-sans);
+  font-size: 14px;
 }
 
 /* Prevent Chrome/Edge autofill from turning input background white */
@@ -182,9 +268,43 @@ select:-webkit-autofill:active {
   }
 }
 
-/* Utility */
-.gp-mono {
-  font-family: var(--font-mono);
+/* ============================================================
+   Financial & Numerical Monospaced Typography (JetBrains Mono)
+   ============================================================ */
+.gp-mono,
+.gp-num,
+.gp-price,
+.gp-ticker,
+.gp-stat-val,
+.gp-tabular {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+.gp-metric-lg {
+  font-family: var(--font-mono) !important;
+  font-size: var(--font-metric-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.02em;
+}
+
+.gp-metric-md {
+  font-family: var(--font-mono) !important;
+  font-size: var(--font-metric-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.gp-label {
+  font-family: var(--font-sans);
+  font-size: var(--font-label);
+  font-weight: var(--fw-label);
+  letter-spacing: var(--ls-label);
+  color: var(--text-3);
 }
 
 .gp-pos {
@@ -192,6 +312,22 @@ select:-webkit-autofill:active {
 }
 .gp-neg {
   color: var(--red);
+}
+
+/* ============================================================
+   Responsive Typography Adjustments
+   ============================================================ */
+@media (max-width: 768px) {
+  :root {
+    --font-hero: clamp(36px, 8vw, 48px);
+    --font-h1: clamp(28px, 6vw, 36px);
+    --font-h2: clamp(22px, 5vw, 28px);
+    --font-h3: clamp(17px, 4vw, 20px);
+    --font-body: 14.5px;
+    --font-label: 12px;
+    --font-metric-lg: 26px;
+    --font-metric-md: 18px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

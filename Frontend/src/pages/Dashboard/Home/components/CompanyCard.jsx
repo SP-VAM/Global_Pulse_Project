@@ -86,10 +86,10 @@ export default function CompanyCard({ company, series, sparkline, style }) {
           history={company?.price_history}
           color={company?.positive ? "#10b981" : "#f43f5e"}
           area
-          dots
+          dots={false}
           labels={axisLabels}
           height={60}
-          strokeWidth={2.2}
+          strokeWidth={1.4}
         />
       </div>
     </article>

@@ -14,8 +14,8 @@ export const MAX_FINANCIAL_AMOUNT = 9999999999999.99;
 export const MAX_NAME_LENGTH = 100;
 export const MAX_NOTE_LENGTH = 30;
 export const MAX_EXPENSE_NOTE_LENGTH = 30;
-export const MAX_GOAL_NAME_LENGTH = 100;
-export const MAX_GOAL_NOTE_LENGTH = 500;
+export const MAX_GOAL_NAME_LENGTH = 30;
+export const MAX_GOAL_NOTE_LENGTH = 30;
 export const MAX_GOAL_TARGET_AMOUNT = 999999999; // ₹99,99,99,999
 
 /**

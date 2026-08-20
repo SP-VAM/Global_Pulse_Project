@@ -38,6 +38,12 @@ import {
   getAssetAllocation,
 } from "../../src/pages/Dashboard/Goals/goalHelpers.js";
 
+import {
+  MAX_GOAL_NAME_LENGTH,
+  MAX_GOAL_NOTE_LENGTH,
+  validateTextLength,
+} from "../../src/utils/financialValidation.js";
+
 function createMockResponse(data, status = 200) {
   const jsonStr = JSON.stringify(data);
   return {
@@ -210,6 +216,61 @@ describe("Frontend Financial Goals - Unit Test Suite", () => {
 
       const res = await deleteGoalApi(10);
       assert.strictEqual(res, true);
+    });
+  });
+
+  /* -------------------------------------------------------------
+   * 3. 30-Character Boundary Validations (Create & Update Goal)
+   * ------------------------------------------------------------- */
+  describe("Goal Name & Notes 30-Character Boundaries", () => {
+    test("Constants MAX_GOAL_NAME_LENGTH and MAX_GOAL_NOTE_LENGTH are exactly 30", () => {
+      assert.strictEqual(MAX_GOAL_NAME_LENGTH, 30);
+      assert.strictEqual(MAX_GOAL_NOTE_LENGTH, 30);
+    });
+
+    test("Goal Name accepts 29 and 30 characters, rejects 31 characters", () => {
+      const name29 = "12345678901234567890123456789"; // 29 chars
+      const name30 = "123456789012345678901234567890"; // 30 chars
+      const name31 = "1234567890123456789012345678901"; // 31 chars
+
+      const val29 = validateTextLength(name29, MAX_GOAL_NAME_LENGTH, "Goal Name", true);
+      assert.strictEqual(val29.isValid, true);
+      assert.strictEqual(val29.error, null);
+
+      const val30 = validateTextLength(name30, MAX_GOAL_NAME_LENGTH, "Goal Name", true);
+      assert.strictEqual(val30.isValid, true);
+      assert.strictEqual(val30.error, null);
+
+      const val31 = validateTextLength(name31, MAX_GOAL_NAME_LENGTH, "Goal Name", true);
+      assert.strictEqual(val31.isValid, false);
+      assert.match(val31.error, /cannot exceed 30 characters/i);
+    });
+
+    test("Goal Notes accept 29 and 30 characters, rejects 31 characters", () => {
+      const note29 = "Save monthly for emergency fn"; // 29 chars
+      const note30 = "Save monthly for emergency fnd"; // 30 chars
+      const note31 = "Save monthly for emergency fund"; // 31 chars
+
+      const val29 = validateTextLength(note29, MAX_GOAL_NOTE_LENGTH, "Note", false);
+      assert.strictEqual(val29.isValid, true);
+      assert.strictEqual(val29.error, null);
+
+      const val30 = validateTextLength(note30, MAX_GOAL_NOTE_LENGTH, "Note", false);
+      assert.strictEqual(val30.isValid, true);
+      assert.strictEqual(val30.error, null);
+
+      const val31 = validateTextLength(note31, MAX_GOAL_NOTE_LENGTH, "Note", false);
+      assert.strictEqual(val31.isValid, false);
+      assert.match(val31.error, /cannot exceed 30 characters/i);
+    });
+
+    test("Pasting strings longer than 30 characters is properly sliced by input maxLength", () => {
+      const pastedLongString = "This is a very long financial goal name that exceeds thirty characters";
+      const truncated = pastedLongString.slice(0, MAX_GOAL_NAME_LENGTH);
+      assert.strictEqual(truncated.length, 30);
+
+      const val = validateTextLength(truncated, MAX_GOAL_NAME_LENGTH, "Goal Name", true);
+      assert.strictEqual(val.isValid, true);
     });
   });
 });

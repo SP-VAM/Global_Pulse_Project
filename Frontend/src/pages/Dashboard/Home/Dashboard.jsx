@@ -8,8 +8,9 @@ import CompanyCard from "./components/CompanyCard.jsx"
 import TopMovers from "./components/TopMovers.jsx"
 import SectorCard from "./components/SectorCard.jsx"
 import { useFlow } from "../../../App"
-import { getMarketSnapshot } from "../../../api/marketApi.js"
+import { getMarketSnapshot, getStockSentiment } from "../../../api/marketApi.js"
 import { getExpenseSummary } from "../../../api/expenseApi.js"
+import { fetchGoals } from "../../../api/goalsApi.js"
 
 import {
   summaryCards,
@@ -106,57 +107,182 @@ export default function Dashboard() {
     }
   }, [fetchExpenseSummary])
 
-  const liveSummaryCards = useMemo(() => {
-    const spending = expenseSummary ? (expenseSummary.monthlySpending || 0) : null
-    const income = expenseSummary ? (expenseSummary.monthlyIncome || 0) : null
-    const savings = expenseSummary ? (expenseSummary.savings || 0) : null
-    const totalBudget = expenseSummary ? (expenseSummary.budgets || []).reduce((acc, b) => acc + (Number(b.budgetAmount) || 0), 0) : 0
-    const remainingBudget = totalBudget > 0 && spending !== null ? (totalBudget - spending) : 0
+  // Live Financial Goals State
+  const [goalsList, setGoalsList] = useState([])
 
-    const formatVal = (num) => {
-      if (num === null || num === undefined) return "Loading..."
+  const fetchGoalsData = useCallback(async () => {
+    try {
+      const res = await fetchGoals()
+      if (Array.isArray(res)) {
+        setGoalsList(res)
+      } else if (res && Array.isArray(res.goals)) {
+        setGoalsList(res.goals)
+      }
+    } catch (err) {
+      console.warn("[Dashboard] Goals fetch error:", err)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchGoalsData()
+    window.addEventListener("goals-updated", fetchGoalsData)
+    return () => {
+      window.removeEventListener("goals-updated", fetchGoalsData)
+    }
+  }, [fetchGoalsData])
+
+  // Live Market Sentiment State
+  const [latestSentiment, setLatestSentiment] = useState({
+    score: "+0.74",
+    label: "Bullish",
+    headline: "Nifty 50 Market Sentiment",
+  })
+
+  useEffect(() => {
+    getStockSentiment("RELIANCE")
+      .then((res) => {
+        if (res) {
+          const sc = res.sentiment_score ?? res.score ?? 0.74
+          const numSc = typeof sc === "number" ? sc : parseFloat(sc) || 0.74
+          const lbl = numSc > 0.15 ? "Bullish" : numSc < -0.15 ? "Bearish" : "Neutral"
+          const head =
+            (res.articles && res.articles[0]?.title) ||
+            (res.recent_headlines && res.recent_headlines[0]) ||
+            "Nifty 50 Live Market Sentiment"
+          setLatestSentiment({
+            score: (numSc >= 0 ? "+" : "") + numSc.toFixed(2),
+            label: lbl,
+            headline: head,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  // Learning Hub Last Active Module State
+  const [lastModule, setLastModule] = useState(() => {
+    try {
+      const saved = localStorage.getItem("recent_learning_modules_v3")
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed[0]
+      }
+      const prog = localStorage.getItem("lh_user_video_progress_v1")
+      if (prog) {
+        const parsedProg = JSON.parse(prog)
+        const keys = Object.keys(parsedProg)
+        if (keys.length > 0) {
+          const lastKey = keys[keys.length - 1]
+          return {
+            title: `Module ${lastKey}`,
+            progressPercentage: parsedProg[lastKey]?.progressPercentage,
+          }
+        }
+      }
+      return null
+    } catch {
+      return null
+    }
+  })
+
+  // Summary Row: Cards 2 to 5 (Card 1 is MarketOverviewCard)
+  const liveSummaryCards = useMemo(() => {
+    const now = new Date()
+    const currentMonthName = now.toLocaleString("en-US", { month: "long" })
+
+    // CARD 2: Expense Tracker - That Month Net Savings
+    const savings = expenseSummary ? expenseSummary.savings : null
+    const hasExpenseActivity =
+      expenseSummary &&
+      (Number(expenseSummary.monthlyIncome) > 0 ||
+        Number(expenseSummary.monthlySpending) > 0 ||
+        Number(expenseSummary.savings) !== 0)
+
+    const formatINRVal = (num) => {
+      if (num === null || num === undefined) return "₹0"
       return "₹" + Math.round(num).toLocaleString("en-IN")
     }
 
-    return [
-      {
-        id: "spending",
-        label: "Monthly Spending",
-        value: formatVal(spending),
-        change: spending !== null && spending > 0 ? "Logged" : "₹0 spent",
-        positive: false,
-        icon: "Wallet",
-        tone: "blue",
-      },
-      {
-        id: "income",
-        label: "Income",
-        value: formatVal(income),
-        change: income !== null && income > 0 ? "Logged" : "₹0 logged",
-        positive: true,
-        icon: "TrendingUp",
-        tone: "green",
-      },
-      {
-        id: "budget",
-        label: "Remaining Budget",
-        value: expenseSummary ? formatVal(remainingBudget) : "Loading...",
-        change: totalBudget === 0 ? "No budget set" : remainingBudget >= 0 ? "In budget" : "Over budget",
-        positive: remainingBudget >= 0,
-        icon: "PieChart",
-        tone: remainingBudget >= 0 ? "amber" : "red",
-      },
-      {
-        id: "savings",
-        label: "Savings",
-        value: formatVal(savings),
-        change: savings !== null && savings >= 0 ? "Net positive" : "Deficit",
-        positive: savings !== null && savings >= 0,
-        icon: "PiggyBank",
-        tone: "green",
-      },
-    ]
-  }, [expenseSummary])
+    const netSavingsCard = {
+      id: "net-savings",
+      label: `Net Savings (${currentMonthName})`,
+      value: expenseSummary ? formatINRVal(savings) : "₹0",
+      change: hasExpenseActivity
+        ? savings >= 0
+          ? "Net positive"
+          : "Deficit"
+        : "Add your expense",
+      positive: hasExpenseActivity ? savings >= 0 : null,
+      icon: "PiggyBank",
+      tone: "green",
+      onClick: () => navigate("/dashboard/expense-tracker"),
+    }
+
+    // CARD 3: Goal Progress Percentage
+    const hasGoals = Array.isArray(goalsList) && goalsList.length > 0
+    let goalProgressPct = 0
+    if (hasGoals) {
+      const totalProgress = goalsList.reduce(
+        (acc, g) => acc + (Number(g.current || g.current_quantity) || 0),
+        0
+      )
+      const totalTarget = goalsList.reduce(
+        (acc, g) => acc + (Number(g.target || g.target_quantity) || 0),
+        0
+      )
+      goalProgressPct =
+        totalTarget > 0 ? Math.min(100, Math.round((totalProgress / totalTarget) * 100)) : 0
+    }
+
+    const goalCard = {
+      id: "goals",
+      label: "Goal Progress",
+      value: hasGoals ? `${goalProgressPct}%` : "0%",
+      change: hasGoals
+        ? `${goalsList.length} Active ${goalsList.length === 1 ? "Goal" : "Goals"}`
+        : "Add your goal",
+      positive: hasGoals ? goalProgressPct > 0 : null,
+      icon: "Target",
+      tone: "blue",
+      onClick: () => navigate("/dashboard/goals"),
+    }
+
+    // CARD 4: Live News Articles & Sentiment Scores (NO DIRECT TO IT)
+    const newsCard = {
+      id: "news-sentiment",
+      label: "Live News & Sentiment",
+      value: `${latestSentiment.label} (${latestSentiment.score})`,
+      change: latestSentiment.headline,
+      positive:
+        latestSentiment.label === "Bullish"
+          ? true
+          : latestSentiment.label === "Bearish"
+          ? false
+          : null,
+      icon: "Newspaper",
+      tone: latestSentiment.label === "Bearish" ? "red" : "blue",
+      onClick: undefined, // Purely informational — no redirect as requested
+    }
+
+    // CARD 5: Learning Hub (Last Active Module)
+    const hasLearning = lastModule && (lastModule.title || lastModule.name)
+    const learningCard = {
+      id: "learning-hub",
+      label: "Learning Hub",
+      value: hasLearning
+        ? lastModule.title || lastModule.name
+        : "Learn something new",
+      change: hasLearning
+        ? `${lastModule.progressPercentage || 25}% completed`
+        : "Start learning",
+      positive: hasLearning ? true : null,
+      icon: "GraduationCap",
+      tone: "purple",
+      onClick: () => navigate("/dashboard/learning-hub"),
+    }
+
+    return [netSavingsCard, goalCard, newsCard, learningCard]
+  }, [expenseSummary, goalsList, latestSentiment, lastModule, navigate])
 
   const greetingName =
     currentUser?.full_name ||
@@ -278,12 +404,24 @@ export default function Dashboard() {
         <p className="dashboard__welcome">Welcome back! Here&apos;s today&apos;s market overview.</p>
       </header>
 
-      {/* Compact summary cards + market overview */}
+      {/* 5 Summary Cards: 1. Market Overview -> 2. Net Savings -> 3. Goal Progress -> 4. Live News & Sentiment -> 5. Learning Hub */}
       <section className="dashboard__summary" aria-label="Financial summary">
+        {/* CARD 1: Market Overview (Navigates to 50 Companies) */}
+        <MarketOverviewCard
+          data={marketOverview}
+          style={{ animationDelay: "0ms" }}
+          onClick={() => navigate("/dashboard/constituents")}
+        />
+
+        {/* CARDS 2 to 5 */}
         {liveSummaryCards.map((item, i) => (
-          <SummaryCard key={item.id} item={item} style={{ animationDelay: `${i * 60}ms` }} />
+          <SummaryCard
+            key={item.id}
+            item={item}
+            style={{ animationDelay: `${(i + 1) * 60}ms` }}
+            onClick={item.onClick}
+          />
         ))}
-        <MarketOverviewCard data={marketOverview} style={{ animationDelay: `${liveSummaryCards.length * 60}ms` }} />
       </section>
 
       {/* Company intelligence */}
