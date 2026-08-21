@@ -15,126 +15,143 @@ import { X, ExternalLink, Play, Pause, CheckCircle2 } from "lucide-react";
  */
 export default function LearningModal({ course, onClose, existingProgress, onSaveProgress }) {
   const totalDurationSeconds = course?.durationSeconds || 1800;
+  const startSec = existingProgress?.progressSeconds || 0;
   
   const iframeRef = useRef(null);
+  const playerRef = useRef(null);
 
   // Initial position from existing progress
-  const [currentSeconds, setCurrentSeconds] = useState(
-    existingProgress?.progressSeconds || 0
-  );
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [currentSeconds, setCurrentSeconds] = useState(startSec);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isCompleted, setIsCompleted] = useState(
     existingProgress?.isCompleted || (existingProgress?.progressPercentage >= 90) || false
   );
+  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   // Keep ref for current values to save on unmount/close
   const progressRef = useRef({ currentSeconds, totalDurationSeconds, isCompleted });
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") handleClose();
-    };
-
     if (course) {
-      document.addEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "hidden";
     }
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "unset";
     };
   }, [course]);
 
-  // Subscribe to YouTube iframe API events to detect play, pause, and seek changes (BUG-09)
+  // Load YouTube Iframe API if not loaded
   useEffect(() => {
-    const handleMessage = (event) => {
-      if (!event.origin.includes("youtube.com")) return;
-      try {
-        const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-        if (data) {
-          let state = null;
-          if (data.event === "onStateChange") {
-            state = data.info;
-          } else if (data.event === "infoDelivery" && data.info) {
-            if (data.info.playerState !== undefined) {
-              state = data.info.playerState;
-            }
-            if (data.info.currentTime !== undefined) {
-              const time = Math.round(data.info.currentTime);
-              setCurrentSeconds(time);
-              
-              const nextPct = Math.round((time / totalDurationSeconds) * 100);
-              if (nextPct >= 90) {
-                setIsCompleted(true);
-              }
-              
-              progressRef.current = {
-                currentSeconds: time,
-                totalDurationSeconds,
-                isCompleted: isCompleted || nextPct >= 90,
-                pct: nextPct,
-              };
-            }
-          }
-          
-          if (state !== null) {
-            if (state === 1) {
-              setIsPlaying(true);
-            } else if (state === 2 || state === 0) {
-              setIsPlaying(false);
-            }
-          }
-        }
-      } catch (err) {
-        // Not a JSON message or not from YouTube
+    if (!window.YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      if (firstScriptTag && firstScriptTag.parentNode) {
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      } else {
+        document.head.appendChild(tag);
+      }
+    }
+  }, []);
+
+  // Initialize YT Player once the iframe has loaded
+  useEffect(() => {
+    if (!iframeLoaded) return;
+
+    let player;
+    let timeInterval;
+
+    const onPlayerReady = (event) => {
+      playerRef.current = event.target;
+      if (startSec > 0) {
+        event.target.seekTo(startSec, true);
       }
     };
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [totalDurationSeconds, isCompleted]);
 
-  // Toggle play / pause and send command to YouTube iframe
-  const togglePlayPause = () => {
-    const nextState = !isPlaying;
-    setIsPlaying(nextState);
-    if (iframeRef.current && iframeRef.current.contentWindow) {
-      const command = nextState ? "playVideo" : "pauseVideo";
-      iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({ event: "command", func: command, args: "" }),
-        "*"
-      );
-    }
-  };
+    const onPlayerStateChange = (event) => {
+      const state = event.data;
+      if (state === window.YT.PlayerState.PLAYING) {
+        setIsPlaying(true);
+        startTimeTracking();
+      } else if (state === window.YT.PlayerState.PAUSED) {
+        setIsPlaying(false);
+        stopTimeTracking();
+      } else if (state === window.YT.PlayerState.ENDED) {
+        setIsPlaying(false);
+        stopTimeTracking();
+        
+        const duration = event.target.getDuration() || totalDurationSeconds;
+        setCurrentSeconds(duration);
+        setIsCompleted(true);
+        progressRef.current = {
+          currentSeconds: duration,
+          totalDurationSeconds: duration,
+          isCompleted: true,
+          pct: 100,
+        };
+        if (onSaveProgress && course) {
+          onSaveProgress(course.id, duration, duration, 100, true);
+        }
+      }
+    };
 
-  // Real-time watch position timer simulation while player modal is active
-  useEffect(() => {
-    let timer;
-    if (isPlaying && course) {
-      timer = setInterval(() => {
-        setCurrentSeconds((prev) => {
-          const next = Math.min(totalDurationSeconds, prev + 2);
-          const nextPct = Math.round((next / totalDurationSeconds) * 100);
-          
-          // Check 90% completion threshold (Test Scenario TS_FRD046_Completion_1)
-          if (nextPct >= 90 && !isCompleted) {
+    const initPlayer = () => {
+      if (!iframeRef.current) return;
+      player = new window.YT.Player(iframeRef.current, {
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+        },
+      });
+    };
+
+    const startTimeTracking = () => {
+      if (timeInterval) clearInterval(timeInterval);
+      timeInterval = setInterval(() => {
+        if (player && player.getCurrentTime) {
+          const time = Math.round(player.getCurrentTime());
+          const duration = player.getDuration() || totalDurationSeconds;
+          setCurrentSeconds(time);
+
+          const nextPct = Math.round((time / duration) * 100);
+          if (nextPct >= 90) {
             setIsCompleted(true);
           }
 
           progressRef.current = {
-            currentSeconds: next,
-            totalDurationSeconds,
+            currentSeconds: time,
+            totalDurationSeconds: duration,
             isCompleted: isCompleted || nextPct >= 90,
             pct: nextPct,
           };
-          
-          return next;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
+        }
+      }, 500);
     };
-  }, [isPlaying, course, totalDurationSeconds, isCompleted]);
+
+    const stopTimeTracking = () => {
+      if (timeInterval) {
+        clearInterval(timeInterval);
+        timeInterval = null;
+      }
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      const prevCallback = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (prevCallback) prevCallback();
+        initPlayer();
+      };
+    }
+
+    return () => {
+      stopTimeTracking();
+      if (player && player.destroy) {
+        player.destroy();
+      }
+    };
+  }, [iframeLoaded, course, startSec, totalDurationSeconds, isCompleted, onSaveProgress]);
 
   // Save progress when component unmounts or modal closes
   const handleClose = () => {
@@ -165,13 +182,22 @@ export default function LearningModal({ course, onClose, existingProgress, onSav
   const pct = Math.round((currentSeconds / totalDurationSeconds) * 100);
 
   // Include enablejsapi=1 and start timestamp for YouTube API control
-  const startSec = existingProgress?.progressSeconds || 0;
-  const embedSrc =
-    course.embedUrl
-      ? `${course.embedUrl}${course.embedUrl.includes("?") ? "&" : "?"}enablejsapi=1${startSec > 0 ? `&start=${startSec}` : ""}`
-      : course.videoId
-      ? `https://www.youtube.com/embed/${course.videoId}?autoplay=1&cc_load_policy=1&enablejsapi=1${startSec > 0 ? `&start=${startSec}` : ""}`
-      : "";
+  // Clean up duplicate query parameters using getEmbedSrc helper
+  const getEmbedSrc = () => {
+    let url = course.embedUrl || (course.videoId ? `https://www.youtube.com/embed/${course.videoId}` : "");
+    if (!url) return "";
+    if (!url.includes("?")) {
+      url += "?autoplay=1&cc_load_policy=1";
+    }
+    if (!url.includes("enablejsapi=1")) {
+      url += "&enablejsapi=1";
+    }
+    if (startSec > 0 && !url.includes("start=")) {
+      url += `&start=${startSec}`;
+    }
+    return url;
+  };
+  const embedSrc = getEmbedSrc();
 
   const formatTime = (totalSec) => {
     const mins = Math.floor(totalSec / 60);
@@ -219,7 +245,6 @@ export default function LearningModal({ course, onClose, existingProgress, onSav
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "14px 20px",
             borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
             background: "rgba(13, 17, 27, 0.95)",
           }}
@@ -275,8 +300,10 @@ export default function LearningModal({ course, onClose, existingProgress, onSav
         {/* 16:9 Video Player Wrapper */}
         <div className="lh-video-wrapper" style={{ position: "relative", width: "100%", paddingTop: "56.25%", background: "#000" }}>
           <iframe
+            id={`yt-player-${course.id}`}
             ref={iframeRef}
             src={embedSrc}
+            onLoad={() => setIframeLoaded(true)}
             title={course.title}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -295,33 +322,12 @@ export default function LearningModal({ course, onClose, existingProgress, onSav
         <div
           className="lh-modal-controls"
           style={{
-            padding: "12px 20px",
             background: "rgba(18, 24, 38, 0.95)",
             borderTop: "1px solid rgba(255, 255, 255, 0.08)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <button
-                type="button"
-                onClick={togglePlayPause}
-                style={{
-                  background: isPlaying ? "rgba(56, 189, 248, 0.15)" : "rgba(16, 185, 129, 0.2)",
-                  border: `1px solid ${isPlaying ? "rgba(56, 189, 248, 0.4)" : "rgba(16, 185, 129, 0.5)"}`,
-                  color: isPlaying ? "#38bdf8" : "#10b981",
-                  borderRadius: "6px",
-                  padding: "4px 10px",
-                  fontSize: "12px",
-                  fontWeight: "600",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  cursor: "pointer"
-                }}
-              >
-                {isPlaying ? <><Pause size={13} /> Pause Progress</> : <><Play size={13} /> Resume Progress</>}
-              </button>
-              
               <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: "600" }}>
                 {formatTime(currentSeconds)} / {formatTime(totalDurationSeconds)} ({pct}%)
               </span>
@@ -405,7 +411,6 @@ export default function LearningModal({ course, onClose, existingProgress, onSav
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "12px 20px",
             background: "rgba(13, 17, 27, 0.95)",
             borderTop: "1px solid rgba(255, 255, 255, 0.08)",
           }}
