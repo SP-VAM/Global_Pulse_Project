@@ -119,7 +119,11 @@ class VerifyForgotOTPRequest(BaseModel):
     otp_code: str
 
 class ResetPasswordRequest(BaseModel):
-    identifier: str
+    identifier: Optional[str] = None
+    email_or_mobile: Optional[str] = None
+    email: Optional[str] = None
+    mobile_number: Optional[str] = None
+    reset_token: Optional[str] = None
     new_password: str
 
 class SendOTPRequest(BaseModel):

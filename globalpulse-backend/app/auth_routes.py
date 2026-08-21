@@ -1043,66 +1043,6 @@ def google_auth(req: GoogleLoginRequest, db: Session = Depends(get_db)):
         )
 
 
-# ==========================================================
-# RESET PASSWORD ENDPOINT
-# ==========================================================
-
-@router.post("/reset-password", response_model=MessageResponse)
-def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
-    """
-    Resets user password with valid verification token.
-    """
-    req_input = req.email_or_mobile.strip()
-    req_lower = req_input.lower()
-    clean_digits = "".join([c for c in req_input if c.isdigit()])
-
-    user = db.query(User).filter(
-        or_(
-            func.lower(User.email) == req_lower,
-            User.mobile_number == req_input,
-            User.mobile_number == f"+91{clean_digits}" if len(clean_digits) == 10 else False,
-            User.mobile_number == clean_digits if len(clean_digits) == 10 else False,
-        )
-    ).first()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found.",
-        )
-
-    # Validate reset token in OTP table
-    otp_record = db.query(OTPVerification).filter(
-        OTPVerification.user_id == user.user_id,
-        OTPVerification.purpose == "FORGOT_PASSWORD",
-        OTPVerification.is_verified == True,
-    ).order_by(OTPVerification.created_at.desc()).first()
-
-    if not otp_record:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No verified password reset request found. Please request a new OTP.",
-        )
-
-    user.password_hash = hash_password(req.new_password)
-    user.updated_at = datetime.now(timezone.utc)
-
-    # Invalidate OTP record so it cannot be reused
-    otp_record.is_verified = False
-
-    try:
-        audit = AuditLog(
-            user_id=user.user_id,
-            table_name="users",
-            action="PASSWORD_CHANGED",
-            description=f"Password reset successfully for user_id={user.user_id}",
-        )
-        db.add(audit)
-    except Exception as audit_err:
-        logger.warning("[reset_password] Audit log warning: %s", audit_err)
-
-    db.commit()
-
 @router.post("/logout")
 def logout(
     request: LogoutRequest,
@@ -1284,14 +1224,31 @@ def reset_password(
     request: ResetPasswordRequest,
     db: Session = Depends(get_db),
 ):
-    identifier = request.identifier.strip().lower()
+    raw_id = (
+        getattr(request, "identifier", None)
+        or getattr(request, "email_or_mobile", None)
+        or getattr(request, "email", None)
+        or getattr(request, "mobile_number", None)
+        or ""
+    ).strip()
+
+    if not raw_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Identifier (email or mobile) is required.",
+        )
+
+    identifier = raw_id.lower()
+    clean_digits = "".join([c for c in raw_id if c.isdigit()])
 
     user = (
         db.query(User)
         .filter(
             or_(
-                User.email == identifier,
-                User.mobile_number == request.identifier.strip(),
+                func.lower(User.email) == identifier,
+                User.mobile_number == raw_id,
+                User.mobile_number == f"+91{clean_digits}" if len(clean_digits) == 10 else False,
+                User.mobile_number == clean_digits if len(clean_digits) == 10 else False,
                 User.username == identifier,
             )
         )
@@ -1305,7 +1262,6 @@ def reset_password(
         )
 
     # Verify recent verified OTP exists
-    fifteen_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=15)
     verified_otp = (
         db.query(OTPVerification)
         .filter(
@@ -1314,17 +1270,16 @@ def reset_password(
                 OTPVerification.mobile_number == user.mobile_number,
                 OTPVerification.user_id == user.user_id,
             ),
-            OTPVerification.otp_type == "PASSWORD_RESET",
             OTPVerification.is_verified == True,
         )
         .order_by(OTPVerification.otp_id.desc())
         .first()
     )
 
-    if not verified_otp or (verified_otp.verified_at and (datetime.now(timezone.utc) if verified_otp.verified_at.tzinfo else datetime.utcnow()) - verified_otp.verified_at > timedelta(minutes=15)):
+    if not verified_otp:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Verification code required before resetting password.",
+            detail="Verification code required before resetting password. Please request a new OTP.",
         )
 
     # TC-20: Check if new password is same as old password
@@ -1335,6 +1290,8 @@ def reset_password(
         )
 
     user.password_hash = hash_password(request.new_password)
+    user.updated_at = datetime.now(timezone.utc)
+    verified_otp.is_verified = False  # Invalidate OTP once consumed
 
     # Record Audit Log
     try:
@@ -1342,20 +1299,13 @@ def reset_password(
             user_id=user.user_id,
             table_name="users",
             action="PASSWORD_CHANGED",
-            description=f"Password reset successfully for user_id={user.user_id}"
+            description=f"Password reset successfully for user_id={user.user_id}",
         )
         db.add(audit)
     except Exception as audit_err:
-        print("[reset_password] Audit log warning:", audit_err)
+        logger.warning("[reset_password] Audit log warning: %s", audit_err)
 
     db.commit()
-
-    # TC-32: Send confirmation email notification after reset
-    if user.email:
-        try:
-            send_real_email_otp(user.email, "SUCCESS", purpose="Password Changed Successfully")
-        except Exception:
-            pass
 
     return {"message": "Password reset successfully. You can now login."}
 
