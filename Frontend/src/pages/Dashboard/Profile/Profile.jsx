@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import {
   User,
   Shield,
@@ -13,8 +13,8 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react"
-import { getMe, updateProfile } from "../../../api/authApi"
 import "./Profile.css"
+import { useUser } from "../../../context/UserContext.jsx"
 
 function Toggle({ on, onChange }) {
   return (
@@ -30,34 +30,41 @@ function Toggle({ on, onChange }) {
   )
 }
 
-function parseUserData(parsed) {
-  if (!parsed) return null
-  const nameParts = (parsed.first_name || parsed.last_name)
-    ? [parsed.first_name || "", parsed.last_name || ""]
-    : (parsed.full_name || parsed.username || "").split(" ")
-  return {
-    firstName: parsed.first_name || parsed.firstName || nameParts[0] || "",
-    lastName: parsed.last_name || parsed.lastName || nameParts.slice(1).join(" ") || "",
-    email: parsed.email || "",
-    phone: parsed.mobile_number || parsed.mobileNumber || parsed.phone || "",
-    avatar: parsed.profile_image || parsed.profileImage || parsed.avatar || null,
-    isEmailVerified: parsed.isEmailVerified !== undefined ? parsed.isEmailVerified : true,
-    isPhoneVerified: parsed.isPhoneVerified !== undefined ? parsed.isPhoneVerified : false,
-  }
-}
-
 export default function Profile() {
-  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState("Profile")
+  const { user: globalUser, updateUser, updateAvatar } = useUser()
 
-  // Load stored user or set default initial state:
+  // Load stored user or set default initial state per requirements:
+  // Initial State: Blank avatar, empty First & Last name, empty Phone Number initially.
+  // Email is pre-filled from login & verified with green check icon.
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem("user")
       if (saved) {
         const parsed = JSON.parse(saved)
-        const mapped = parseUserData(parsed)
-        if (mapped) return mapped
+        const loginMethod = parsed.loginMethod || (parsed.phone && !parsed.email ? "mobile" : "email")
+
+        // First Name & Last Name should be empty initially unless user explicitly saved them
+        const firstName = parsed.firstName || ""
+        const lastName = parsed.lastName || ""
+
+        // Email pre-filled from login email and verified
+        const email = parsed.email || parsed.user_email || localStorage.getItem("email") || (loginMethod === "email" ? "elax@gmail.com" : "")
+        const isEmailVerified = parsed.isEmailVerified !== undefined ? parsed.isEmailVerified : (loginMethod === "email")
+
+        // Phone is empty initially unless explicitly verified & saved
+        const isPhoneVerified = parsed.isPhoneVerified === true
+        const phone = isPhoneVerified ? (parsed.phone || "") : ""
+
+        return {
+          firstName,
+          lastName,
+          email,
+          phone,
+          avatar: parsed.avatar || null,
+          isEmailVerified,
+          isPhoneVerified,
+        }
       }
     } catch (e) {
       console.error(e)
@@ -80,6 +87,28 @@ export default function Profile() {
   const [isEditingEmail, setIsEditingEmail] = useState(false)
   const [isEditingPhone, setIsEditingPhone] = useState(false)
 
+  // Validation Error state
+  const [errors, setErrors] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    photo: "",
+    emailOtp: "",
+    phoneOtp: "",
+  })
+
+  // Reset Confirmation Modal state
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [show2FaModal, setShow2FaModal] = useState(false)
+
+  // Password Error state
+  const [passwordErrors, setPasswordErrors] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  })
+
   // Inline OTP states
   const [showEmailOtp, setShowEmailOtp] = useState(false)
   const [showPhoneOtp, setShowPhoneOtp] = useState(false)
@@ -90,25 +119,6 @@ export default function Profile() {
 
   const [notificationMsg, setNotificationMsg] = useState(null)
   const fileInputRef = useRef(null)
-
-  // Fetch live profile from backend on mount
-  useEffect(() => {
-    async function fetchLiveProfile() {
-      try {
-        const liveUser = await getMe()
-        if (liveUser) {
-          const mapped = parseUserData(liveUser)
-          if (mapped) {
-            setUser((prev) => ({ ...prev, ...mapped }))
-            setFormData((prev) => ({ ...prev, ...mapped }))
-          }
-        }
-      } catch (err) {
-        console.warn("Could not fetch live profile from API, using cached local data:", err)
-      }
-    }
-    fetchLiveProfile()
-  }, [])
 
   // Security Tab Password Change States
   const [isChangingPassword, setIsChangingPassword] = useState(false)
@@ -135,9 +145,33 @@ export default function Profile() {
     return "password123"
   })
 
+  // History of last 3 passwords to prevent reuse
+  const [passwordHistory, setPasswordHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem("passwordHistory")
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch (e) {
+      console.error(e)
+    }
+    return ["password123"]
+  })
+
   const [twoFactor, setTwoFactor] = useState(true)
 
-  // Notification States
+  const handleToggle2FA = (newVal) => {
+    if (!newVal) {
+      // User is disabling 2FA -> Show confirmation modal
+      setShow2FaModal(true)
+    } else {
+      setTwoFactor(true)
+      showNotification("Two-Factor Authentication enabled.", "success")
+    }
+  }
+
+  // Simplified Notification States
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(() => {
     try {
       const saved = localStorage.getItem("notifPreferences")
@@ -195,6 +229,22 @@ export default function Profile() {
     }
     showNotification("Notification preferences reset to defaults.", "info")
   }
+  const [notifState, setNotifState] = useState({
+    marketAlerts: true,
+    securityAlerts: true,
+    dailySummaries: false,
+    portfolioUpdates: true,
+    soundNotifications: true,
+    mobileMasterSwitch: true,
+    smsAccountActivity: true,
+    smsSecurityBreaches: true,
+    waTradeConfirmations: true,
+    waAiStrategyAlerts: false,
+  })
+
+  const toggleNotif = (key) => setNotifState((prev) => ({ ...prev, [key]: !prev[key] }))
+
+
 
   useEffect(() => {
     setFormData({ ...user })
@@ -207,17 +257,411 @@ export default function Profile() {
     setTimeout(() => setNotificationMsg(null), 4000)
   }
 
+  // --- VALIDATION HELPERS ---
+  const validateFirstName = (val) => {
+    if (!val || val.trim() === "") {
+      return "First name is required."
+    }
+    const lettersOnlyRegex = /^[A-Za-z]+$/
+    if (!lettersOnlyRegex.test(val)) {
+      return "First name should contain only letters."
+    }
+    if (val.length < 2 || val.length > 25) {
+      return "First name must be between 2 and 25 characters."
+    }
+    return ""
+  }
+
+  const validateLastName = (val) => {
+    if (!val || val.trim() === "") {
+      return "Last name is required."
+    }
+    const lettersOnlyRegex = /^[A-Za-z]+$/
+    if (!lettersOnlyRegex.test(val)) {
+      return "Last name should contain only letters."
+    }
+    if (val.length < 1 || val.length > 25) {
+      return "Last name must be between 1 and 25 characters."
+    }
+    return ""
+  }
+
+  const VALID_TLDS = new Set([
+    "com", "in", "org", "net", "edu", "gov", "co", "io", "me", "ai", "info", "biz",
+    "dev", "app", "tech", "online", "site", "store", "global", "live", "pro", "tv",
+    "xyz", "us", "uk", "ca", "au", "de", "fr", "jp", "cn", "br", "za", "eu", "cc",
+    "asia", "name", "mobi", "tel", "travel", "museum", "jobs", "cat", "coop", "int",
+    "mil", "arpa", "mx", "es", "it", "nl", "se", "no", "fi", "dk", "pl", "cz",
+    "ch", "at", "be", "nz", "sg", "hk", "tw", "kr", "my", "id", "ph", "vn", "th",
+    "pk", "bd", "ng", "eg", "ke", "sa", "ae", "il", "ir", "tr", "ua", "ro", "gr",
+    "hu", "pt", "ie", "is", "cl", "pe", "ar", "ve", "ec", "py", "uy", "cloud",
+    "agency", "digital", "design", "media", "studio", "center", "group", "email",
+    "solutions", "company", "systems", "finance", "technology", "estate", "insurance",
+    "international", "photography", "software", "services", "support", "network",
+    "world", "life", "today", "space", "zone", "works", "expert", "guru", "ninja",
+    "academy", "training", "events", "direct", "market", "shop"
+  ])
+
+  const validateEmail = (val) => {
+    if (!val || val.trim() === "") {
+      return "Please enter a valid email address."
+    }
+
+    // Do not allow spaces anywhere
+    if (/\s/.test(val)) {
+      return "Please enter a valid email address."
+    }
+
+    // Must contain exactly one @
+    const atCount = (val.match(/@/g) || []).length
+    if (atCount !== 1) {
+      return "Please enter a valid email address."
+    }
+
+    const parts = val.split("@")
+    const localPart = parts[0]
+    const domainPart = parts[1]
+
+    // Local part validation
+    if (!localPart) {
+      return "Please enter a valid email address."
+    }
+
+    // Local part allowed: letters a-z, A-Z, numbers 0-9, ., _, -
+    // Do NOT allow emojis or invalid symbols (#, %, &, *, (, ), =, +, /, ?, !, etc.)
+    if (!/^[a-zA-Z0-9._-]+$/.test(localPart)) {
+      return "Please enter a valid email address."
+    }
+
+    // Local part should not start or end with .
+    if (localPart.startsWith(".") || localPart.endsWith(".")) {
+      return "Please enter a valid email address."
+    }
+
+    // Local part cannot contain consecutive dots ..
+    if (/\.\./.test(localPart)) {
+      return "Please enter a valid email address."
+    }
+
+    // Domain part validation
+    if (!domainPart) {
+      return "Please enter a valid email address."
+    }
+
+    // Domain must contain only letters, numbers, hyphen -, dot .
+    // Do NOT allow spaces, _, @, special characters
+    if (!/^[a-zA-Z0-9.-]+$/.test(domainPart)) {
+      return "Please enter a valid email address."
+    }
+
+    // Domain cannot contain consecutive dots ..
+    if (/\.\./.test(domainPart)) {
+      return "Please enter a valid email address."
+    }
+
+    // Domain starting or ending with .
+    if (domainPart.startsWith(".") || domainPart.endsWith(".")) {
+      return "Please enter a valid email address."
+    }
+
+    const domainLabels = domainPart.split(".")
+
+    // Domain must have at least domain name and TLD (e.g. gmail.com)
+    if (domainLabels.length < 2) {
+      return "Please enter a valid email address."
+    }
+
+    for (let i = 0; i < domainLabels.length; i++) {
+      const label = domainLabels[i]
+      if (!label) {
+        return "Please enter a valid email address."
+      }
+      // Domain label starting or ending with hyphen -
+      if (label.startsWith("-") || label.endsWith("-")) {
+        return "Please enter a valid email address."
+      }
+    }
+
+    // Validate TLD labels (all domain labels after index 0)
+    for (let i = 1; i < domainLabels.length; i++) {
+      const tldLabel = domainLabels[i].toLowerCase()
+      if (!VALID_TLDS.has(tldLabel)) {
+        return "Please enter a valid email address."
+      }
+    }
+
+    return ""
+  }
+
+  const validatePhone = (val, isAttemptedNonDigit = false) => {
+    if (isAttemptedNonDigit) {
+      return "Only numbers are allowed."
+    }
+    if (!val || val.trim() === "") {
+      return ""
+    }
+    const firstDigit = val.charAt(0)
+    if (!["6", "7", "8", "9"].includes(firstDigit)) {
+      return "Indian mobile number must start with 6, 7, 8, or 9."
+    }
+    if (val.length < 10) {
+      return "Indian mobile number must contain exactly 10 digits."
+    }
+    const phoneRegex = /^[6-9][0-9]{9}$/
+    if (!phoneRegex.test(val)) {
+      return "Indian mobile number must contain exactly 10 digits."
+    }
+    return ""
+  }
+
+  const validatePhoto = (file) => {
+    if (!file) return ""
+    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
+    const fileNameLower = file.name.toLowerCase()
+    const hasValidExt = /\.(jpg|jpeg|png|webp)$/i.test(fileNameLower)
+    const isTypeValid = validTypes.includes(file.type) || hasValidExt
+
+    if (!isTypeValid || file.size > 5 * 1024 * 1024) {
+      return "Please upload a valid image file up to 5 MB."
+    }
+    return ""
+  }
+
+  // --- PASSWORD VALIDATION HELPERS ---
+  const validateCurrentPassword = (val) => {
+    const trimmed = (val || "").trim()
+    if (!trimmed) {
+      return "Please enter your current password."
+    }
+    if (val !== currentSavedPassword) {
+      return "Current password is incorrect."
+    }
+    return ""
+  }
+
+  const validateNewPassword = (val, currentPassVal) => {
+    const trimmedVal = (val || "").trim()
+    if (!trimmedVal) {
+      return "Please enter a new password."
+    }
+
+    const isReused =
+      (currentPassVal && trimmedVal === currentPassVal.trim()) ||
+      passwordHistory.some((pastPass) => pastPass === trimmedVal)
+
+    if (isReused) {
+      return "You cannot reuse any of your last 3 passwords."
+    }
+
+    const hasUpper = /[A-Z]/.test(val)
+    const hasLower = /[a-z]/.test(val)
+    const hasNum = /[0-9]/.test(val)
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(val)
+
+    if (val.length < 8 || !hasUpper || !hasLower || !hasNum || !hasSpecial || /^\s+$/.test(val)) {
+      return "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character."
+    }
+    return ""
+  }
+
+  const validateConfirmPassword = (val, newPassVal) => {
+    if (!val) {
+      return "Please confirm your new password."
+    }
+    if (val !== newPassVal) {
+      return "Passwords do not match."
+    }
+    return ""
+  }
+
+  // Password Change Handlers
+  const handlePasswordInputChange = (e) => {
+    const { name, value } = e.target
+    setPasswordForm((prev) => {
+      const updated = { ...prev, [name]: value }
+
+      let err = ""
+      if (name === "currentPassword") {
+        err = validateCurrentPassword(value)
+      } else if (name === "newPassword") {
+        err = validateNewPassword(value, updated.currentPassword)
+        if (updated.confirmPassword) {
+          const confirmErr = validateConfirmPassword(updated.confirmPassword, value)
+          setPasswordErrors((prevErrs) => ({ ...prevErrs, confirmPassword: confirmErr }))
+        }
+      } else if (name === "confirmPassword") {
+        err = validateConfirmPassword(value, updated.newPassword)
+      }
+
+      setPasswordErrors((prevErrs) => ({ ...prevErrs, [name]: err }))
+      return updated
+    })
+  }
+
+  const toggleShowPass = (field) => {
+    setShowPass((prev) => ({ ...prev, [field]: !prev[field] }))
+  }
+
+  const handleCancelPassword = () => {
+    setIsChangingPassword(false)
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+    setPasswordErrors({ currentPassword: "", newPassword: "", confirmPassword: "" })
+    setShowPass({ current: false, new: false, confirm: false })
+  }
+
+  const handleSavePassword = (e) => {
+    e.preventDefault()
+
+    const { currentPassword, newPassword, confirmPassword } = passwordForm
+
+    const curErr = validateCurrentPassword(currentPassword)
+    const newErr = validateNewPassword(newPassword, currentPassword)
+    const confErr = validateConfirmPassword(confirmPassword, newPassword)
+
+    const errs = {
+      currentPassword: curErr,
+      newPassword: newErr,
+      confirmPassword: confErr,
+    }
+
+    setPasswordErrors(errs)
+
+    if (curErr || newErr || confErr) {
+      const firstMsg = curErr || newErr || confErr
+      showNotification(firstMsg, "error")
+      return
+    }
+
+    const trimmedNewPass = newPassword.trim()
+    const updatedHistory = [currentSavedPassword, ...passwordHistory.filter((p) => p !== currentSavedPassword)].slice(0, 3)
+    setPasswordHistory(updatedHistory)
+    setCurrentSavedPassword(trimmedNewPass)
+
+    try {
+      const saved = localStorage.getItem("user")
+      const parsed = saved ? JSON.parse(saved) : {}
+      localStorage.setItem("user", JSON.stringify({ ...parsed, password: trimmedNewPass }))
+      localStorage.setItem("passwordHistory", JSON.stringify(updatedHistory))
+    } catch (err) {
+      console.error(err)
+    }
+
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+    setPasswordErrors({ currentPassword: "", newPassword: "", confirmPassword: "" })
+    setShowPass({ current: false, new: false, confirm: false })
+    setIsChangingPassword(false)
+    showNotification("Password updated successfully.", "success")
+  }
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
+
+    if (name === "phone") {
+      let rawVal = value
+      const hasNonDigits = /[^0-9]/.test(rawVal)
+      let cleanVal = rawVal.replace(/[^0-9]/g, "")
+
+      if (cleanVal.length > 10 && cleanVal.startsWith("91")) {
+        cleanVal = cleanVal.slice(2)
+      }
+      cleanVal = cleanVal.slice(0, 10)
+
+      setFormData((prev) => ({ ...prev, phone: cleanVal }))
+
+      let err = ""
+      if (hasNonDigits) {
+        err = "Only numbers are allowed."
+      } else {
+        err = validatePhone(cleanVal)
+      }
+
+      if (cleanVal !== user.phone || !user.isPhoneVerified) {
+        setIsPhoneVerified(false)
+        setIsEditingPhone(true)
+      }
+      setErrors((prev) => ({ ...prev, phone: err }))
+      return
+    }
+
+    if (name === "email") {
+      let rawVal = value
+      // Block invalid characters immediately while typing and when pasting:
+      // Allow only letters, numbers, dot, underscore, hyphen, and @
+      let cleanVal = rawVal.replace(/[^a-zA-Z0-9._@-]/g, "")
+
+      // Allow at most one @ symbol
+      const atIdx = cleanVal.indexOf("@")
+      if (atIdx !== -1) {
+        cleanVal = cleanVal.slice(0, atIdx + 1) + cleanVal.slice(atIdx + 1).replace(/@/g, "")
+      }
+
+      setFormData((prev) => ({ ...prev, email: cleanVal }))
+
+      const err = validateEmail(cleanVal)
+      if (cleanVal !== user.email || !user.isEmailVerified) {
+        setIsEmailVerified(false)
+        setIsEditingEmail(true)
+      }
+      setErrors((prev) => ({ ...prev, email: err }))
+      return
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }))
+
+    let err = ""
+    if (name === "firstName") {
+      err = validateFirstName(value)
+    } else if (name === "lastName") {
+      err = validateLastName(value)
+    }
+
+    setErrors((prev) => ({ ...prev, [name]: err }))
+  }
+
+  const handleEmailPaste = (e) => {
+    e.preventDefault()
+    const pastedText = e.clipboardData.getData("text") || ""
+    let cleanPasted = pastedText.replace(/[^a-zA-Z0-9._@-]/g, "")
+
+    const inputEl = e.target
+    const start = inputEl.selectionStart || 0
+    const end = inputEl.selectionEnd || 0
+    const currentVal = formData.email || ""
+    let newValRaw = currentVal.slice(0, start) + cleanPasted + currentVal.slice(end)
+
+    let cleanVal = newValRaw.replace(/[^a-zA-Z0-9._@-]/g, "")
+    const atIdx = cleanVal.indexOf("@")
+    if (atIdx !== -1) {
+      cleanVal = cleanVal.slice(0, atIdx + 1) + cleanVal.slice(atIdx + 1).replace(/@/g, "")
+    }
+
+    setFormData((prev) => ({ ...prev, email: cleanVal }))
+    const err = validateEmail(cleanVal)
+    if (cleanVal !== user.email || !user.isEmailVerified) {
+      setIsEmailVerified(false)
+      setIsEditingEmail(true)
+    }
+    setErrors((prev) => ({ ...prev, email: err }))
   }
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0]
     if (file) {
+      const photoErr = validatePhoto(file)
+      if (photoErr) {
+        setErrors((prev) => ({ ...prev, photo: photoErr }))
+        showNotification(photoErr, "error")
+        e.target.value = ""
+        return
+      }
+
+      setErrors((prev) => ({ ...prev, photo: "" }))
       const reader = new FileReader()
       reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, avatar: reader.result }))
+        const newAvatar = reader.result
+        setFormData((prev) => ({ ...prev, avatar: newAvatar }))
+        setUser((prev) => ({ ...prev, avatar: newAvatar }))
+        updateAvatar(newAvatar)
         showNotification("Photo updated successfully!", "success")
       }
       reader.readAsDataURL(file)
@@ -226,6 +670,9 @@ export default function Profile() {
 
   const handleRemovePhoto = () => {
     setFormData((prev) => ({ ...prev, avatar: null }))
+    setUser((prev) => ({ ...prev, avatar: null }))
+    setErrors((prev) => ({ ...prev, photo: "" }))
+    updateAvatar(null)
     showNotification("Photo removed", "info")
   }
 
@@ -237,11 +684,13 @@ export default function Profile() {
   }
 
   const handleSendEmailOtp = () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!formData.email || !emailRegex.test(formData.email.trim())) {
-      showNotification("Please enter a valid email address.", "error")
+    const emailErr = validateEmail(formData.email)
+    if (emailErr) {
+      setErrors((prev) => ({ ...prev, email: emailErr }))
+      showNotification(emailErr, "error")
       return
     }
+    setErrors((prev) => ({ ...prev, email: "", emailOtp: "" }))
     const mockOtp = "123456"
     setGeneratedEmailOtp(mockOtp)
     setEmailOtp(["", "", "", "", "", ""])
@@ -251,13 +700,21 @@ export default function Profile() {
 
   const handleVerifyEmailOtp = () => {
     const code = emailOtp.join("")
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+      setErrors((prev) => ({ ...prev, emailOtp: "Please enter a valid 6-digit OTP." }))
+      showNotification("Please enter a valid 6-digit OTP.", "error")
+      return
+    }
+
     if (code === generatedEmailOtp || code === "123456") {
       setIsEmailVerified(true)
       setIsEditingEmail(false)
       setShowEmailOtp(false)
+      setErrors((prev) => ({ ...prev, emailOtp: "", email: "" }))
       showNotification("Email address verified successfully!", "success")
     } else {
-      showNotification("Invalid OTP code. Please enter valid 6-digit code (123456)", "error")
+      setErrors((prev) => ({ ...prev, emailOtp: "Invalid OTP. Please try again." }))
+      showNotification("Invalid OTP. Please try again.", "error")
     }
   }
 
@@ -265,6 +722,7 @@ export default function Profile() {
     const mockOtp = "123456"
     setGeneratedEmailOtp(mockOtp)
     setEmailOtp(["", "", "", "", "", ""])
+    setErrors((prev) => ({ ...prev, emailOtp: "" }))
     showNotification(`New OTP sent to ${formData.email}. (Demo Code: 123456)`, "info")
   }
 
@@ -276,11 +734,19 @@ export default function Profile() {
   }
 
   const handleSendPhoneOtp = () => {
-    const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,15}$/
-    if (!formData.phone || !phoneRegex.test(formData.phone.trim())) {
-      showNotification("Please enter a valid phone number.", "error")
+    if (!formData.phone || formData.phone.trim() === "") {
+      const err = "Please enter your phone number."
+      setErrors((prev) => ({ ...prev, phone: err }))
+      showNotification(err, "error")
       return
     }
+    const phoneErr = validatePhone(formData.phone)
+    if (phoneErr) {
+      setErrors((prev) => ({ ...prev, phone: phoneErr }))
+      showNotification(phoneErr, "error")
+      return
+    }
+    setErrors((prev) => ({ ...prev, phone: "", phoneOtp: "" }))
     const mockOtp = "123456"
     setGeneratedPhoneOtp(mockOtp)
     setPhoneOtp(["", "", "", "", "", ""])
@@ -290,12 +756,20 @@ export default function Profile() {
 
   const handleVerifyPhoneOtp = () => {
     const code = phoneOtp.join("")
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+      setErrors((prev) => ({ ...prev, phoneOtp: "Please enter a valid 6-digit OTP." }))
+      showNotification("Please enter a valid 6-digit OTP.", "error")
+      return
+    }
+
     if (code === generatedPhoneOtp || code === "123456") {
       setIsPhoneVerified(true)
       setIsEditingPhone(false)
       setShowPhoneOtp(false)
-      showNotification("Phone number verified successfully!", "success")
+      setErrors((prev) => ({ ...prev, phoneOtp: "", phone: "" }))
+      showNotification("Phone number verified successfully.", "success")
     } else {
+      setErrors((prev) => ({ ...prev, phoneOtp: "Invalid OTP code. Please enter valid 6-digit code." }))
       showNotification("Invalid OTP code. Please enter valid 6-digit code (123456)", "error")
     }
   }
@@ -304,77 +778,27 @@ export default function Profile() {
     const mockOtp = "123456"
     setGeneratedPhoneOtp(mockOtp)
     setPhoneOtp(["", "", "", "", "", ""])
+    setErrors((prev) => ({ ...prev, phoneOtp: "" }))
     showNotification(`New OTP sent to ${formData.phone}. (Demo Code: 123456)`, "info")
   }
 
-  // Password Change Handlers
-  const handlePasswordInputChange = (e) => {
-    const { name, value } = e.target
-    setPasswordForm((prev) => ({ ...prev, [name]: value }))
-  }
 
-  const toggleShowPass = (field) => {
-    setShowPass((prev) => ({ ...prev, [field]: !prev[field] }))
-  }
 
-  const handleSavePassword = (e) => {
-    e.preventDefault()
-
-    const { currentPassword, newPassword, confirmPassword } = passwordForm
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      showNotification("All password fields are mandatory.", "error")
-      return
-    }
-
-    if (currentPassword !== currentSavedPassword) {
-      showNotification("Current password is incorrect.", "error")
-      return
-    }
-
-    const hasUpper = /[A-Z]/.test(newPassword)
-    const hasLower = /[a-z]/.test(newPassword)
-    const hasNum = /[0-9]/.test(newPassword)
-    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword)
-
-    if (newPassword.length < 8 || !hasUpper || !hasLower || !hasNum || !hasSpecial) {
-      showNotification(
-        "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.",
-        "error"
-      )
-      return
-    }
-
-    if (newPassword !== confirmPassword) {
-      showNotification("Passwords do not match.", "error")
-      return
-    }
-
-    setCurrentSavedPassword(newPassword)
-    try {
-      const saved = localStorage.getItem("user")
-      const parsed = saved ? JSON.parse(saved) : {}
-      localStorage.setItem("user", JSON.stringify({ ...parsed, password: newPassword }))
-    } catch (err) {
-      console.error(err)
-    }
-
-    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
-    setShowPass({ current: false, new: false, confirm: false })
-    setIsChangingPassword(false)
-    showNotification("Password updated successfully.", "success")
-  }
-
-  // OTP Input navigation helper
-  const handleOtpInputChange = (e, idx, otpState, setOtpState, inputPrefix) => {
+  // OTP Input navigation & numeric digit filter
+  const handleOtpInputChange = (e, idx, otpState, setOtpState, inputPrefix, fieldName) => {
     const val = e.target.value
-    if (val.length > 1) return
+    const sanitized = val.replace(/[^0-9]/g, "")
+    if (val && !sanitized) return
 
     const newOtp = [...otpState]
-    newOtp[idx] = val
+    newOtp[idx] = sanitized ? sanitized.slice(-1) : ""
     setOtpState(newOtp)
 
-    if (val && idx < 5) {
+    if (fieldName) {
+      setErrors((prev) => ({ ...prev, [fieldName]: "" }))
+    }
+
+    if (sanitized && idx < 5) {
       const nextInput = document.getElementById(`${inputPrefix}-${idx + 1}`)
       if (nextInput) nextInput.focus()
     }
@@ -407,30 +831,51 @@ export default function Profile() {
     setShowPhoneOtp(false)
     setEmailOtp(["", "", "", "", "", ""])
     setPhoneOtp(["", "", "", "", "", ""])
-
-    try {
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          ...defaultData,
-          full_name: "",
-        })
-      )
-    } catch (e) {
-      console.error(e)
-    }
+    setErrors({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      photo: "",
+      emailOtp: "",
+      phoneOtp: "",
+    })
+    updateUser(defaultData)
     showNotification("Settings reset to defaults", "info")
   }
 
-  const handleSaveChanges = async (e) => {
+  const handleSaveChanges = (e) => {
     e.preventDefault()
 
-    if (showEmailOtp || (isEditingEmail && !isEmailVerified)) {
+    const fnErr = validateFirstName(formData.firstName)
+    const lnErr = validateLastName(formData.lastName)
+    const emailErr = validateEmail(formData.email)
+    const phoneErr = validatePhone(formData.phone)
+
+    const newErrors = {
+      firstName: fnErr,
+      lastName: lnErr,
+      email: emailErr,
+      phone: phoneErr,
+      photo: errors.photo || "",
+      emailOtp: errors.emailOtp || "",
+      phoneOtp: errors.phoneOtp || "",
+    }
+
+    setErrors(newErrors)
+
+    if (fnErr || lnErr || emailErr || phoneErr || errors.photo) {
+      const firstMsg = fnErr || lnErr || emailErr || phoneErr || errors.photo
+      showNotification(firstMsg, "error")
+      return
+    }
+
+    if (showEmailOtp || (!isEmailVerified && formData.email !== user.email)) {
       showNotification("Please complete email OTP verification before saving changes.", "error")
       return
     }
 
-    if (showPhoneOtp || (isEditingPhone && !isPhoneVerified)) {
+    if (showPhoneOtp || (formData.phone && !isPhoneVerified && formData.phone !== user.phone)) {
       showNotification("Please complete phone OTP verification before saving changes.", "error")
       return
     }
@@ -443,18 +888,10 @@ export default function Profile() {
     }
 
     setUser(updatedUser)
-    try {
-      localStorage.setItem("user", JSON.stringify(updatedUser))
-      await updateProfile({
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName ? formData.lastName.trim() : "",
-        profileImage: formData.avatar || "",
-      })
-    } catch (err) {
-      console.error("API profile update error:", err)
-    }
-    showNotification("Changes saved successfully!", "success")
+    updateUser(updatedUser)
+    showNotification("Email address updated successfully.", "success")
   }
+
 
   const currentTab = activeTab.toLowerCase()
 
@@ -471,38 +908,51 @@ export default function Profile() {
         </div>
       )}
 
-      <div className="profile-layout">
-        {/* Left Navigation Card */}
-        <aside className="profile-sidebar-card">
+      {/* Header */}
+      <div className="profile-header">
+        <div>
+          <h1 className="profile-title">Profile Settings</h1>
+          <p className="profile-subtitle">
+            Manage your personal information, security options, and notifications
+          </p>
+        </div>
+      </div>
+
+      <div className={`profile-grid${currentTab !== "profile" ? " profile-grid--single-panel" : ""}`}>
+        {/* Column 1: Compact Navigation */}
+        <aside className="profile-nav-card">
           <button
-            className={`profile-nav-tab ${currentTab === "profile" ? "is-active" : ""}`}
+            type="button"
+            className={`profile-nav-item ${currentTab === "profile" ? "is-active" : ""}`}
             onClick={() => setActiveTab("Profile")}
           >
-            <User size={20} />
+            <User size={18} />
             <span>Profile</span>
           </button>
           <button
-            className={`profile-nav-tab ${currentTab === "security" ? "is-active" : ""}`}
+            type="button"
+            className={`profile-nav-item ${currentTab === "security" ? "is-active" : ""}`}
             onClick={() => setActiveTab("Security")}
           >
-            <Shield size={20} />
+            <Shield size={18} />
             <span>Security</span>
           </button>
           <button
-            className={`profile-nav-tab ${currentTab === "notification" ? "is-active" : ""}`}
+            type="button"
+            className={`profile-nav-item ${currentTab === "notification" ? "is-active" : ""}`}
             onClick={() => setActiveTab("Notification")}
           >
-            <Bell size={20} />
+            <Bell size={18} />
             <span>Notification</span>
           </button>
         </aside>
 
-        {/* Tab Content: Profile Tab */}
+        {/* Tab 1: Profile (Columns 2 & 3) */}
         {currentTab === "profile" && (
-          <div className="profile-content-grid">
-            {/* Center Avatar Card */}
-            <div className="profile-avatar-card">
-              <div className="avatar-ring-wrapper">
+          <>
+            {/* Column 2: Compact Profile Summary */}
+            <div className="profile-summary-card">
+              <div className="profile-avatar-ring">
                 {formData.avatar ? (
                   <img
                     src={formData.avatar}
@@ -510,71 +960,99 @@ export default function Profile() {
                     className="avatar-image"
                   />
                 ) : (
-                  <div className="avatar-placeholder">
-                    <User size={52} className="avatar-placeholder-icon" />
-                  </div>
+                  <User size={46} className="avatar-placeholder-icon" />
                 )}
               </div>
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handlePhotoUpload}
-                accept="image/*"
+                accept="image/png, image/jpeg, image/jpg, image/webp"
                 hidden
               />
-              <button
-                type="button"
-                className="btn-change-photo"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Change Photo
-              </button>
-              <button
-                type="button"
-                className="btn-remove-photo"
-                onClick={handleRemovePhoto}
-              >
-                Remove
-              </button>
+              <div className="profile-avatar-actions">
+                <button
+                  type="button"
+                  className="btn-change-photo"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Change Photo
+                </button>
+                <span className="action-dot">•</span>
+                <button
+                  type="button"
+                  className="btn-remove-photo"
+                  onClick={handleRemovePhoto}
+                >
+                  Remove
+                </button>
+              </div>
+              {errors.photo && (
+                <span className="field-error field-error--center">
+                  <AlertCircle size={13} /> {errors.photo}
+                </span>
+              )}
+
+
             </div>
 
-            {/* Right Form Card */}
-            <form className="profile-form-card" onSubmit={handleSaveChanges}>
-              <div className="form-row form-row--two-col">
+            {/* Column 3: Account Form Card */}
+            <form className="profile-form-card" onSubmit={handleSaveChanges} noValidate>
+              <h2 className="form-card-title">Account Information</h2>
+
+              <div className="form-row--two-col">
                 <div className="form-group">
-                  <label className="form-label">FIRST NAME</label>
+                  <label className="form-label">First Name</label>
                   <input
                     type="text"
                     name="firstName"
-                    className="form-input"
+                    maxLength={25}
+                    className={`form-input${errors.firstName ? " form-input--error" : ""}`}
                     placeholder="Enter First Name"
                     value={formData.firstName}
                     onChange={handleInputChange}
                   />
+                  {errors.firstName && (
+                    <span className="field-error">
+                      <AlertCircle size={13} /> {errors.firstName}
+                    </span>
+                  )}
                 </div>
                 <div className="form-group">
-                  <label className="form-label">LAST NAME</label>
+                  <label className="form-label">Last Name</label>
                   <input
                     type="text"
                     name="lastName"
-                    className="form-input"
+                    maxLength={25}
+                    className={`form-input${errors.lastName ? " form-input--error" : ""}`}
                     placeholder="Enter Last Name"
                     value={formData.lastName}
                     onChange={handleInputChange}
                   />
+                  {errors.lastName && (
+                    <span className="field-error">
+                      <AlertCircle size={13} /> {errors.lastName}
+                    </span>
+                  )}
                 </div>
               </div>
 
               {/* EMAIL ADDRESS FIELD */}
               <div className="form-group">
-                <label className="form-label">EMAIL ADDRESS</label>
+                <label className="form-label">Email Address</label>
                 <div className="input-with-action">
                   <input
                     type="email"
                     name="email"
-                    className={`form-input${isEmailVerified && !isEditingEmail ? " form-input--verified" : ""}`}
+                    className={`form-input${isEmailVerified && !isEditingEmail ? " form-input--verified" : ""}${errors.email ? " form-input--error" : ""}`}
                     value={formData.email}
                     onChange={handleInputChange}
+                    onPaste={handleEmailPaste}
+                    onKeyDown={(e) => {
+                      if (e.key === " ") {
+                        e.preventDefault()
+                      }
+                    }}
                     placeholder="Enter Email Address"
                     readOnly={isEmailVerified && !isEditingEmail}
                   />
@@ -582,7 +1060,7 @@ export default function Profile() {
                     {isEmailVerified && !isEditingEmail ? (
                       <>
                         <span className="verified-badge" title="Verified Email">
-                          <CheckCircle2 size={20} className="icon-emerald" />
+                          <CheckCircle2 size={18} className="icon-emerald" />
                         </span>
                         <button
                           type="button"
@@ -590,7 +1068,7 @@ export default function Profile() {
                           aria-label="Edit Email"
                           onClick={handleEditEmailClick}
                         >
-                          <Pencil size={16} />
+                          <Pencil size={15} />
                         </button>
                       </>
                     ) : (
@@ -608,12 +1086,17 @@ export default function Profile() {
                           aria-label="Edit Email"
                           onClick={handleEditEmailClick}
                         >
-                          <Pencil size={16} />
+                          <Pencil size={15} />
                         </button>
                       </>
                     )}
                   </div>
                 </div>
+                {errors.email && (
+                  <span className="field-error">
+                    <AlertCircle size={13} /> {errors.email}
+                  </span>
+                )}
 
                 {/* Inline Email OTP Section */}
                 {showEmailOtp && (
@@ -630,10 +1113,10 @@ export default function Profile() {
                           id={`email-otp-${idx}`}
                           type="text"
                           maxLength={1}
-                          className="otp-box"
+                          className={`otp-box${errors.emailOtp ? " otp-box--error" : ""}`}
                           value={digit}
                           onChange={(e) =>
-                            handleOtpInputChange(e, idx, emailOtp, setEmailOtp, "email-otp")
+                            handleOtpInputChange(e, idx, emailOtp, setEmailOtp, "email-otp", "emailOtp")
                           }
                           onKeyDown={(e) =>
                             handleOtpKeyDown(e, idx, emailOtp, setEmailOtp, "email-otp")
@@ -641,6 +1124,11 @@ export default function Profile() {
                         />
                       ))}
                     </div>
+                    {errors.emailOtp && (
+                      <span className="field-error">
+                        <AlertCircle size={13} /> {errors.emailOtp}
+                      </span>
+                    )}
                     <div className="otp-action-buttons">
                       <button
                         type="button"
@@ -668,17 +1156,20 @@ export default function Profile() {
                   <input
                     type="text"
                     name="phone"
-                    className={`form-input${isPhoneVerified && !isEditingPhone ? " form-input--verified" : ""}`}
+                    maxLength={10}
+                    inputMode="numeric"
+                    pattern="[6-9][0-9]{9}"
+                    className={`form-input${isPhoneVerified && !isEditingPhone ? " form-input--verified" : ""}${errors.phone ? " form-input--error" : ""}`}
                     value={formData.phone}
                     onChange={handleInputChange}
-                    placeholder="Enter Phone Number"
+                    placeholder="Enter 10-digit Indian Mobile Number"
                     readOnly={isPhoneVerified && !isEditingPhone}
                   />
                   <div className="action-buttons">
                     {isPhoneVerified && !isEditingPhone ? (
                       <>
                         <span className="verified-badge" title="Verified Phone">
-                          <CheckCircle2 size={20} className="icon-emerald" />
+                          <CheckCircle2 size={18} className="icon-emerald" />
                         </span>
                         <button
                           type="button"
@@ -686,7 +1177,7 @@ export default function Profile() {
                           aria-label="Edit Phone"
                           onClick={handleEditPhoneClick}
                         >
-                          <Pencil size={16} />
+                          <Pencil size={15} />
                         </button>
                       </>
                     ) : (
@@ -704,12 +1195,17 @@ export default function Profile() {
                           aria-label="Edit Phone"
                           onClick={handleEditPhoneClick}
                         >
-                          <Pencil size={16} />
+                          <Pencil size={15} />
                         </button>
                       </>
                     )}
                   </div>
                 </div>
+                {errors.phone && (
+                  <span className="field-error">
+                    <AlertCircle size={13} /> {errors.phone}
+                  </span>
+                )}
 
                 {/* Inline Phone OTP Section */}
                 {showPhoneOtp && (
@@ -726,10 +1222,10 @@ export default function Profile() {
                           id={`phone-otp-${idx}`}
                           type="text"
                           maxLength={1}
-                          className="otp-box"
+                          className={`otp-box${errors.phoneOtp ? " otp-box--error" : ""}`}
                           value={digit}
                           onChange={(e) =>
-                            handleOtpInputChange(e, idx, phoneOtp, setPhoneOtp, "phone-otp")
+                            handleOtpInputChange(e, idx, phoneOtp, setPhoneOtp, "phone-otp", "phoneOtp")
                           }
                           onKeyDown={(e) =>
                             handleOtpKeyDown(e, idx, phoneOtp, setPhoneOtp, "phone-otp")
@@ -737,6 +1233,11 @@ export default function Profile() {
                         />
                       ))}
                     </div>
+                    {errors.phoneOtp && (
+                      <span className="field-error">
+                        <AlertCircle size={13} /> {errors.phoneOtp}
+                      </span>
+                    )}
                     <div className="otp-action-buttons">
                       <button
                         type="button"
@@ -761,7 +1262,7 @@ export default function Profile() {
                 <button
                   type="button"
                   className="btn-reset"
-                  onClick={handleResetDefaults}
+                  onClick={() => setShowResetModal(true)}
                 >
                   Reset to Defaults
                 </button>
@@ -770,15 +1271,15 @@ export default function Profile() {
                 </button>
               </div>
             </form>
-          </div>
+          </>
         )}
 
         {/* TAB 2: SECURITY */}
         {currentTab === "security" && (
-          <div className="ac-security-view">
-            <div className="ac-card">
+          <div className="profile-tab-content">
+            <div className="profile-sec-card">
               <div className="ac-sec-header">
-                <Shield size={22} className="ac-sec-title-icon" />
+                <Shield size={20} className="ac-sec-title-icon" />
                 <h2 className="ac-sec-title">Security & Privacy</h2>
               </div>
 
@@ -786,14 +1287,14 @@ export default function Profile() {
               <div className="ac-2fa-block">
                 <div className="ac-2fa-left">
                   <div className="ac-2fa-icon-box">
-                    <Smartphone size={20} />
+                    <Smartphone size={18} />
                   </div>
                   <div>
                     <h3 className="ac-2fa-heading">Two-Factor Authentication</h3>
                     <p className="ac-2fa-sub">Protect your account with an extra layer of security.</p>
                   </div>
                 </div>
-                <Toggle on={twoFactor} onChange={setTwoFactor} />
+                <Toggle on={twoFactor} onChange={handleToggle2FA} />
               </div>
 
               {/* Change Password Card / Form */}
@@ -811,28 +1312,25 @@ export default function Profile() {
                   </div>
                 </div>
               ) : (
-                <form className="change-password-card" onSubmit={handleSavePassword}>
+                <form className="change-password-card" onSubmit={handleSavePassword} noValidate>
                   <div className="change-pass-title-row">
                     <h3 className="change-pass-title">Change Password</h3>
                     <button
                       type="button"
                       className="btn-cancel-pass"
-                      onClick={() => {
-                        setIsChangingPassword(false)
-                        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
-                      }}
+                      onClick={handleCancelPassword}
                     >
                       Cancel
                     </button>
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">CURRENT PASSWORD</label>
+                    <label className="form-label">Current Password</label>
                     <div className="input-pass-wrap">
                       <input
                         type={showPass.current ? "text" : "password"}
                         name="currentPassword"
-                        className="form-input"
+                        className={`form-input${passwordErrors.currentPassword ? " form-input--error" : ""}`}
                         placeholder="Enter current password"
                         value={passwordForm.currentPassword}
                         onChange={handlePasswordInputChange}
@@ -843,18 +1341,28 @@ export default function Profile() {
                         aria-label="Toggle password visibility"
                         onClick={() => toggleShowPass("current")}
                       >
-                        {showPass.current ? <EyeOff size={18} /> : <Eye size={18} />}
+                        {showPass.current ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
+                    </div>
+                    {passwordErrors.currentPassword && (
+                      <span className="field-error">
+                        <AlertCircle size={13} /> {passwordErrors.currentPassword}
+                      </span>
+                    )}
+                    <div className="forgot-pass-link-wrap">
+                      <Link to="/forgot-password" className="forgot-pass-link">
+                        Forgot Password?
+                      </Link>
                     </div>
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">NEW PASSWORD</label>
+                    <label className="form-label">New Password</label>
                     <div className="input-pass-wrap">
                       <input
                         type={showPass.new ? "text" : "password"}
                         name="newPassword"
-                        className="form-input"
+                        className={`form-input${passwordErrors.newPassword ? " form-input--error" : ""}`}
                         placeholder="Enter new password"
                         value={passwordForm.newPassword}
                         onChange={handlePasswordInputChange}
@@ -865,18 +1373,23 @@ export default function Profile() {
                         aria-label="Toggle password visibility"
                         onClick={() => toggleShowPass("new")}
                       >
-                        {showPass.new ? <EyeOff size={18} /> : <Eye size={18} />}
+                        {showPass.new ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
+                    {passwordErrors.newPassword && (
+                      <span className="field-error">
+                        <AlertCircle size={13} /> {passwordErrors.newPassword}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">CONFIRM NEW PASSWORD</label>
+                    <label className="form-label">Confirm New Password</label>
                     <div className="input-pass-wrap">
                       <input
                         type={showPass.confirm ? "text" : "password"}
                         name="confirmPassword"
-                        className="form-input"
+                        className={`form-input${passwordErrors.confirmPassword ? " form-input--error" : ""}`}
                         placeholder="Confirm new password"
                         value={passwordForm.confirmPassword}
                         onChange={handlePasswordInputChange}
@@ -887,9 +1400,14 @@ export default function Profile() {
                         aria-label="Toggle password visibility"
                         onClick={() => toggleShowPass("confirm")}
                       >
-                        {showPass.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                        {showPass.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
+                    {passwordErrors.confirmPassword && (
+                      <span className="field-error">
+                        <AlertCircle size={13} /> {passwordErrors.confirmPassword}
+                      </span>
+                    )}
                   </div>
 
                   <div className="change-pass-actions">
@@ -905,121 +1423,186 @@ export default function Profile() {
 
         {/* TAB 3: NOTIFICATION */}
         {currentTab === "notification" && (
-          <div className="ac-notification-view">
-            {/* Top Header & Save Controls */}
-            <div className="ac-notif-header">
-              <div>
-                <h2 className="ac-notif-title">Alerts & Notifications</h2>
-                <p className="ac-notif-sub">
-                  Configure your real-time email and mobile notification preferences.
-                </p>
+          <div className="profile-tab-content">
+            <div className="profile-notif-card">
+              {/* Top Header & Save Controls */}
+              <div className="ac-notif-header">
+                <div>
+                  <h2 className="ac-notif-title">Alerts & Notifications</h2>
+                  <p className="ac-notif-sub">
+                    Configure your real-time email and mobile notification preferences.
+                  </p>
+                </div>
+                <div className="ac-notif-actions">
+                  <button
+                    type="button"
+                    className="btn-reset"
+                    onClick={handleResetNotificationDefaults}
+                  >
+                    Reset Default
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-save"
+                    onClick={handleSaveNotificationPreferences}
+                  >
+                    Save Preferences
+                  </button>
+                </div>
               </div>
-              <div className="ac-notif-actions">
-                <button
-                  type="button"
-                  className="ac-btn-secondary"
-                  onClick={handleResetNotificationDefaults}
-                >
-                  Reset Default
-                </button>
-                <button
-                  type="button"
-                  className="ac-btn-primary"
-                  onClick={handleSaveNotificationPreferences}
-                >
-                  Save Preferences
-                </button>
-              </div>
-            </div>
 
-            <div className="ac-notif-stack">
-              {/* Card 1: Email Notifications */}
-              <div className="ac-card ac-email-card">
-                <div className="ac-card-head">
-                  <div className="ac-card-head-left">
-                    <Mail size={22} className="ac-cyan-icon" />
-                    <div>
-                      <h3 className="ac-card-title-text">Email Notifications</h3>
-                      <p className="ac-card-sub-text">
-                        {isEmailVerified && formData.email
-                          ? `Primary Address: ${formData.email}`
-                          : "No verified email available"}
-                      </p>
+              <div className="ac-notif-stack">
+                {/* Card 1: Email Notifications */}
+                <div className="ac-subcard ac-email-card">
+                  <div className="ac-card-head">
+                    <div className="ac-card-head-left">
+                      <Mail size={20} className="ac-cyan-icon" />
+                      <div>
+                        <h3 className="ac-card-title-text">Email Notifications</h3>
+                        <p className="ac-card-sub-text">
+                          {isEmailVerified && formData.email
+                            ? `Primary Address: ${formData.email}`
+                            : "No verified email available"}
+                        </p>
+                      </div>
                     </div>
+                    {isEmailVerified && formData.email ? (
+                      <span className="ac-tag-verified">✔ VERIFIED</span>
+                    ) : null}
                   </div>
+
                   {isEmailVerified && formData.email ? (
-                    <span className="ac-tag-verified">✔ VERIFIED</span>
-                  ) : null}
+                    <div className="ac-toggle-box">
+                      <div>
+                        <h4 className="ac-toggle-title">Enable Email Notifications</h4>
+                        <p className="ac-toggle-desc">
+                          Receive real-time alerts & market updates via email.
+                        </p>
+                      </div>
+                      <Toggle
+                        on={emailNotificationsEnabled}
+                        onChange={setEmailNotificationsEnabled}
+                      />
+                    </div>
+                  ) : (
+                    <div className="ac-notif-unverified-box">
+                      <AlertCircle size={16} />
+                      <span>
+                        Please add and verify an email address in your Profile page to receive email notifications.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {isEmailVerified && formData.email ? (
-                  <div className="ac-toggle-box">
-                    <div>
-                      <h4 className="ac-toggle-title">Enable Email Notifications</h4>
-                      <p className="ac-toggle-desc">
-                        Receive real-time alerts & market updates via email.
-                      </p>
+                {/* Card 2: Mobile Notifications */}
+                <div className="ac-subcard ac-mobile-card">
+                  <div className="ac-card-head">
+                    <div className="ac-card-head-left">
+                      <Smartphone size={20} className="ac-cyan-icon" />
+                      <div>
+                        <h3 className="ac-card-title-text">Mobile Notifications</h3>
+                        <p className="ac-card-sub-text">
+                          {isPhoneVerified && formData.phone
+                            ? `Verified Mobile Number: ${formData.phone}`
+                            : "No verified mobile number available"}
+                        </p>
+                      </div>
                     </div>
-                    <Toggle
-                      on={emailNotificationsEnabled}
-                      onChange={setEmailNotificationsEnabled}
-                    />
+                    {isPhoneVerified && formData.phone ? (
+                      <span className="ac-tag-verified">✔ VERIFIED</span>
+                    ) : null}
                   </div>
-                ) : (
-                  <div className="ac-notif-unverified-box">
-                    <AlertCircle size={18} />
-                    <span>
-                      Please add and verify an email address in your Profile page to receive email notifications.
-                    </span>
-                  </div>
-                )}
-              </div>
 
-              {/* Card 2: Mobile Notifications */}
-              <div className="ac-card ac-mobile-card">
-                <div className="ac-card-head">
-                  <div className="ac-card-head-left">
-                    <Smartphone size={22} className="ac-cyan-icon" />
-                    <div>
-                      <h3 className="ac-card-title-text">Mobile Notifications</h3>
-                      <p className="ac-card-sub-text">
-                        {isPhoneVerified && formData.phone
-                          ? `Verified Mobile Number: ${formData.phone}`
-                          : "No verified mobile number available"}
-                      </p>
-                    </div>
-                  </div>
                   {isPhoneVerified && formData.phone ? (
-                    <span className="ac-tag-verified">✔ VERIFIED</span>
-                  ) : null}
-                </div>
-
-                {isPhoneVerified && formData.phone ? (
-                  <div className="ac-toggle-box">
-                    <div>
-                      <h4 className="ac-toggle-title">Enable Mobile Notifications</h4>
-                      <p className="ac-toggle-desc">
-                        Receive critical alerts & trade updates directly on your mobile device.
-                      </p>
+                    <div className="ac-toggle-box">
+                      <div>
+                        <h4 className="ac-toggle-title">Enable Mobile Notifications</h4>
+                        <p className="ac-toggle-desc">
+                          Receive critical alerts & trade updates directly on your mobile device.
+                        </p>
+                      </div>
+                      <Toggle
+                        on={mobileNotificationsEnabled}
+                        onChange={setMobileNotificationsEnabled}
+                      />
                     </div>
-                    <Toggle
-                      on={mobileNotificationsEnabled}
-                      onChange={setMobileNotificationsEnabled}
-                    />
-                  </div>
-                ) : (
-                  <div className="ac-notif-unverified-box">
-                    <AlertCircle size={18} />
-                    <span>
-                      Please add and verify a mobile number in your Profile page to receive mobile notifications.
-                    </span>
-                  </div>
-                )}
+                  ) : (
+                    <div className="ac-notif-unverified-box">
+                      <AlertCircle size={16} />
+                      <span>
+                        Please add and verify a mobile number in your Profile page to receive mobile notifications.
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Reset to Defaults Confirmation Modal */}
+      {showResetModal && (
+        <div className="profile-modal-overlay">
+          <div className="profile-modal-card">
+            <h3 className="profile-modal-title">Reset Profile Settings</h3>
+            <p className="profile-modal-text">
+              Are you sure you want to reset your profile settings?
+            </p>
+            <div className="profile-modal-actions">
+              <button
+                type="button"
+                className="btn-modal-cancel"
+                onClick={() => setShowResetModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-modal-confirm"
+                onClick={() => {
+                  handleResetDefaults()
+                  setShowResetModal(false)
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2FA Disable Confirmation Modal */}
+      {show2FaModal && (
+        <div className="profile-modal-overlay">
+          <div className="profile-modal-card">
+            <h3 className="profile-modal-title">Disable Two-Factor Authentication</h3>
+            <p className="profile-modal-text">
+              Are you sure you want to disable Two-Factor Authentication?
+            </p>
+            <div className="profile-modal-actions">
+              <button
+                type="button"
+                className="btn-modal-cancel"
+                onClick={() => setShow2FaModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-modal-confirm"
+                onClick={() => {
+                  setTwoFactor(false)
+                  setShow2FaModal(false)
+                  showNotification("Two-Factor Authentication disabled.", "info")
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
