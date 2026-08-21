@@ -157,7 +157,7 @@
  
 .lh-video-modal {
   width: 94vw !important;
-  max-width: min(980px, calc((92vh - 190px) * 16 / 9)) !important;
+  max-width: min(980px, calc((92vh - 240px) * 16 / 9)) !important;
   max-height: 92vh !important;
   background: var(--card, rgba(13, 17, 27, 0.94)) !important;
   border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.12)) !important;
@@ -179,7 +179,7 @@
 
 @media (max-height: 680px) {
   .lh-video-modal {
-    max-width: min(980px, calc((92vh - 140px) * 16 / 9)) !important;
+    max-width: min(980px, calc((92vh - 200px) * 16 / 9)) !important;
   }
   .lh-modal-header {
     padding: 8px 16px;
