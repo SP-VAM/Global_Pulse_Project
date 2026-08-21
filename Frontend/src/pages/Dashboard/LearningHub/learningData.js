@@ -50,7 +50,7 @@ const learningData = [
   {
     id: 2,
     title: "Advanced Risk Management",
-    level: "Intermediate",
+    level: "Advanced",
     tag: "HEDGES · CAPITAL",
     duration: "1.3 hrs",
     durationSeconds: 4847,
