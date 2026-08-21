@@ -74,10 +74,58 @@ def indicator_service() -> TechnicalIndicatorService:
 
 
 @pytest.fixture
-def prediction_service(mock_stock_provider, indicator_service) -> StockPredictionService:
+def mock_news_service():
+    from app.domain.news import NormalizedArticle, GlobalEventCategory
+    mock = AsyncMock()
+    mock.search_news = AsyncMock(return_value=[
+        NormalizedArticle(
+            id="art_1",
+            headline="Reliance posts robust profit growth and strong revenue rise",
+            summary="Strong Q3 quarterly earnings beating estimates",
+            source_name="Financial Times",
+            source_url="https://ft.com",
+            article_url="https://ft.com/art1",
+            author="Staff",
+            published_at_utc="2026-08-20T10:00:00Z",
+            published_at_ist="2026-08-20T15:30:00+05:30",
+            primary_category=GlobalEventCategory.CORPORATE,
+            tags=["Reliance"],
+            countries=["IN"],
+            companies=[],
+            sectors=[],
+            keywords=["profit", "growth"],
+            relevance_score=85,
+            source="NEWSAPI",
+        ),
+        NormalizedArticle(
+            id="art_2",
+            headline="Analysts upgrade Reliance target price following expansion",
+            summary="Strategic expansion plan announced across retail and energy",
+            source_name="Economic Times",
+            source_url="https://economictimes.com",
+            article_url="https://economictimes.com/art2",
+            author="Analyst",
+            published_at_utc="2026-08-19T08:00:00Z",
+            published_at_ist="2026-08-19T13:30:00+05:30",
+            primary_category=GlobalEventCategory.CORPORATE,
+            tags=["Reliance"],
+            countries=["IN"],
+            companies=[],
+            sectors=[],
+            keywords=["upgrade", "expansion"],
+            relevance_score=80,
+            source="NEWSAPI",
+        )
+    ])
+    return mock
+
+
+@pytest.fixture
+def prediction_service(mock_stock_provider, indicator_service, mock_news_service) -> StockPredictionService:
     return StockPredictionService(
         provider=mock_stock_provider,
         indicator_service=indicator_service,
+        news_service=mock_news_service,
     )
 
 
@@ -307,15 +355,17 @@ async def test_predict_unsupported_stock_raises_404(prediction_service):
 
 
 @pytest.fixture
-def stocks_app():
+def stocks_app(mock_news_service):
     """Create test FastAPI application with wired stocks state services."""
     from app.main import create_app
     app = create_app()
     app.state.stock_provider = MockStockProvider()
     app.state.technical_indicator_service = TechnicalIndicatorService()
+    app.state.news_service = mock_news_service
     app.state.stock_prediction_service = StockPredictionService(
         provider=app.state.stock_provider,
         indicator_service=app.state.technical_indicator_service,
+        news_service=mock_news_service,
     )
     return app
 
@@ -473,10 +523,16 @@ async def test_stocks_sentiment_endpoint_unsupported_returns_404(stocks_app):
 
 
 @pytest.mark.asyncio
-async def test_stocks_sentiment_empty_article_dataset_returns_zero_neutral_state(prediction_service):
+async def test_stocks_sentiment_empty_article_dataset_returns_zero_neutral_state(mock_stock_provider, indicator_service):
     """Verifies empty dataset returns 0 counts and 0.0 Neutral state without failing."""
-    with patch("os.path.exists", return_value=False):
-        res = await prediction_service.get_stock_news_sentiment("INFY")
+    empty_news_service = AsyncMock()
+    empty_news_service.search_news = AsyncMock(return_value=[])
+    service = StockPredictionService(
+        provider=mock_stock_provider,
+        indicator_service=indicator_service,
+        news_service=empty_news_service,
+    )
+    res = await service.get_stock_news_sentiment("INFY")
     assert res["symbol"] == "INFY"
     assert res["articles_traced"] == 0
     assert res["positive_articles"] == 0

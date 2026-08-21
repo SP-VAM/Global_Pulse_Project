@@ -75,7 +75,6 @@ const FALLBACK_NIFTY_COMPANIES = [
   { symbol: "INDUSINDBK", name: "IndusInd Bank Ltd" },
   { symbol: "INFY", name: "Infosys Ltd" },
   { symbol: "ITC", name: "ITC Ltd" },
-  { symbol: "JIOFIN", name: "Jio Financial Services Ltd" },
   { symbol: "JSWSTEEL", name: "JSW Steel Ltd" },
   { symbol: "KOTAKBANK", name: "Kotak Mahindra Bank Ltd" },
   { symbol: "LT", name: "Larsen & Toubro Ltd" },
@@ -97,7 +96,6 @@ const FALLBACK_NIFTY_COMPANIES = [
   { symbol: "TITAN", name: "Titan Company Ltd" },
   { symbol: "TRENT", name: "Trent Ltd" },
   { symbol: "ULTRACEMCO", name: "UltraTech Cement Ltd" },
-  { symbol: "WIPRO", name: "Wipro Ltd" },
 ]
 
 const CandlestickBar = (props) => {

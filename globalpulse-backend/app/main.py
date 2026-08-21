@@ -147,6 +147,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.stock_prediction_service = StockPredictionService(
         provider=stock_provider,
         indicator_service=app.state.technical_indicator_service,
+        news_service=app.state.news_service,
         db_session_factory=AsyncSessionLocal,
     )
 
