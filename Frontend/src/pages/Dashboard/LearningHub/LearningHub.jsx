@@ -5,8 +5,18 @@ import learningData from "./learningData.js";
 import LearningCard from "./components/LearningCard.jsx";
 import ActiveModuleCard from "./components/ActiveModuleCard.jsx";
 import LearningModal from "./components/LearningModal.jsx";
-import { API_BASE_URL } from "../../../config/api.js";
 import "./LearningHub.css";
+
+const getCurrentUserEmail = () => {
+  try {
+    const saved = localStorage.getItem("user");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed.email || parsed.username || "guest";
+    }
+  } catch (e) {}
+  return localStorage.getItem("email") || "guest";
+};
 
 /**
  * LearningHub Component
@@ -22,7 +32,9 @@ export default function LearningHub() {
   // Recently watched learning modules stored in localStorage (max 3 for 1 clean row)
   const [activeModules, setActiveModules] = useState(() => {
     try {
-      const saved = localStorage.getItem("recent_learning_modules_v3");
+      const userEmail = getCurrentUserEmail();
+      const activeModulesKey = `recent_learning_modules_v3_${userEmail}`;
+      const saved = localStorage.getItem(activeModulesKey) || localStorage.getItem("recent_learning_modules_v3");
       if (saved) return JSON.parse(saved);
       return learningData.slice(0, 3);
     } catch (e) {
@@ -33,7 +45,9 @@ export default function LearningHub() {
   // Watch progress map indexed by courseId: { [courseId]: { progressSeconds, totalSeconds, progressPercentage, isCompleted } }
   const [userProgress, setUserProgress] = useState(() => {
     try {
-      const saved = localStorage.getItem("lh_user_video_progress_v1");
+      const userEmail = getCurrentUserEmail();
+      const progressKey = `lh_user_video_progress_v1_${userEmail}`;
+      const saved = localStorage.getItem(progressKey) || localStorage.getItem("lh_user_video_progress_v1");
       if (!saved) return {};
       const parsed = JSON.parse(saved);
       const normalized = { ...parsed };
@@ -79,7 +93,7 @@ export default function LearningHub() {
       if (!token) return;
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/learning/progress`, {
+        const response = await fetch("/api/v1/learning/progress", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -95,13 +109,15 @@ export default function LearningHub() {
               const pct = Math.min(100, Math.round((watchSec / totalSec) * 100));
               const isComp = rec.is_completed || pct >= 90;
               updated[rec.course_id] = {
-                 progressSeconds: watchSec,
-                 totalSeconds: totalSec,
-                 progressPercentage: pct,
-                 isCompleted: isComp,
+                progressSeconds: watchSec,
+                totalSeconds: totalSec,
+                progressPercentage: pct,
+                isCompleted: isComp,
               };
             });
-            localStorage.setItem("lh_user_video_progress_v1", JSON.stringify(updated));
+            const userEmail = getCurrentUserEmail();
+            const progressKey = `lh_user_video_progress_v1_${userEmail}`;
+            localStorage.setItem(progressKey, JSON.stringify(updated));
             return updated;
           });
         }
@@ -130,7 +146,9 @@ export default function LearningHub() {
         [courseId]: progressData,
       };
       try {
-        localStorage.setItem("lh_user_video_progress_v1", JSON.stringify(updated));
+        const userEmail = getCurrentUserEmail();
+        const progressKey = `lh_user_video_progress_v1_${userEmail}`;
+        localStorage.setItem(progressKey, JSON.stringify(updated));
       } catch (e) {
         console.error("LocalStorage save error:", e);
       }
@@ -141,7 +159,7 @@ export default function LearningHub() {
     const token = localStorage.getItem("access_token") || localStorage.getItem("firebase_id_token");
     if (token) {
       try {
-        await fetch(`${API_BASE_URL}/api/v1/learning/progress`, {
+        await fetch("/api/v1/learning/progress", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -168,7 +186,9 @@ export default function LearningHub() {
       const filtered = prev.filter((item) => String(item.id) !== String(course.id));
       const updated = [course, ...filtered].slice(0, 3);
       try {
-        localStorage.setItem("recent_learning_modules_v3", JSON.stringify(updated));
+        const userEmail = getCurrentUserEmail();
+        const activeModulesKey = `recent_learning_modules_v3_${userEmail}`;
+        localStorage.setItem(activeModulesKey, JSON.stringify(updated));
       } catch (e) {
         console.error("LocalStorage write error:", e);
       }
@@ -413,12 +433,15 @@ export default function LearningHub() {
       </div>
 
       {/* ------------------- PORTALED VIDEO MODAL ------------------- */}
-      <LearningModal
-        course={selectedCourse}
-        onClose={closeModal}
-        existingProgress={selectedCourse ? userProgress[selectedCourse.id] : null}
-        onSaveProgress={saveProgress}
-      />
+      {selectedCourse && (
+        <LearningModal
+          key={selectedCourse.id}
+          course={selectedCourse}
+          onClose={closeModal}
+          existingProgress={userProgress[selectedCourse.id]}
+          onSaveProgress={saveProgress}
+        />
+      )}
     </div>
   );
 }
