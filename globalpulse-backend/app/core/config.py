@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: str = ""
     EMAILS_FROM_NAME: str = "GlobalPulse"
 
+    # Fast2SMS Mobile SMS Provider Configuration
+    FAST2SMS_API_KEY: str = ""
+
     # Database — PostgreSQL railway database configuration
     DATABASE_URL: str = ""
 

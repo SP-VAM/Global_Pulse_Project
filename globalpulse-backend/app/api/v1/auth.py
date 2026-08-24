@@ -3,12 +3,12 @@ FastAPI Authentication & User Management Endpoints.
 Prefix: /auth
 Rate-limited: all endpoints are throttled to prevent brute-force and OTP spam.
 """
-from typing import Annotated
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Depends, Header, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.dependencies import get_current_active_user
+from app.api.v1.dependencies import get_current_active_user, get_optional_current_user
 from app.api.v1.limiter import limiter
 from app.core.config import get_settings
 from app.db.models.user_model import UserModel
@@ -30,28 +30,34 @@ from app.schemas.auth import (
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-
 _settings = get_settings()
-
 
 @router.post("/send-otp", status_code=status.HTTP_200_OK)
 @limiter.limit(_settings.RATE_LIMIT_AUTH)
-async def send_otp(request: Request, req: SendOtpRequest, db: AsyncSession = Depends(get_db_session)):
-    """Send 6-digit OTP code to mobile number.
-
-    In development mode the OTP is also returned in the response body.
-    In staging/production only a confirmation message is returned.
-    """
+async def send_otp(
+    request: Request,
+    req: SendOtpRequest,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: Optional[UserModel] = Depends(get_optional_current_user),
+):
+    """Cryptographically generate and dispatch 6-digit OTP code to email or mobile via real SMTP/Fast2SMS."""
     service = AuthService(db)
-    return await service.send_otp(req)
+    user_id = current_user.user_id if current_user else None
+    return await service.send_otp(req, authenticated_user_id=user_id)
 
 
 @router.post("/verify-otp", response_model=VerifyOtpResponse, status_code=status.HTTP_200_OK)
 @limiter.limit(_settings.RATE_LIMIT_AUTH)
-async def verify_otp(request: Request, req: VerifyOtpRequest, db: AsyncSession = Depends(get_db_session)):
-    """Verify 6-digit OTP code."""
+async def verify_otp(
+    request: Request,
+    req: VerifyOtpRequest,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: Optional[UserModel] = Depends(get_optional_current_user),
+):
+    """Verify 6-digit OTP code against server-side SHA-256 hash."""
     service = AuthService(db)
-    return await service.verify_otp(req)
+    user_id = current_user.user_id if current_user else None
+    return await service.verify_otp(req, authenticated_user_id=user_id)
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)

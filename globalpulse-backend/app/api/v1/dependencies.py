@@ -118,3 +118,25 @@ async def get_current_active_user(current_user: UserModel = Depends(get_current_
     if current_user.account_status != "ACTIVE":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user account")
     return current_user
+
+
+async def get_optional_current_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+) -> Optional[UserModel]:
+    """FastAPI Dependency: resolve current authenticated user if Bearer token present, otherwise None."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header.split(" ", 1)[1].strip()
+    if not token or token == "demo_token":
+        return None
+    try:
+        payload = decode_token(token)
+        user_id_val = payload.get("sub") or payload.get("user_id")
+        if not user_id_val:
+            return None
+        user_repo = UserRepository(db)
+        return await user_repo.get_by_id(int(user_id_val))
+    except Exception:
+        return None

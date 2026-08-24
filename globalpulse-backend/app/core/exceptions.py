@@ -26,9 +26,22 @@ class GlobalPulseError(Exception):
     error_code: str = "INTERNAL_ERROR"
     http_status: int = status.HTTP_500_INTERNAL_SERVER_ERROR
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, status_code: Optional[int] = None) -> None:
         super().__init__(message)
         self.message = message
+        if status_code is not None:
+            self.http_status = status_code
+            self.status_code = status_code
+
+
+class RateLimitExceededError(GlobalPulseError):
+    """Raised when an operation exceeds server-side rate limits (HTTP 429)."""
+
+    error_code = "RATE_LIMIT_EXCEEDED"
+    http_status = status.HTTP_429_TOO_MANY_REQUESTS
+
+    def __init__(self, message: str = "Too many requests. Please try again later.") -> None:
+        super().__init__(message, status_code=status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 class ProviderUnavailableError(GlobalPulseError):
@@ -36,6 +49,18 @@ class ProviderUnavailableError(GlobalPulseError):
 
     error_code = "PROVIDER_UNAVAILABLE"
     http_status = status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+class ServiceUnavailableError(GlobalPulseError):
+    """Raised when an external service (email/SMS delivery provider) is unconfigured or unreachable."""
+
+    error_code = "SERVICE_UNAVAILABLE"
+    http_status = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    def __init__(self, message: str = "Service unavailable.", status_code: int = status.HTTP_503_SERVICE_UNAVAILABLE) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.http_status = status_code
 
 
 class ProviderRateLimitError(GlobalPulseError):
@@ -109,6 +134,16 @@ class DuplicateRecordError(GlobalPulseError):
 
     error_code = "DUPLICATE_RECORD"
     http_status = status.HTTP_409_CONFLICT
+
+
+class ConflictError(GlobalPulseError):
+    """Raised when an operation conflicts with existing server state (e.g. duplicate email or mobile number)."""
+
+    error_code = "CONFLICT_ERROR"
+    http_status = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str = "A resource conflict occurred.") -> None:
+        super().__init__(message, status_code=status.HTTP_409_CONFLICT)
 
 
 class DatabaseConnectionError(GlobalPulseError):

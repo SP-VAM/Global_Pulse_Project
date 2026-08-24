@@ -26,9 +26,13 @@ export async function fetchNotifications({ limit = 50, offset = 0, unreadOnly = 
 }
 
 export async function fetchUnreadCount() {
+  const authHeader = getAuthHeader()
+  if (!authHeader.Authorization) {
+    return { count: 0, unread_count: 0 }
+  }
   const headers = {
     "Content-Type": "application/json",
-    ...getAuthHeader(),
+    ...authHeader,
   }
   const res = await fetch(`${API_BASE_URL}/api/v1/notifications/unread-count`, { headers })
   if (!res.ok) {

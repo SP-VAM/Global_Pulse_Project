@@ -5,7 +5,7 @@ Mapped to User_table.sql schema.
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, SmallInteger, String, Text, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, SmallInteger, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.models.base import Base, BigIntegerPK
@@ -45,11 +45,19 @@ class OtpVerificationModel(Base):
     user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     mobile_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    otp_code: Mapped[str] = mapped_column(String(10), nullable=False)
+    target: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    channel: Mapped[str] = mapped_column(String(10), default="EMAIL", nullable=False)
+    purpose: Mapped[str] = mapped_column(String(50), default="PROFILE_CHANGE", nullable=False)
+    otp_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    otp_code_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     otp_type: Mapped[str] = mapped_column(String(30), default="MOBILE_VERIFICATION", nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    delivery_status: Mapped[str] = mapped_column(String(20), default="PENDING", nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    invalidated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("UserModel", back_populates="otps")

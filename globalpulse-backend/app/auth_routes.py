@@ -13,6 +13,9 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger("globalpulse.auth")
 
 from app.sync_database import get_db
+from app.db.session import get_db_session
+from app.services.auth_service import AuthService
+from app.schemas.auth import SendOtpRequest as V1SendOtpRequest, VerifyOtpRequest as V1VerifyOtpRequest
 from app.final_auth import create_access_token, hash_password, verify_password, get_current_firebase_user
 from app.firebase_config import verify_firebase_token
 from app.final_models import (
@@ -211,70 +214,18 @@ async def check_pg_user_by_mobile(clean_digits: str):
 @router.post("/send-signup-otp")
 async def send_signup_otp(
     request: SendOTPRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    async_db: AsyncSession = Depends(get_db_session),
 ):
-    clean_digits = "".join(filter(str.isdigit, request.mobile_number or ""))[-10:]
-
-    # Check if mobile already exists in users table (TC-20)
-    existing_user = None
-    if clean_digits and len(clean_digits) == 10:
-        existing_user = (
-            db.query(User)
-            .filter(
-                or_(
-                    User.mobile_number == request.mobile_number,
-                    User.mobile_number == clean_digits,
-                    User.mobile_number == f"+91{clean_digits}",
-                    User.mobile_number.endswith(clean_digits),
-                )
-            )
-            .first()
-        )
-
-    pg_user = None
-    if clean_digits and len(clean_digits) == 10:
-        try:
-            pg_user = await check_pg_user_by_mobile(clean_digits)
-        except Exception:
-            pass
-
-    if existing_user or pg_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Mobile number already exists. Please log in."
-        )
-
-    # Delete previous unverified OTPs for this number
-    db.query(OTPVerification).filter(
-        OTPVerification.mobile_number == request.mobile_number,
-        OTPVerification.is_verified == False,
-    ).delete()
-
-    # Generate 6-digit OTP
-    otp = str(random.randint(100000, 999999))
-
-    # Save to otp_verifications DB table
-    otp_record = OTPVerification(
-        user_id=existing_user.user_id if existing_user else None,
-        mobile_number=request.mobile_number,
-        otp_code=otp,
-        otp_type="MOBILE_VERIFICATION",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
-        is_verified=False,
-    )
-
-    db.add(otp_record)
-    db.commit()
-    db.refresh(otp_record)
-
-    # Dispatch Real SMS via Fast2SMS in background
-    if request.mobile_number:
-        background_tasks.add_task(send_real_sms_otp, request.mobile_number, otp)
-
+    target = request.mobile_number or getattr(request, "email", None)
+    if not target:
+        raise HTTPException(status_code=400, detail="Mobile number or email is required.")
+    channel = "EMAIL" if "@" in str(target) else "SMS"
+    v1_req = V1SendOtpRequest(target=target, channel=channel, purpose="SIGNUP_VERIFICATION")
+    svc = AuthService(async_db)
+    res = await svc.send_otp(v1_req)
     return {
-        "message": "OTP Sent Successfully",
-        "mobile_number": request.mobile_number,
+        "message": res.get("message", "OTP Sent Successfully"),
+        "mobile_number": target,
         "sms_sent": True,
     }
 
@@ -362,71 +313,18 @@ def login_with_password(
 @router.post("/send-login-otp")
 async def send_login_otp(
     request: SendOTPRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    async_db: AsyncSession = Depends(get_db_session),
 ):
-    clean_digits = "".join(filter(str.isdigit, request.mobile_number or ""))[-10:] if request.mobile_number else ""
-
-    # Check if mobile exists in users table
-    user = None
-    if clean_digits and len(clean_digits) == 10:
-        user = (
-            db.query(User)
-            .filter(
-                or_(
-                    User.mobile_number == request.mobile_number,
-                    User.mobile_number == clean_digits,
-                    User.mobile_number == f"+91{clean_digits}",
-                    User.mobile_number.endswith(clean_digits),
-                )
-            )
-            .first()
-        )
-
-    pg_user = None
-    if not user and clean_digits and len(clean_digits) == 10:
-        try:
-            pg_user = await check_pg_user_by_mobile(clean_digits)
-        except Exception:
-            pass
-
-    if not user and not pg_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Mobile number is not registered. Please sign up first.",
-        )
-
-    user_id = user.user_id if user else (pg_user[0] if pg_user else None)
-
-    # Delete previous unverified OTPs
-    db.query(OTPVerification).filter(
-        OTPVerification.mobile_number == request.mobile_number,
-        OTPVerification.is_verified == False,
-    ).delete()
-
-    # Generate 6-digit OTP
-    otp = str(random.randint(100000, 999999))
-
-    otp_record = OTPVerification(
-        user_id=user_id,
-        mobile_number=request.mobile_number,
-        otp_code=otp,
-        otp_type="MOBILE_VERIFICATION",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
-        is_verified=False,
-    )
-
-    db.add(otp_record)
-    db.commit()
-    db.refresh(otp_record)
-
-    # Dispatch Real SMS via Fast2SMS in background
-    if request.mobile_number:
-        background_tasks.add_task(send_real_sms_otp, request.mobile_number, otp)
-
+    target = request.mobile_number or getattr(request, "email", None)
+    if not target:
+        raise HTTPException(status_code=400, detail="Mobile number or email is required.")
+    channel = "EMAIL" if "@" in str(target) else "SMS"
+    v1_req = V1SendOtpRequest(target=target, channel=channel, purpose="LOGIN_VERIFICATION")
+    svc = AuthService(async_db)
+    res = await svc.send_otp(v1_req)
     return {
-        "message": "OTP Sent Successfully",
-        "mobile_number": request.mobile_number,
+        "message": res.get("message", "OTP Sent Successfully"),
+        "mobile_number": target,
         "sms_sent": True,
     }
 
@@ -436,142 +334,54 @@ async def send_login_otp(
 # ==========================================================
 
 @router.post("/verify-otp")
-def verify_otp(
+async def verify_otp(
     request: VerifyOTPRequest,
-    db: Session = Depends(get_db),
+    async_db: AsyncSession = Depends(get_db_session),
 ):
-    # Normalize phone numbers with/without country code
-    clean_id = request.identifier.replace("+91", "").strip() if request.identifier else ""
-    full_id = f"+91{clean_id}" if request.identifier and not request.identifier.startswith("+") else request.identifier
-
-    id_match = [
-        OTPVerification.mobile_number == request.identifier,
-        OTPVerification.mobile_number == full_id,
-        OTPVerification.mobile_number == clean_id,
-        OTPVerification.email == request.identifier,
-    ]
-
-    # TC-18, TC-21: Check if this OTP code was already used/verified
-    already_used = (
-        db.query(OTPVerification)
-        .filter(
-            or_(*id_match),
-            OTPVerification.otp_code == request.otp_code,
-            OTPVerification.is_verified == True,
-        )
-        .first()
-    )
-
-    if already_used:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This verification code has already been used. Please request a new code.",
-        )
-
-    # Search unverified otp_verifications DB table
-    # Support Firebase SMS verification, test code 123456, or database OTP code
-    if request.firebase_verified or request.otp_code == "123456":
-        otp_record = (
-            db.query(OTPVerification)
-            .filter(or_(*id_match))
-            .order_by(OTPVerification.otp_id.desc())
-            .first()
-        )
-        if not otp_record:
-            otp_record = OTPVerification(
-                user_id=None,
-                mobile_number=request.identifier,
-                otp_code=request.otp_code,
-                otp_type="MOBILE_VERIFICATION",
-                expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
-                is_verified=True,
-            )
-            db.add(otp_record)
-            db.commit()
-            db.refresh(otp_record)
+    target = request.identifier or getattr(request, "mobile_number", None) or getattr(request, "email", None)
+    if not target:
+        raise HTTPException(status_code=400, detail="Identifier (mobile or email) is required.")
+    
+    channel = getattr(request, "channel", None) or ("EMAIL" if "@" in str(target) else "SMS")
+    purpose_param = request.purpose
+    if purpose_param == "signup":
+        purpose = "SIGNUP_VERIFICATION"
+    elif purpose_param == "login":
+        purpose = "LOGIN_VERIFICATION"
+    elif purpose_param:
+        purpose = str(purpose_param).upper()
     else:
-        otp_record = (
-            db.query(OTPVerification)
-            .filter(
-                or_(*id_match),
-                OTPVerification.otp_code == request.otp_code,
-                OTPVerification.is_verified == False,
-            )
-            .order_by(OTPVerification.otp_id.desc())
-            .first()
-        )
-    if not otp_record:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired OTP code.",
-        )
+        purpose = "PROFILE_CHANGE"
 
-    # TC-12, TC-16: Check expiration (5 minutes)
-    if otp_record and otp_record.expires_at:
-        now = datetime.now(timezone.utc) if otp_record.expires_at.tzinfo else datetime.utcnow()
-        if otp_record.expires_at < now:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="OTP code has expired. Please request a new code.",
-            )
-
-    # Mark OTP verified in DB
-    otp_record.is_verified = True
-    otp_record.verified_at = datetime.now(timezone.utc)
-    db.commit()
-
-    if request.purpose == "signup":
-        return {
-            "message": "OTP Verified Successfully",
-            "is_verified": True,
-        }
-
-    # LOGIN FLOW: Retrieve user and issue token session
-    clean_id = request.identifier.replace("+91", "").replace("+", "").strip() if request.identifier else ""
-    full_id = f"+91{clean_id}"
-
-    user = (
-        db.query(User)
-        .filter(
-            or_(
-                User.mobile_number == request.identifier,
-                User.mobile_number == full_id,
-                User.mobile_number == clean_id,
-                User.mobile_number.like(f"%{clean_id}"),
-                func.lower(User.email) == request.identifier.lower(),
-            )
-        )
-        .first()
+    v1_req = V1VerifyOtpRequest(
+        target=target,
+        channel=channel,
+        purpose=purpose,
+        otp_code=request.otp_code,
     )
+    svc = AuthService(async_db)
+    res = await svc.verify_otp(v1_req)
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User profile not found. Please sign up.",
-        )
-
-    user.is_mobile_verified = True
-    user.last_login_at = datetime.now(timezone.utc)
-
-    # Generate JWT Token
-    access_token = create_access_token(
-        {"user_id": user.user_id, "email": user.email}
-    )
-
-    # Create active session in user_sessions DB table
-    session = UserSession(
-        user_id=user.user_id,
-        access_token=access_token,
-        is_active=True,
-    )
-
-    db.add(session)
-    db.commit()
+    # For login purpose, issue login TokenResponse structure if user exists
+    if purpose in ("LOGIN_VERIFICATION", "SIGNUP_VERIFICATION") or request.purpose in ("login", "signup"):
+        user_repo = UserRepository(async_db)
+        user = await user_repo.get_by_email(target) if "@" in str(target) else await user_repo.get_by_mobile(target)
+        if user:
+            access_token = create_access_token(
+                subject=user.email,
+                extra_claims={"user_id": user.user_id, "username": user.username, "email": user.email},
+            )
+            return {
+                "message": "Verification & Login Successful",
+                "access_token": access_token,
+                "accessToken": access_token,
+                "user": serialize_user_entity(user),
+            }
 
     return {
-        "message": "Login Successful",
-        "access_token": access_token,
-        "user": serialize_user_entity(user),
+        "message": res.message,
+        "verification_token": res.verification_token,
+        "is_verified": True,
     }
 
 

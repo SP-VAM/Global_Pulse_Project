@@ -1,7 +1,7 @@
 """
 UserRepository, OtpRepository, SessionRepository, AuditRepository, and UserSettingsRepository.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 
 from sqlalchemy import select, update
@@ -48,26 +48,109 @@ class OtpRepository(BaseRepository[OtpVerificationModel, Any, Any]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(OtpVerificationModel, session)
 
-    async def get_latest_valid_otp(self, target_val: str, otp_code: str) -> Optional[OtpVerificationModel]:
-        now = datetime.now(timezone.utc)
+    async def get_recent_otp_for_cooldown(self, target: str, channel: str, purpose: str, cooldown_seconds: int = 60) -> Optional[OtpVerificationModel]:
+        """Check if an active OTP was issued for target+channel+purpose within the last cooldown_seconds."""
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=cooldown_seconds)
         stmt = (
             select(OtpVerificationModel)
             .where(
-                (OtpVerificationModel.email == target_val) | (OtpVerificationModel.mobile_number == target_val),
-                OtpVerificationModel.otp_code == otp_code,
-                OtpVerificationModel.is_verified == False,
-                OtpVerificationModel.expires_at > now,
+                (OtpVerificationModel.target == target) | (OtpVerificationModel.email == target) | (OtpVerificationModel.mobile_number == target),
+                OtpVerificationModel.channel == channel,
+                OtpVerificationModel.purpose == purpose,
+                OtpVerificationModel.created_at >= cutoff,
+                OtpVerificationModel.invalidated_at.is_(None),
             )
             .order_by(OtpVerificationModel.created_at.desc())
         )
         res = await self.session.execute(stmt)
-        return res.scalar_one_or_none()
+        return res.scalars().first()
 
-    async def mark_as_used(self, otp_id: int) -> None:
+    async def count_recent_otps_in_window(self, target: str, channel: str, purpose: str, window_minutes: int = 10) -> int:
+        """Count OTP requests for target+channel+purpose within window_minutes to enforce 3 req / 10 min rate limit."""
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
+        stmt = (
+            select(OtpVerificationModel)
+            .where(
+                (OtpVerificationModel.target == target) | (OtpVerificationModel.email == target) | (OtpVerificationModel.mobile_number == target),
+                OtpVerificationModel.channel == channel,
+                OtpVerificationModel.purpose == purpose,
+                OtpVerificationModel.created_at >= cutoff,
+            )
+        )
+        res = await self.session.execute(stmt)
+        return len(res.scalars().all())
+
+    async def invalidate_active_otps_for_target(self, target: str, channel: str, purpose: str) -> None:
+        """Invalidate previous unverified active OTPs when issuing a new OTP."""
         now = datetime.now(timezone.utc)
-        stmt = update(OtpVerificationModel).where(OtpVerificationModel.otp_id == otp_id).values(is_verified=True, verified_at=now)
+        stmt = (
+            update(OtpVerificationModel)
+            .where(
+                (OtpVerificationModel.target == target) | (OtpVerificationModel.email == target) | (OtpVerificationModel.mobile_number == target),
+                OtpVerificationModel.channel == channel,
+                OtpVerificationModel.purpose == purpose,
+                OtpVerificationModel.is_verified == False,
+                OtpVerificationModel.invalidated_at.is_(None),
+            )
+            .values(invalidated_at=now)
+        )
         await self.session.execute(stmt)
         await self.session.commit()
+
+    async def get_latest_valid_otp(self, target: str, channel: str, purpose: str) -> Optional[OtpVerificationModel]:
+        """Find latest unverified, unexpired, non-invalidated SENT OTP matching target+channel+purpose."""
+        now = datetime.now(timezone.utc)
+        stmt = (
+            select(OtpVerificationModel)
+            .where(
+                (OtpVerificationModel.target == target) | (OtpVerificationModel.email == target) | (OtpVerificationModel.mobile_number == target),
+                OtpVerificationModel.channel == channel,
+                OtpVerificationModel.purpose == purpose,
+                OtpVerificationModel.is_verified == False,
+                OtpVerificationModel.invalidated_at.is_(None),
+                OtpVerificationModel.delivery_status == "SENT",
+                OtpVerificationModel.expires_at > now,
+                OtpVerificationModel.attempt_count < OtpVerificationModel.max_attempts,
+            )
+            .order_by(OtpVerificationModel.created_at.desc())
+        )
+        res = await self.session.execute(stmt)
+        return res.scalars().first()
+
+    async def increment_attempt_count_atomic(self, otp_id: int) -> int:
+        """Atomically increment failed verification attempt_count and invalidate if max_attempts reached."""
+        now = datetime.now(timezone.utc)
+        # Fetch current count
+        stmt_sel = select(OtpVerificationModel).where(OtpVerificationModel.otp_id == otp_id)
+        res = await self.session.execute(stmt_sel)
+        otp_rec = res.scalar_one_or_none()
+        if not otp_rec:
+            return 5
+        new_count = otp_rec.attempt_count + 1
+        values = {"attempt_count": new_count}
+        if new_count >= otp_rec.max_attempts:
+            values["invalidated_at"] = now
+
+        stmt_upd = update(OtpVerificationModel).where(OtpVerificationModel.otp_id == otp_id).values(**values)
+        await self.session.execute(stmt_upd)
+        await self.session.commit()
+        return new_count
+
+    async def consume_otp_atomic(self, otp_id: int) -> bool:
+        """Atomically consume OTP so exactly ONE concurrent request can succeed."""
+        now = datetime.now(timezone.utc)
+        stmt = (
+            update(OtpVerificationModel)
+            .where(
+                OtpVerificationModel.otp_id == otp_id,
+                OtpVerificationModel.is_verified == False,
+                OtpVerificationModel.invalidated_at.is_(None),
+            )
+            .values(is_verified=True, verified_at=now, delivery_status="CONSUMED")
+        )
+        res = await self.session.execute(stmt)
+        await self.session.commit()
+        return res.rowcount > 0
 
 
 

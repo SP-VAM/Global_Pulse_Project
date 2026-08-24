@@ -188,37 +188,37 @@ export default function Navbar({ onLogoutClick }) {
       // Exhaustive path → confirmed existing route map
       const ROUTE_MAP = {
         // Expense / income / budget
-        "/dashboard/expenses":        "/dashboard/expense-tracker",
-        "/dashboard/expense":         "/dashboard/expense-tracker",
+        "/dashboard/expenses": "/dashboard/expense-tracker",
+        "/dashboard/expense": "/dashboard/expense-tracker",
         "/dashboard/expense-tracker": "/dashboard/expense-tracker",
-        "/dashboard/budget":          "/dashboard/expense-tracker",
-        "/dashboard/income":          "/dashboard/expense-tracker",
+        "/dashboard/budget": "/dashboard/expense-tracker",
+        "/dashboard/income": "/dashboard/expense-tracker",
         // Goals
-        "/dashboard/goals":           "/dashboard/goals",
-        "/dashboard/goal":            "/dashboard/goals",
+        "/dashboard/goals": "/dashboard/goals",
+        "/dashboard/goal": "/dashboard/goals",
         // Market / stocks (base path — query params handled separately below)
         "/dashboard/market-analysis": "/dashboard/market-analysis",
-        "/dashboard/market":          "/dashboard/market-analysis",
-        "/dashboard/stocks":          "/dashboard/market-analysis",
-        "/dashboard/constituents":    "/dashboard/constituents",
+        "/dashboard/market": "/dashboard/market-analysis",
+        "/dashboard/stocks": "/dashboard/market-analysis",
+        "/dashboard/constituents": "/dashboard/constituents",
         // Investments
-        "/dashboard/investments":     "/dashboard",
-        "/dashboard/portfolio":       "/dashboard",
+        "/dashboard/investments": "/dashboard",
+        "/dashboard/portfolio": "/dashboard",
         // Security / profile
-        "/dashboard/profile":         "/dashboard/profile",
-        "/dashboard/settings":        "/dashboard/settings",
-        "/dashboard/security":        "/dashboard/profile",
+        "/dashboard/profile": "/dashboard/profile",
+        "/dashboard/settings": "/dashboard/settings",
+        "/dashboard/security": "/dashboard/profile",
         // Learning
-        "/dashboard/learning-hub":    "/dashboard/learning-hub",
-        "/dashboard/learn":           "/dashboard/learning-hub",
+        "/dashboard/learning-hub": "/dashboard/learning-hub",
+        "/dashboard/learn": "/dashboard/learning-hub",
       }
 
       // Resolve the confirmed route for the path portion
       const resolvedPath =
         ROUTE_MAP[rawPath] ||
-        (rawPath.startsWith("/dashboard/stocks")   ? "/dashboard/market-analysis" : null) ||
-        (rawPath.startsWith("/dashboard/expense")  ? "/dashboard/expense-tracker"  : null) ||
-        (rawPath.startsWith("/dashboard/goal")     ? "/dashboard/goals"            : null) ||
+        (rawPath.startsWith("/dashboard/stocks") ? "/dashboard/market-analysis" : null) ||
+        (rawPath.startsWith("/dashboard/expense") ? "/dashboard/expense-tracker" : null) ||
+        (rawPath.startsWith("/dashboard/goal") ? "/dashboard/goals" : null) ||
         "/dashboard"   // absolute safe fallback — always stays inside dashboard
 
       // Re-attach the original query string (e.g. ?symbol=HCLTECH) if present
@@ -312,7 +312,7 @@ export default function Navbar({ onLogoutClick }) {
                 }}
               >
                 <LogOut size={16} />
-                <span>Sign Out</span>
+                <span>Log Out</span>
               </button>
             </div>
           )}

@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import "./Profile.css"
 import { useUser } from "../../../context/UserContext.jsx"
+import { sendOtp, verifyOtp } from "../../../api/authApi.js"
 
 function Toggle({ on, onChange }) {
   return (
@@ -683,7 +684,7 @@ export default function Profile() {
     setShowEmailOtp(false)
   }
 
-  const handleSendEmailOtp = () => {
+  const handleSendEmailOtp = async () => {
     const emailErr = validateEmail(formData.email)
     if (emailErr) {
       setErrors((prev) => ({ ...prev, email: emailErr }))
@@ -691,14 +692,20 @@ export default function Profile() {
       return
     }
     setErrors((prev) => ({ ...prev, email: "", emailOtp: "" }))
-    const mockOtp = "123456"
-    setGeneratedEmailOtp(mockOtp)
-    setEmailOtp(["", "", "", "", "", ""])
-    setShowEmailOtp(true)
-    showNotification(`OTP sent to ${formData.email}. (Demo Code: 123456)`, "info")
+    try {
+      showNotification(`Sending verification code to ${formData.email}...`, "info")
+      await sendOtp({ target: formData.email, channel: "EMAIL", purpose: "PROFILE_CHANGE" })
+      setEmailOtp(["", "", "", "", "", ""])
+      setShowEmailOtp(true)
+      showNotification(`Verification code sent to ${formData.email}. Please check your inbox.`, "success")
+    } catch (err) {
+      const msg = err.message || "Failed to send email verification code."
+      setErrors((prev) => ({ ...prev, email: msg }))
+      showNotification(msg, "error")
+    }
   }
 
-  const handleVerifyEmailOtp = () => {
+  const handleVerifyEmailOtp = async () => {
     const code = emailOtp.join("")
     if (code.length !== 6 || !/^\d{6}$/.test(code)) {
       setErrors((prev) => ({ ...prev, emailOtp: "Please enter a valid 6-digit OTP." }))
@@ -706,24 +713,31 @@ export default function Profile() {
       return
     }
 
-    if (code === generatedEmailOtp || code === "123456") {
+    try {
+      await verifyOtp({ target: formData.email, channel: "EMAIL", purpose: "PROFILE_CHANGE", otpCode: code })
       setIsEmailVerified(true)
       setIsEditingEmail(false)
       setShowEmailOtp(false)
       setErrors((prev) => ({ ...prev, emailOtp: "", email: "" }))
       showNotification("Email address verified successfully!", "success")
-    } else {
-      setErrors((prev) => ({ ...prev, emailOtp: "Invalid OTP. Please try again." }))
-      showNotification("Invalid OTP. Please try again.", "error")
+    } catch (err) {
+      const msg = err.message || "Invalid OTP code. Verification failed."
+      setErrors((prev) => ({ ...prev, emailOtp: msg }))
+      showNotification(msg, "error")
     }
   }
 
-  const handleResendEmailOtp = () => {
-    const mockOtp = "123456"
-    setGeneratedEmailOtp(mockOtp)
-    setEmailOtp(["", "", "", "", "", ""])
-    setErrors((prev) => ({ ...prev, emailOtp: "" }))
-    showNotification(`New OTP sent to ${formData.email}. (Demo Code: 123456)`, "info")
+  const handleResendEmailOtp = async () => {
+    try {
+      showNotification(`Resending verification code to ${formData.email}...`, "info")
+      await sendOtp({ target: formData.email, channel: "EMAIL", purpose: "PROFILE_CHANGE" })
+      setEmailOtp(["", "", "", "", "", ""])
+      setErrors((prev) => ({ ...prev, emailOtp: "" }))
+      showNotification(`New verification code sent to ${formData.email}.`, "success")
+    } catch (err) {
+      const msg = err.message || "Failed to resend email verification code."
+      showNotification(msg, "error")
+    }
   }
 
   // Phone Flow Actions
@@ -733,7 +747,7 @@ export default function Profile() {
     setShowPhoneOtp(false)
   }
 
-  const handleSendPhoneOtp = () => {
+  const handleSendPhoneOtp = async () => {
     if (!formData.phone || formData.phone.trim() === "") {
       const err = "Please enter your phone number."
       setErrors((prev) => ({ ...prev, phone: err }))
@@ -747,14 +761,20 @@ export default function Profile() {
       return
     }
     setErrors((prev) => ({ ...prev, phone: "", phoneOtp: "" }))
-    const mockOtp = "123456"
-    setGeneratedPhoneOtp(mockOtp)
-    setPhoneOtp(["", "", "", "", "", ""])
-    setShowPhoneOtp(true)
-    showNotification(`OTP sent to ${formData.phone}. (Demo Code: 123456)`, "info")
+    try {
+      showNotification(`Sending verification SMS to ${formData.phone}...`, "info")
+      await sendOtp({ target: formData.phone, channel: "SMS", purpose: "PROFILE_CHANGE" })
+      setPhoneOtp(["", "", "", "", "", ""])
+      setShowPhoneOtp(true)
+      showNotification(`Verification SMS sent to ${formData.phone}.`, "success")
+    } catch (err) {
+      const msg = err.message || "Failed to send SMS verification code."
+      setErrors((prev) => ({ ...prev, phone: msg }))
+      showNotification(msg, "error")
+    }
   }
 
-  const handleVerifyPhoneOtp = () => {
+  const handleVerifyPhoneOtp = async () => {
     const code = phoneOtp.join("")
     if (code.length !== 6 || !/^\d{6}$/.test(code)) {
       setErrors((prev) => ({ ...prev, phoneOtp: "Please enter a valid 6-digit OTP." }))
@@ -762,24 +782,31 @@ export default function Profile() {
       return
     }
 
-    if (code === generatedPhoneOtp || code === "123456") {
+    try {
+      await verifyOtp({ target: formData.phone, channel: "SMS", purpose: "PROFILE_CHANGE", otpCode: code })
       setIsPhoneVerified(true)
       setIsEditingPhone(false)
       setShowPhoneOtp(false)
       setErrors((prev) => ({ ...prev, phoneOtp: "", phone: "" }))
       showNotification("Phone number verified successfully.", "success")
-    } else {
-      setErrors((prev) => ({ ...prev, phoneOtp: "Invalid OTP code. Please enter valid 6-digit code." }))
-      showNotification("Invalid OTP code. Please enter valid 6-digit code (123456)", "error")
+    } catch (err) {
+      const msg = err.message || "Invalid OTP code. Verification failed."
+      setErrors((prev) => ({ ...prev, phoneOtp: msg }))
+      showNotification(msg, "error")
     }
   }
 
-  const handleResendPhoneOtp = () => {
-    const mockOtp = "123456"
-    setGeneratedPhoneOtp(mockOtp)
-    setPhoneOtp(["", "", "", "", "", ""])
-    setErrors((prev) => ({ ...prev, phoneOtp: "" }))
-    showNotification(`New OTP sent to ${formData.phone}. (Demo Code: 123456)`, "info")
+  const handleResendPhoneOtp = async () => {
+    try {
+      showNotification(`Resending verification SMS to ${formData.phone}...`, "info")
+      await sendOtp({ target: formData.phone, channel: "SMS", purpose: "PROFILE_CHANGE" })
+      setPhoneOtp(["", "", "", "", "", ""])
+      setErrors((prev) => ({ ...prev, phoneOtp: "" }))
+      showNotification(`New verification SMS sent to ${formData.phone}.`, "success")
+    } catch (err) {
+      const msg = err.message || "Failed to resend SMS verification code."
+      showNotification(msg, "error")
+    }
   }
 
 

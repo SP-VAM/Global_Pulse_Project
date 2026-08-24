@@ -65,6 +65,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     asyncio.create_task(_init_db())
 
+    sms_key = (settings.FAST2SMS_API_KEY or "").strip()
+    is_sms_configured = bool(sms_key and sms_key != "YOUR_FAST2SMS_API_KEY_HERE")
+    logger.info("SMS provider configured: %s", "YES" if is_sms_configured else "NO")
+
+    smtp_user = (settings.SMTP_USER or "").strip()
+    smtp_pass = (settings.SMTP_PASSWORD or "").strip()
+    logger.info("SMTP_HOST configured: %s", "YES" if bool(settings.SMTP_HOST) else "NO")
+    logger.info("SMTP_PORT configured: %s", "YES" if bool(settings.SMTP_PORT) else "NO")
+    logger.info("SMTP_USER configured: %s", "YES" if bool(smtp_user) else "NO")
+    logger.info("SMTP_PASSWORD configured: %s", "YES" if bool(smtp_pass) else "NO")
+    logger.info("SMTP_FROM_EMAIL configured: %s", "YES" if bool(settings.EMAILS_FROM_EMAIL and settings.EMAILS_FROM_EMAIL.strip()) else "NO")
+    logger.info("SMTP_FROM_NAME configured: %s", "YES" if bool(settings.EMAILS_FROM_NAME) else "NO")
+
     # ── Phase 1A–1C: Finnhub market data ──────────────────────────────
     finnhub_provider = FinnhubMarketProvider(
         api_key=settings.FINNHUB_API_KEY,

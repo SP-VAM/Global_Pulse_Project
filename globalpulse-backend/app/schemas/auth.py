@@ -15,6 +15,8 @@ class SendOtpRequest(BaseModel):
     mobile_number: Optional[str] = Field(None, description="Mobile number with country code e.g. '+918131378262'")
     email: Optional[EmailStr] = Field(None, description="Email address for OTP verification")
     target: Optional[str] = Field(None, description="Mobile number or Email address")
+    channel: Optional[str] = Field(None, description="Delivery channel: EMAIL or SMS")
+    purpose: Optional[str] = Field(None, description="OTP Purpose: EMAIL_VERIFICATION, PHONE_VERIFICATION, PROFILE_CHANGE, etc.")
 
     @property
     def target_value(self) -> str:
@@ -30,6 +32,8 @@ class VerifyOtpRequest(BaseModel):
     mobile_number: Optional[str] = Field(None, description="Mobile number")
     email: Optional[EmailStr] = Field(None, description="Email address")
     target: Optional[str] = Field(None, description="Mobile number or Email address")
+    channel: Optional[str] = Field(None, description="Delivery channel: EMAIL or SMS")
+    purpose: Optional[str] = Field(None, description="OTP Purpose: EMAIL_VERIFICATION, PHONE_VERIFICATION, PROFILE_CHANGE, etc.")
     otp_code: str = Field(..., min_length=6, max_length=6, description="6-digit verification OTP code")
 
     @property

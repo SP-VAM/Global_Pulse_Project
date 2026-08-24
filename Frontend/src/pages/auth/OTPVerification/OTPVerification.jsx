@@ -160,19 +160,21 @@ function OTPVerification() {
             setIsLocked(true);
             setErrorMessage("Too many failed attempts (5/5). Account entry is temporarily locked for 15 minutes.");
           } else {
-            setErrorMessage(data.detail || `Invalid OTP code. Remaining attempts: ${5 - newFailedCount}`);
+            setErrorMessage(data.detail || data.message || `Invalid OTP code. Remaining attempts: ${5 - newFailedCount}`);
           }
           return;
         }
 
         if (data.user) userData = data.user;
-        const realToken = data.access_token || data.accessToken;
+        const realToken = data.access_token || data.accessToken || data.verification_token;
         if (realToken && realToken !== "demo_token") {
           localStorage.setItem("access_token", realToken);
           localStorage.setItem("token", realToken);
         }
       } catch (backendErr) {
-        console.warn("Backend API verify error:", backendErr);
+        console.error("Backend API verify error:", backendErr);
+        setErrorMessage(backendErr.message || "Failed to verify OTP code. Server unreachable.");
+        return;
       }
 
       // TC-07, TC-17: Verification successful
