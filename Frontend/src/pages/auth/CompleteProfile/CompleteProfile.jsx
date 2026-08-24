@@ -199,7 +199,7 @@ function CompleteProfile() {
 
         const userObj = data.user || {
           username: userName.trim(),
-          email: email.trim() || `${mobileNumber}@mobile.globalpulse`,
+          email: email && email.trim() ? email.trim() : null,
           mobile_number: mobileNumber,
         };
         const token = data.access_token || data.accessToken;

@@ -395,9 +395,9 @@ def signup(
     db: Session = Depends(get_db),
 ):
     final_email = (
-        request.email.lower()
+        request.email.strip().lower()
         if request.email and request.email.strip()
-        else f"{(request.username or request.mobile_number or 'user').strip().lower()}@mobile.globalpulse"
+        else None
     )
 
     # Check duplicate email, username, or mobile
@@ -410,12 +410,13 @@ def signup(
             detail="Username is already taken.",
         )
 
-    existing_email = db.query(User).filter(func.lower(User.email) == final_email.lower()).first()
-    if existing_email:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already exists. Please log in.",
-        )
+    if final_email:
+        existing_email = db.query(User).filter(func.lower(User.email) == final_email.lower()).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This email address is already associated with another account.",
+            )
 
     if clean_mobile:
         existing_mobile = db.query(User).filter(
@@ -498,7 +499,7 @@ def complete_profile(
     req_email = (
         request.email.strip().lower()
         if request.email and request.email.strip()
-        else f"{req_username.lower()}@mobile.globalpulse"
+        else None
     )
 
     # 1. Check if username is already taken (Case-insensitive)
@@ -514,16 +515,17 @@ def complete_profile(
         )
 
     # 2. Check if email is already registered
-    existing_email = (
-        db.query(User)
-        .filter(func.lower(User.email) == req_email.lower())
-        .first()
-    )
-    if existing_email:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already exists. Please log in.",
+    if req_email:
+        existing_email = (
+            db.query(User)
+            .filter(func.lower(User.email) == req_email.lower())
+            .first()
         )
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This email address is already associated with another account.",
+            )
 
     # 3. Check if mobile number is already registered
     if request.mobile_number:

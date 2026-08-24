@@ -49,13 +49,14 @@ export default function Profile() {
         const firstName = parsed.firstName || ""
         const lastName = parsed.lastName || ""
 
-        // Email pre-filled from login email and verified
-        const email = parsed.email || parsed.user_email || localStorage.getItem("email") || (loginMethod === "email" ? "elax@gmail.com" : "")
-        const isEmailVerified = parsed.isEmailVerified !== undefined ? parsed.isEmailVerified : (loginMethod === "email")
+        // Email pre-filled if present, empty if null
+        const rawEmail = parsed.email || parsed.user_email || localStorage.getItem("email") || ""
+        const email = rawEmail.includes("@mobile.globalpulse") || rawEmail.includes("@user.globalpulse") ? "" : rawEmail
+        const isEmailVerified = parsed.is_email_verified || parsed.isEmailVerified || false
 
         // Phone is empty initially unless explicitly verified & saved
-        const isPhoneVerified = parsed.isPhoneVerified === true
-        const phone = isPhoneVerified ? (parsed.phone || "") : ""
+        const isPhoneVerified = parsed.is_mobile_verified || parsed.isPhoneVerified || false
+        const phone = parsed.phone || parsed.mobile_number || ""
 
         return {
           firstName,
@@ -73,10 +74,10 @@ export default function Profile() {
     return {
       firstName: "",
       lastName: "",
-      email: localStorage.getItem("email") || "elax@gmail.com",
+      email: "",
       phone: "",
       avatar: null,
-      isEmailVerified: true,
+      isEmailVerified: false,
       isPhoneVerified: false,
     }
   })
@@ -685,6 +686,12 @@ export default function Profile() {
   }
 
   const handleSendEmailOtp = async () => {
+    if (!formData.email || !formData.email.trim()) {
+      const msg = "Please enter an email address before requesting email verification."
+      setErrors((prev) => ({ ...prev, email: msg }))
+      showNotification(msg, "error")
+      return
+    }
     const emailErr = validateEmail(formData.email)
     if (emailErr) {
       setErrors((prev) => ({ ...prev, email: emailErr }))
@@ -842,17 +849,17 @@ export default function Profile() {
     const defaultData = {
       firstName: "",
       lastName: "",
-      email: "elax@gmail.com",
+      email: "",
       phone: "",
       avatar: null,
-      isEmailVerified: true,
+      isEmailVerified: false,
       isPhoneVerified: false,
     }
     setFormData(defaultData)
     setUser(defaultData)
     setIsEditingEmail(false)
     setIsEditingPhone(false)
-    setIsEmailVerified(true)
+    setIsEmailVerified(false)
     setIsPhoneVerified(false)
     setShowEmailOtp(false)
     setShowPhoneOtp(false)

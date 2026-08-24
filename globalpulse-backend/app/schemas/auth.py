@@ -8,12 +8,14 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
 from pydantic.alias_generators import to_camel
 
+from app.core.exceptions import ValidationError
+
 
 class SendOtpRequest(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     mobile_number: Optional[str] = Field(None, description="Mobile number with country code e.g. '+918131378262'")
-    email: Optional[EmailStr] = Field(None, description="Email address for OTP verification")
+    email: Optional[str] = Field(None, description="Email address for OTP verification")
     target: Optional[str] = Field(None, description="Mobile number or Email address")
     channel: Optional[str] = Field(None, description="Delivery channel: EMAIL or SMS")
     purpose: Optional[str] = Field(None, description="OTP Purpose: EMAIL_VERIFICATION, PHONE_VERIFICATION, PROFILE_CHANGE, etc.")
@@ -21,9 +23,9 @@ class SendOtpRequest(BaseModel):
     @property
     def target_value(self) -> str:
         val = self.target or self.mobile_number or self.email
-        if not val:
-            raise ValueError("Either mobile_number, email, or target must be provided.")
-        return val
+        if not val or not str(val).strip():
+            raise ValidationError("Please enter an email address before requesting email verification.")
+        return str(val).strip()
 
 
 class VerifyOtpRequest(BaseModel):
@@ -111,7 +113,7 @@ class UserResponse(BaseModel):
 
     user_id: int
     username: Optional[str] = None
-    email: str
+    email: Optional[str] = None
     mobile_number: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None

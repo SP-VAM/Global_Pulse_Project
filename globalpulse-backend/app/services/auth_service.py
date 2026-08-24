@@ -53,15 +53,18 @@ class AuthService:
         Stores SHA-256 hash in database with PENDING -> SENT/FAILED transaction-safe lifecycle.
         Enforces server-side 60s cooldown and 3 req / 10 min rate limits.
         """
-        raw_target = req.target_value.strip()
+        raw_target = (req.target_value or "").strip()
         channel = (getattr(req, "channel", None) or ("EMAIL" if "@" in raw_target else "SMS")).upper()
         
-        # Target normalization
-        if channel == "EMAIL" or "@" in raw_target:
-            channel = "EMAIL"
+        # Target normalization & email requirement validation
+        if channel == "EMAIL":
+            if not raw_target or "@" not in raw_target or len(raw_target.split("@")) != 2 or not raw_target.split("@")[0] or not raw_target.split("@")[1]:
+                raise ValidationError("Please enter an email address before requesting email verification.")
             target = raw_target.lower()
             masked_target = mask_email(target)
         else:
+            if not raw_target or not any(c.isdigit() for c in raw_target):
+                raise ValidationError("Please enter a valid mobile number before requesting verification.")
             channel = "SMS"
             target = normalize_indian_mobile(raw_target)
             masked_target = mask_mobile(target)
@@ -290,13 +293,7 @@ class AuthService:
             except Exception:
                 pass
 
-        final_email = req.email
-        if not final_email:
-            if mobile_num:
-                clean_m = "".join(filter(str.isdigit, mobile_num))[-10:]
-                final_email = f"{clean_m}@mobile.globalpulse"
-            else:
-                final_email = f"{req.username.lower()}@user.globalpulse"
+        final_email = req.email.strip().lower() if req.email and req.email.strip() else None
 
         if await self.user_repo.get_by_username(req.username):
             raise ValidationError(f"Username '{req.username}' is already taken.")

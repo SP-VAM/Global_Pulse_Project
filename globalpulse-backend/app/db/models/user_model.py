@@ -18,7 +18,7 @@ class UserModel(Base):
     first_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     last_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     username: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     mobile_number: Mapped[Optional[str]] = mapped_column(String(20), unique=True, nullable=True)
     password_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     auth_provider: Mapped[str] = mapped_column(String(20), default="LOCAL", nullable=False)

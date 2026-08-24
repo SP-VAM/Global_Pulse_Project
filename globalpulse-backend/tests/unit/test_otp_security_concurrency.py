@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 from unittest.mock import patch
 from app.services.auth_service import AuthService
-from app.schemas.auth import SendOtpRequest, VerifyOtpRequest
+from app.schemas.auth import SendOtpRequest, VerifyOtpRequest, SignupRequest
 from app.repositories.user_repository import OtpRepository, UserRepository
 from app.core.exceptions import GlobalPulseError, ValidationError, ServiceUnavailableError, ConflictError
 from app.db.models.user_model import UserModel
@@ -289,3 +289,57 @@ async def test_verify_otp_same_current_email_succeeds_200(db_session):
     fresh_u1 = await user_repo.get_by_id(u1.user_id)
     assert fresh_u1.is_email_verified is True
     assert fresh_u1.email == "same@globalpulse.com"
+
+
+@pytest.mark.asyncio
+async def test_signup_phone_only_user_sets_email_null(db_session):
+    """Verify that signing up with mobile number only yields email = None without synthetic email generation."""
+    auth_svc = AuthService(db_session)
+
+    signup_req = SignupRequest(
+        username="phoneonly_user_99",
+        mobile_number="9876543210",
+        password="Password123!",
+    )
+    res = await auth_svc.signup(signup_req)
+    assert res.user.email is None
+    assert res.user.mobile_number == "9876543210"
+    assert res.user.is_email_verified is False
+
+    # Retrieve from DB directly to verify true database state
+    user_repo = UserRepository(db_session)
+    u = await user_repo.get_by_username("phoneonly_user_99")
+    assert u.email is None
+    assert u.mobile_number == "9876543210"
+
+
+@pytest.mark.asyncio
+async def test_send_otp_email_empty_raises_validation_error(db_session):
+    """Verify requesting email OTP with empty target raises ValidationError or ValueError with clear message."""
+    auth_svc = AuthService(db_session)
+
+    with pytest.raises((ValidationError, ValueError)) as exc_info:
+        req = SendOtpRequest(
+            target="",
+            email="",
+            channel="EMAIL",
+            purpose="EMAIL_VERIFICATION",
+        )
+        await auth_svc.send_otp(req)
+
+    assert "must be provided" in str(exc_info.value) or "Please enter an email address" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_duplicate_real_email_raises_validation_error(db_session):
+    """Verify that registering with an email already taken by another account raises error."""
+    auth_svc = AuthService(db_session)
+
+    s1 = SignupRequest(username="user1_real", email="duplicate@example.com", password="Password123!")
+    await auth_svc.signup(s1)
+
+    s2 = SignupRequest(username="user2_real", email="duplicate@example.com", password="Password123!")
+    with pytest.raises(ValidationError) as exc_info:
+        await auth_svc.signup(s2)
+
+    assert "already registered" in exc_info.value.message
