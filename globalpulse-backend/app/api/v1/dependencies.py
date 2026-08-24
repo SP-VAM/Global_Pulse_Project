@@ -2,6 +2,7 @@
 FastAPI dependency injection for v1 routes.
 Services are resolved from the application state set during lifespan.
 """
+from typing import Optional
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
