@@ -24,6 +24,8 @@ from app.schemas.stocks import (
     StockMarketSnapshotResponse,
     StockNewsSentimentResponse,
     StockPredictionResponse,
+    StockTopMoverItemSchema,
+    StockTopMoversResponse,
     TechnicalIndicatorsResponse,
     TechnicalSummarySchema,
 )
@@ -234,6 +236,27 @@ async def get_market_snapshot(
         refresh_in_progress=prediction_service._is_refreshing,
         updated_at=updated_at,
     )
+
+
+@router.get(
+    "/top-movers",
+    response_model=StockTopMoversResponse,
+    summary="Top Movers (India) Market Snapshot",
+)
+@limiter.limit(_settings.RATE_LIMIT_DATA)
+async def get_top_movers_endpoint(
+    request: Request,
+    limit: int = Query(5, ge=1, le=50, description="Number of top movers to return"),
+    prediction_service: StockPredictionService = Depends(get_prediction_service),
+) -> StockTopMoversResponse:
+    """
+    Real-Time / Session Top Movers for Indian Market (NIFTY 50).
+    Ranks valid stocks by absolute percentage change descending.
+    Reuses authoritative market snapshot cache without extra external requests.
+    Includes completeness metrics, market open/closed status, and IST timestamps.
+    """
+    res_data = await prediction_service.get_top_movers(limit=limit)
+    return StockTopMoversResponse(**res_data)
 
 
 @router.get(

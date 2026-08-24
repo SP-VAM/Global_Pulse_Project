@@ -8,7 +8,7 @@ import CompanyCard from "./components/CompanyCard.jsx"
 import TopMovers from "./components/TopMovers.jsx"
 import SectorCard from "./components/SectorCard.jsx"
 import { useFlow } from "../../../App"
-import { getMarketSnapshot, getStockSentiment } from "../../../api/marketApi.js"
+import { getMarketSnapshot, getTopMovers } from "../../../api/marketApi.js"
 import { getExpenseSummary } from "../../../api/expenseApi.js"
 import { fetchGoals } from "../../../api/goalsApi.js"
 
@@ -131,33 +131,34 @@ export default function Dashboard() {
     }
   }, [fetchGoalsData])
 
-  // Live Market Sentiment State
-  const [latestSentiment, setLatestSentiment] = useState({
-    score: "+0.74",
-    label: "Bullish",
-    headline: "Nifty 50 Market Sentiment",
-  })
+  // Live Top Movers State
+  const [topMoversData, setTopMoversData] = useState(null)
+  const [loadingMovers, setLoadingMovers] = useState(true)
+  const [moversError, setMoversError] = useState(null)
+
+  const fetchLiveTopMovers = useCallback(async () => {
+    setLoadingMovers(true)
+    setMoversError(null)
+    try {
+      const res = await getTopMovers(5)
+      if (res && res.movers) {
+        setTopMoversData(res)
+      } else {
+        setMoversError("Market data unavailable")
+        setTopMoversData(null)
+      }
+    } catch (err) {
+      console.error("[Dashboard] Top movers fetch error:", err)
+      setMoversError("Market data unavailable")
+      setTopMoversData(null)
+    } finally {
+      setLoadingMovers(false)
+    }
+  }, [])
 
   useEffect(() => {
-    getStockSentiment("RELIANCE")
-      .then((res) => {
-        if (res) {
-          const sc = res.sentiment_score ?? res.score ?? 0.74
-          const numSc = typeof sc === "number" ? sc : parseFloat(sc) || 0.74
-          const lbl = numSc > 0.15 ? "Bullish" : numSc < -0.15 ? "Bearish" : "Neutral"
-          const head =
-            (res.articles && res.articles[0]?.title) ||
-            (res.recent_headlines && res.recent_headlines[0]) ||
-            "Nifty 50 Live Market Sentiment"
-          setLatestSentiment({
-            score: (numSc >= 0 ? "+" : "") + numSc.toFixed(2),
-            label: lbl,
-            headline: head,
-          })
-        }
-      })
-      .catch(() => {})
-  }, [])
+    fetchLiveTopMovers()
+  }, [fetchLiveTopMovers])
 
   // Learning Hub Last Active Module State
   const [lastModule, setLastModule] = useState(() => {
@@ -247,21 +248,23 @@ export default function Dashboard() {
       onClick: () => navigate("/dashboard/goals"),
     }
 
-    // CARD 4: Live News Articles & Sentiment Scores (NO DIRECT TO IT)
-    const newsCard = {
-      id: "news-sentiment",
-      label: "Live News & Sentiment",
-      value: `${latestSentiment.label} (${latestSentiment.score})`,
-      change: latestSentiment.headline,
-      positive:
-        latestSentiment.label === "Bullish"
-          ? true
-          : latestSentiment.label === "Bearish"
-          ? false
-          : null,
-      icon: "Newspaper",
-      tone: latestSentiment.label === "Bearish" ? "red" : "blue",
-      onClick: undefined, // Purely informational — no redirect as requested
+    // CARD 4: Top Movers (India)
+    const topMover = topMoversData && topMoversData.movers && topMoversData.movers.length > 0 ? topMoversData.movers[0] : null
+    const topMoverSym = topMover ? topMover.symbol : ""
+    const topMoverPct = topMover ? topMover.change_percent : 0
+    const isTopPos = topMoverPct >= 0
+
+    const topMoversCard = {
+      id: "top-movers-india",
+      label: "Top Movers (India)",
+      value: topMover ? `${topMoverSym}` : "No Movers",
+      change: topMover
+        ? `${isTopPos ? "+" : ""}${topMoverPct.toFixed(2)}% (${topMover.company_name ? topMover.company_name.split(" ")[0] : topMoverSym})`
+        : moversError || "Market Snapshot",
+      positive: topMover ? isTopPos : null,
+      icon: "Activity",
+      tone: topMover ? (isTopPos ? "green" : "red") : "blue",
+      onClick: () => navigate("/dashboard/constituents"),
     }
 
     // CARD 5: Learning Hub (Last Active Module)
@@ -281,8 +284,8 @@ export default function Dashboard() {
       onClick: () => navigate("/dashboard/learning-hub"),
     }
 
-    return [netSavingsCard, goalCard, newsCard, learningCard]
-  }, [expenseSummary, goalsList, latestSentiment, lastModule, navigate])
+    return [netSavingsCard, goalCard, topMoversCard, learningCard]
+  }, [expenseSummary, goalsList, topMoversData, moversError, lastModule, navigate])
 
   const greetingName =
     currentUser?.full_name ||
@@ -481,7 +484,17 @@ export default function Dashboard() {
           </div>
 
           <div className="dashboard__movers-col">
-            <TopMovers movers={displayTopMovers} style={{ animationDelay: "120ms" }} />
+            <TopMovers
+              movers={topMoversData ? topMoversData.movers : displayTopMovers}
+              asOfFormatted={topMoversData ? topMoversData.as_of_formatted : null}
+              marketStatus={topMoversData ? topMoversData.market_status : null}
+              isStale={topMoversData ? topMoversData.is_stale : false}
+              loading={loadingMovers}
+              error={moversError}
+              onRetry={fetchLiveTopMovers}
+              onViewAll={() => navigate("/dashboard/constituents")}
+              style={{ animationDelay: "120ms" }}
+            />
 
             {!query.trim() && totalCarouselPages > 1 && (
               <div className="dashboard__carousel-dots">

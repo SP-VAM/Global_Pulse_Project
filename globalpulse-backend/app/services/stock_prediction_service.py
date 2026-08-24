@@ -11,6 +11,7 @@ Security & Architectural Invariants:
 5. Structured Logging: Logs NaN/Inf sanitization warnings and inference timing.
 6. Serialized Price History & Market Snapshot: Serializes 30-day closing price points for Sparkline rendering.
 """
+from datetime import datetime, timezone
 import asyncio
 import logging
 import math
@@ -24,10 +25,12 @@ import yfinance as yf
 
 from app.core.config import get_settings
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.timezone import TimezoneService
 from app.providers.base.stock_provider import StockMarketDataProvider
 from app.services.stock_artifact_loader import get_stock_artifact_loader
 from app.services.technical_indicator_service import TechnicalIndicatorService
 from app.services.stock_alert_service import broadcast_stock_price_alerts
+from app.services.market_status_service import MarketStatusService
 
 logger = logging.getLogger(__name__)
 
@@ -641,6 +644,110 @@ class StockPredictionService:
             if self._snapshot_cache:
                 return self._snapshot_cache
             return await self._execute_snapshot_fetch(symbols)
+
+    async def get_top_movers(self, limit: int = 5) -> Dict[str, Any]:
+        """
+        Derive top moving stocks strictly from the authoritative market snapshot.
+        Does NOT make extra external provider calls; reuses SWR snapshot cache.
+        Validates prices/previous close, calculates authoritative change_percent,
+        sorts by abs(change_percent) descending, tracks data completeness, and surfaces market status.
+        """
+        # 1. Reuse existing authoritative market snapshot without extra network requests
+        snapshot_items = await self.get_market_snapshot()
+        now = time.time()
+        snapshot_time = self._snapshot_cache_timestamp or now
+        is_stale = (now - snapshot_time) > self._cache_ttl_seconds
+
+        # 2. Filter valid records & compute completeness metrics
+        universe_count = len(TICKER_TO_COMPANY)
+        valid_movers: List[Dict[str, Any]] = []
+
+        for item in (snapshot_items or []):
+            try:
+                sym = item.get("symbol")
+                if not sym or not isinstance(sym, str):
+                    continue
+                sym = self.normalize_symbol(sym)
+                comp_name = item.get("company_name") or TICKER_TO_COMPANY.get(sym, sym)
+
+                cp = item.get("current_price")
+                pc = item.get("previous_close")
+
+                if cp is None or pc is None:
+                    continue
+
+                curr_price = float(cp)
+                prev_close = float(pc)
+
+                if (
+                    math.isnan(curr_price)
+                    or math.isinf(curr_price)
+                    or curr_price <= 0
+                    or math.isnan(prev_close)
+                    or math.isinf(prev_close)
+                    or prev_close <= 0
+                ):
+                    continue
+
+                # Authoritative change calculation matching Constituents page
+                change = round(curr_price - prev_close, 2)
+                change_pct = round((change / prev_close) * 100, 2) if prev_close != 0 else 0.0
+
+                if math.isnan(change_pct) or math.isinf(change_pct):
+                    continue
+
+                direction = "up" if change_pct >= 0 else "down"
+
+                valid_movers.append({
+                    "symbol": sym,
+                    "yahoo_ticker": f"{sym}.NS",
+                    "company_name": comp_name,
+                    "current_price": round(curr_price, 2),
+                    "previous_close": round(prev_close, 2),
+                    "change": change,
+                    "change_percent": change_pct,
+                    "direction": direction,
+                })
+            except Exception as item_err:
+                logger.debug("Skipping invalid item in top movers processing: %s", item_err)
+                continue
+
+        valid_records = len(valid_movers)
+        failed_records = max(0, universe_count - valid_records)
+
+        # 3. Sort valid movers by ABS(change_percent) descending (gainers & losers ranked together)
+        valid_movers.sort(key=lambda m: abs(m["change_percent"]), reverse=True)
+        top_n_movers = valid_movers[:max(1, limit)]
+
+        # 4. Market status & timestamps
+        market_status = "CLOSED"
+        try:
+            status_resp = MarketStatusService().get_status_by_exchange("NSE")
+            raw_status = status_resp.status
+            market_status = raw_status.value.upper() if hasattr(raw_status, "value") else str(raw_status).upper()
+        except Exception as status_err:
+            logger.debug("Failed checking NSE market status: %s", status_err)
+            market_status = "CLOSED"
+
+        now_ist = TimezoneService.now_ist()
+        as_of_iso = now_ist.isoformat()
+        as_of_formatted = now_ist.strftime("%d %b, %I:%M %p")
+        fetched_at_iso = datetime.fromtimestamp(snapshot_time, tz=timezone.utc).isoformat()
+
+        return {
+            "as_of": as_of_iso,
+            "as_of_formatted": as_of_formatted,
+            "snapshot_timestamp": snapshot_time,
+            "fetched_at": fetched_at_iso,
+            "market_status": market_status,
+            "is_stale": is_stale,
+            "market": "NSE",
+            "universe": "NIFTY50",
+            "universe_count": universe_count,
+            "valid_records": valid_records,
+            "failed_records": failed_records,
+            "movers": top_n_movers,
+        }
 
     async def get_stock_news_sentiment(self, symbol: str) -> Dict[str, Any]:
         """

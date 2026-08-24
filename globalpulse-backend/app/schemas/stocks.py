@@ -50,6 +50,32 @@ class StockPredictionResponse(BaseModel):
     )
 
 
+class StockTopMoverItemSchema(BaseModel):
+    symbol: str = Field(..., description="Normalized ticker symbol e.g. RELIANCE")
+    yahoo_ticker: str = Field(..., description="Yahoo ticker symbol e.g. RELIANCE.NS")
+    company_name: str = Field(..., description="Company name e.g. Reliance Industries Ltd")
+    current_price: float = Field(..., description="Current/latest closing price")
+    previous_close: float = Field(..., description="Previous session closing price")
+    change: float = Field(..., description="Absolute price change")
+    change_percent: float = Field(..., description="Percentage price change")
+    direction: str = Field(..., description="'up' or 'down'")
+
+
+class StockTopMoversResponse(BaseModel):
+    as_of: str = Field(..., description="ISO 8601 timestamp in IST e.g. 2026-08-24T10:35:00+05:30")
+    as_of_formatted: str = Field(..., description="Human-readable timestamp e.g. 24 Aug, 10:35 AM")
+    snapshot_timestamp: float = Field(..., description="Snapshot epoch timestamp")
+    fetched_at: str = Field(..., description="ISO timestamp when snapshot was fetched")
+    market_status: str = Field(..., description="'OPEN' or 'CLOSED'")
+    is_stale: bool = Field(False, description="True if snapshot age > cache TTL (300s)")
+    market: str = Field("NSE", description="Market identifier")
+    universe: str = Field("NIFTY50", description="Stock universe")
+    universe_count: int = Field(50, description="Total stocks in universe")
+    valid_records: int = Field(..., description="Number of valid stock records in snapshot")
+    failed_records: int = Field(0, description="Number of failed/unavailable stock records")
+    movers: List[StockTopMoverItemSchema] = Field(default_factory=list, description="Top movers sorted by absolute change_percent descending")
+
+
 class BollingerBandsSchema(BaseModel):
     upper: float
     middle: float

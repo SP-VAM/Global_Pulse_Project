@@ -118,6 +118,19 @@ export async function getMarketSnapshot(symbols, fetchOptions = {}) {
 }
 
 // ---------------------------------------------------------
+// Top Movers (India)
+// ---------------------------------------------------------
+
+/**
+ * Get real-time/session Top Movers (India) from authoritative market snapshot.
+ *
+ * @param {number} limit
+ */
+export async function getTopMovers(limit = 5) {
+  return request(`/stocks/top-movers?limit=${limit}`);
+}
+
+// ---------------------------------------------------------
 // Stock Analysis
 // ---------------------------------------------------------
 

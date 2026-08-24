@@ -413,6 +413,70 @@ async def test_stocks_market_snapshot_endpoint(stocks_app):
 
 
 @pytest.mark.asyncio
+async def test_get_top_movers_service_logic(prediction_service):
+    """Verifies get_top_movers absolute change sorting, invalid price filtering, and completeness metrics."""
+    mock_snapshot = [
+        {"symbol": "RELIANCE", "company_name": "Reliance Ltd", "current_price": 3000.0, "previous_close": 2850.0},  # +5.26%
+        {"symbol": "TCS", "company_name": "TCS Ltd", "current_price": 3200.0, "previous_close": 3450.0},           # -7.25%
+        {"symbol": "INFY", "company_name": "Infosys Ltd", "current_price": 1500.0, "previous_close": 1480.0},       # +1.35%
+        {"symbol": "HDFCBANK", "company_name": "HDFC Bank", "current_price": 1400.0, "previous_close": 1450.0},     # -3.45%
+        {"symbol": "BAD_ONE", "company_name": "Bad One", "current_price": 0.0, "previous_close": 100.0},           # Invalid price
+        {"symbol": "BAD_TWO", "company_name": "Bad Two", "current_price": 100.0, "previous_close": 0.0},           # Zero prev close
+    ]
+
+    with patch.object(prediction_service, "get_market_snapshot", return_value=mock_snapshot):
+        res = await prediction_service.get_top_movers(limit=5)
+
+    assert res["universe"] == "NIFTY50"
+    assert res["universe_count"] == len(TICKER_TO_COMPANY)
+    assert res["valid_records"] == 4
+    assert res["failed_records"] == len(TICKER_TO_COMPANY) - 4
+    assert len(res["movers"]) == 4
+
+    # Top mover 1: TCS (-7.25% abs rank #1)
+    assert res["movers"][0]["symbol"] == "TCS"
+    assert res["movers"][0]["change_percent"] == -7.25
+    assert res["movers"][0]["direction"] == "down"
+
+    # Top mover 2: RELIANCE (+5.26% abs rank #2)
+    assert res["movers"][1]["symbol"] == "RELIANCE"
+    assert res["movers"][1]["change_percent"] == 5.26
+    assert res["movers"][1]["direction"] == "up"
+
+    # Top mover 3: HDFCBANK (-3.45% abs rank #3)
+    assert res["movers"][2]["symbol"] == "HDFCBANK"
+
+    # Top mover 4: INFY (+1.35% abs rank #4)
+    assert res["movers"][3]["symbol"] == "INFY"
+
+
+@pytest.mark.asyncio
+async def test_stocks_top_movers_endpoint(stocks_app):
+    """Verifies GET /api/v1/stocks/top-movers endpoint."""
+    async with AsyncClient(
+        transport=ASGITransport(app=stocks_app), base_url="http://test"
+    ) as ac:
+        resp = await ac.get("/api/v1/stocks/top-movers?limit=5")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "as_of" in data
+    assert "as_of_formatted" in data
+    assert "market_status" in data
+    assert "is_stale" in data
+    assert data["universe"] == "NIFTY50"
+    assert data["universe_count"] == len(TICKER_TO_COMPANY)
+    assert "movers" in data
+    assert len(data["movers"]) <= 5
+    if len(data["movers"]) > 0:
+        item = data["movers"][0]
+        assert "symbol" in item
+        assert "yahoo_ticker" in item
+        assert "current_price" in item
+        assert "change_percent" in item
+        assert item["direction"] in ("up", "down")
+
+
+@pytest.mark.asyncio
 async def test_stocks_prediction_endpoint_valid(stocks_app):
     async with AsyncClient(
         transport=ASGITransport(app=stocks_app), base_url="http://test"
