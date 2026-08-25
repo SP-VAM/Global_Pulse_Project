@@ -49,8 +49,14 @@ class YFinanceMarketDataProvider(StockMarketDataProvider):
         """Load pre-compiled 1-year historical dataset (1.5 MB) so memory usage is < 5 MB on startup."""
         try:
             settings = get_settings()
-            seed_path = os.path.join(settings.STOCK_DATA_DIR, "historical_1y_seed.json")
-            if os.path.exists(seed_path):
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            candidate_paths = [
+                os.path.join(settings.STOCK_DATA_DIR, "historical_1y_seed.json"),
+                os.path.abspath(os.path.join(base_dir, "..", "..", "data", "stocks", "merged_data", "historical_1y_seed.json")),
+                os.path.abspath(os.path.join(os.getcwd(), "app", "data", "stocks", "merged_data", "historical_1y_seed.json")),
+            ]
+            seed_path = next((p for p in candidate_paths if p and os.path.exists(p)), None)
+            if seed_path:
                 with open(seed_path, "r", encoding="utf-8") as f:
                     seed_data = json.load(f)
 

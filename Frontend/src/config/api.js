@@ -15,6 +15,12 @@ const getApiBaseUrl = () => {
   }
 
   if (typeof window !== "undefined" && window.location.hostname.includes("onrender.com")) {
+    const host = window.location.hostname;
+    const match = host.match(/globalpulse-frontend(-[a-z0-9]+)?\.onrender\.com/i);
+    if (match) {
+      const suffix = match[1] || "";
+      return `https://globalpulse-backend${suffix}.onrender.com`;
+    }
     return "https://globalpulse-backend-i6oa.onrender.com";
   }
 

@@ -387,12 +387,15 @@ async def get_stock_full_analysis(
         prices_df = await prediction_service.provider.get_historical_prices(normalized, period=fetch_period)
     except Exception as e:
         logger.warning(
-            "[ANALYSIS_PROVIDER_ERROR] symbol=%s | period=%s | error=%s",
+            "[ANALYSIS_PROVIDER_ERROR] symbol=%s | period=%s | error=%s. Attempting seed fallback...",
             normalized,
             fetch_period,
             type(e).__name__ + ": " + str(e),
         )
-        raise
+        fallback_fn = getattr(prediction_service.provider, "_get_historical_fallback_df", None)
+        prices_df = fallback_fn(normalized, fetch_period) if callable(fallback_fn) else None
+        if prices_df is None or prices_df.empty:
+            raise
 
     # 2. Prediction using fetched prices_df
     pred_res = await prediction_service.predict_stock_movement(
