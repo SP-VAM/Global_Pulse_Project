@@ -16,6 +16,7 @@ logger = logging.getLogger("globalpulse.auth")
 from app.sync_database import get_db
 from app.db.session import get_db_session
 from app.services.auth_service import AuthService
+from app.repositories.user_repository import UserRepository
 from app.schemas.auth import SendOtpRequest as V1SendOtpRequest, VerifyOtpRequest as V1VerifyOtpRequest
 from app.final_auth import create_access_token, hash_password, verify_password, get_current_firebase_user
 from app.firebase_config import verify_firebase_token
@@ -186,6 +187,29 @@ def send_real_email_otp(to_email: str, otp_code: str, purpose: str = "Verificati
         logger.warning("[SMTP EMAIL ERROR] Failed to send email to %s: %s", to_email, e)
         logger.info("[DEV FALLBACK EMAIL] OTP for email %s: %s", to_email, otp_code)
         return False
+
+
+def serialize_user_entity(user) -> dict:
+    if not user:
+        return {}
+    user_id = getattr(user, "user_id", getattr(user, "id", None))
+    username = getattr(user, "username", None)
+    email = getattr(user, "email", None)
+    mobile = getattr(user, "mobile_number", None)
+    return {
+        "userId": user_id,
+        "user_id": user_id,
+        "username": username,
+        "email": email,
+        "mobileNumber": mobile,
+        "mobile_number": mobile,
+        "firstName": getattr(user, "first_name", None),
+        "lastName": getattr(user, "last_name", None),
+        "authProvider": getattr(user, "auth_provider", "LOCAL"),
+        "isEmailVerified": getattr(user, "is_email_verified", False),
+        "isMobileVerified": getattr(user, "is_mobile_verified", False),
+        "profileCompleted": True if (username and not str(username).startswith("user_")) else False,
+    }
 
 
 # ==========================================================
