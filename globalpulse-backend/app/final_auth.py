@@ -56,29 +56,44 @@ def verify_password(password: str, hashed_password: str) -> bool:
 # ------------------------------------
 
 def create_access_token(
-    data: dict,
-    expires_minutes: int = 60
-):
-    payload = data.copy()
+    data: dict | str | int | None = None,
+    expires_minutes: int = 60,
+    subject: str | int | None = None,
+    extra_claims: dict | None = None,
+) -> str:
+    payload: dict = {}
+    if isinstance(data, dict):
+        payload = data.copy()
+    elif data is not None:
+        payload["sub"] = str(data)
+        if isinstance(data, int) or (isinstance(data, str) and data.isdigit()):
+            try:
+                payload["user_id"] = int(data)
+            except ValueError:
+                pass
+
+    if subject is not None:
+        payload["sub"] = str(subject)
+
+    if extra_claims and isinstance(extra_claims, dict):
+        payload.update(extra_claims)
+
     if "user_id" in payload and "sub" not in payload:
         payload["sub"] = str(payload["user_id"])
+    elif "sub" in payload and "user_id" not in payload:
+        try:
+            payload["user_id"] = int(payload["sub"])
+        except (ValueError, TypeError):
+            pass
 
-    expire = datetime.utcnow() + timedelta(
-        minutes=expires_minutes
-    )
-
-    payload.update(
-        {
-            "exp": expire
-        }
-    )
+    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
+    payload["exp"] = expire
 
     token = jwt.encode(
         payload,
         get_secret_key(),
         algorithm=get_algorithm()
     )
-
     return token
 
 

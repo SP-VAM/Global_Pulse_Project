@@ -393,7 +393,7 @@ async def verify_otp(
         user = await user_repo.get_by_email(target) if "@" in str(target) else await user_repo.get_by_mobile(target)
         if user:
             access_token = create_access_token(
-                subject=user.email,
+                subject=user.email or user.mobile_number or str(user.user_id),
                 extra_claims={"user_id": user.user_id, "username": user.username, "email": user.email},
             )
             return {

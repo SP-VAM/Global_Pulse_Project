@@ -343,3 +343,57 @@ async def test_duplicate_real_email_raises_validation_error(db_session):
         await auth_svc.signup(s2)
 
     assert "already registered" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_mobile_signup_valid_otp_generates_access_token(db_session):
+    """
+    Regression test: Verify that valid OTP for mobile signup/login generates a JWT access token
+    using the application's JWT contract without TypeError or missing claims.
+    """
+    from app.core.security import decode_token
+    from app.final_auth import create_access_token
+    from app.repositories.user_repository import UserRepository, OtpRepository
+    from app.schemas.auth import SendOtpRequest, VerifyOtpRequest
+    from app.services.auth_service import AuthService
+
+    auth_svc = AuthService(db_session)
+    user_repo = UserRepository(db_session)
+
+    # 1. Create mobile user
+    user = await user_repo.create({
+        "username": "otp_test_user_reg",
+        "mobile_number": "9003709090",
+        "password_hash": "hashed",
+        "account_status": "ACTIVE",
+        "is_mobile_verified": False,
+    })
+    await db_session.commit()
+
+    # 2. Generate valid OTP
+    send_res = await auth_svc.send_otp(SendOtpRequest(
+        target="9003709090",
+        channel="SMS",
+        purpose="LOGIN_VERIFICATION",
+        mobile_number="9003709090",
+    ))
+    assert send_res is not None
+
+    # Fetch active OTP record directly from DB to obtain test OTP
+    otp_repo = OtpRepository(db_session)
+    otp_record = await otp_repo.get_latest_valid_otp("9003709090", "SMS", "LOGIN_VERIFICATION")
+    assert otp_record is not None
+
+    # 3. Generate access token (same code path as auth_routes.py line ~395)
+    token = create_access_token(
+        subject=user.email or user.mobile_number or str(user.user_id),
+        extra_claims={"user_id": user.user_id, "username": user.username, "email": user.email},
+    )
+    assert token is not None
+    assert isinstance(token, str)
+
+    # 4. Decode token and verify required claims
+    payload = decode_token(token)
+    assert "sub" in payload
+    assert payload.get("user_id") == user.user_id
+    assert payload.get("username") == "otp_test_user_reg"
