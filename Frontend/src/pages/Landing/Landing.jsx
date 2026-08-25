@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Zap, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SignUp from '../auth/SignUp/SignUp';
 import Logo from '../../components/common/Logo/Logo';
@@ -102,26 +102,9 @@ function AnimatedCounter({ value, label }) {
 export default function Landing() {
   const navigate = useNavigate();
   const [showSignUpModal, setShowSignUpModal] = useState(false);
-  const [activeJourneyStep, setActiveJourneyStep] = useState(0);
 
   const openModal = () => setShowSignUpModal(true);
   const closeModal = () => setShowSignUpModal(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const journeyElem = document.getElementById('journey-section');
-      if (journeyElem) {
-        const rect = journeyElem.getBoundingClientRect();
-        const elemHeight = rect.height;
-        const visiblePx = Math.min(Math.max(-rect.top + window.innerHeight / 2, 0), elemHeight);
-        const step = Math.min(Math.floor((visiblePx / elemHeight) * 5), 4);
-        setActiveJourneyStep(step);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const featureList = [
     {
@@ -179,31 +162,25 @@ export default function Landing() {
       tag: 'Budgeting',
       title: '5 Rules for a Bulletproof Monthly Budget',
       text: 'Learn the proven framework that helps thousands save 20% of income monthly.',
-      time: '4 min read',
     },
     {
       tag: 'Investing',
       title: 'Index Funds Vs. Individual Stocks: Beginner Guide',
       text: 'Understand key differences, risks, and returns for your first investment.',
-      time: '5 min read',
     },
     {
       tag: 'Quick Cash',
       title: '7 Side Hustles You Can Start This Weekend',
       text: 'Practical, low-investment ideas to generate extra income with existing skills.',
-      time: '6 min read',
     },
   ];
 
   return (
     <div className="landing-galaxy">
-      {/* 3D WebGL Background Canvas with Cursor Star Trail */}
       <FinancialGalaxyCanvas />
 
-      {/* SignUp Modal */}
       {showSignUpModal && <SignUp isModal={true} onClose={closeModal} />}
 
-      {/* Dashboard-Aligned Glass Navbar */}
       <header className="gp-dashboard-nav">
         <div className="gp-nav-left">
           <Logo to="/" size="md" />
@@ -218,60 +195,43 @@ export default function Landing() {
         </div>
       </header>
 
-      {/* Main Content Sections */}
-      <main className="landing-content">
-        {/* HERO SECTION — CENTERED */}
-        <section className="gp-hero-centered">
-          <h1 className="gp-hero-title-centered">
-            Understand Global Events Before They Move <span>Indian Markets</span>
-          </h1>
-          <p className="gp-hero-subhead-centered">
-            GlobalPulse automatically detects important global events, analyzes their financial
-            ripple effects, connects them with Indian markets, and explains everything in simple
-            language using AI.
-          </p>
-
-          <div className="gp-hero-cta-wrap">
-            <button className="gp-hero-cta-btn" onClick={openModal}>
-              Get Started Free <ArrowRight size={18} />
-            </button>
+      <main className="gp-landing-main">
+        <section className="gp-hero">
+          <div className="gp-hero-badge">
+            <Zap size={14} className="gp-zap-icon" /> AI-POWERED PERSONAL FINANCE
           </div>
 
-          {/* Dynamic HUD Signal Badges */}
-          <div className="gp-hud-badges">
-            <div className="gp-hud-badge gp-hud-badge--europe">
-              <span className="gp-hud-dot" />
-              <strong>EUROPE</strong>
-              <small>Economic Signal Detected</small>
-            </div>
-            <div className="gp-hud-badge gp-hud-badge--india">
-              <span className="gp-hud-dot gp-hud-dot--pulse" />
-              <strong>
-                INDIA <Zap size={12} fill="#00f0ff" stroke="none" />
-              </strong>
-              <small>Nifty 50 Ripple Impact</small>
-            </div>
-            <div className="gp-hud-badge gp-hud-badge--china">
-              <span className="gp-hud-dot" />
-              <strong>CHINA</strong>
-              <small>Supply & Demand Shift</small>
-            </div>
+          <h1 className="gp-hero-title">
+            Master Your Money, <br />
+            <span className="gp-gradient-text">Build Your Future.</span>
+          </h1>
+
+          <p className="gp-hero-subtitle">
+            Track expenses, discover personalized investment opportunities, and hit your financial
+            goals faster with real-time AI guidance.
+          </p>
+
+          <div className="gp-hero-actions">
+            <button className="gp-hero-cta-btn" onClick={openModal}>
+              Start Your Journey <ArrowRight size={18} />
+            </button>
           </div>
         </section>
 
-        {/* COMPACT FEATURES SECTION */}
         <section className="gp-section gp-section--centered">
           <h2 className="gp-section-heading">
-            Everything You Need to Grow <em>Your Wealth</em>
+            Everything You Need to <em>Succeed</em>
           </h2>
-          <p className="gp-section-subhead">
-            From tracking daily expenses to building a long-term portfolio, we have you covered.
+          <p className="gp-section-sub">
+            Powerful financial tools wrapped in an intuitive, beautifully designed interface.
           </p>
 
-          <div className="gp-features-grid-compact">
+          <div className="gp-features-grid">
             {featureList.map(({ Visual, title, text }) => (
-              <article key={title} className="gp-feature-card-compact">
-                <Visual />
+              <article key={title} className="gp-feature-card">
+                <div className="gp-feature-visual-wrap">
+                  <Visual />
+                </div>
                 <h3>{title}</h3>
                 <p>{text}</p>
               </article>
@@ -279,37 +239,27 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ANIMATED JOURNEY TIMELINE DECK */}
         <section id="journey-section" className="gp-section gp-section--centered">
           <h2 className="gp-section-heading">
-            From First Dollar to Financial <em>Freedom</em>
+            From First Dollar to <em>Financial Freedom</em>
           </h2>
-          <p className="gp-section-subhead">
-            Follow a clear path designed to help you build wealth step by step — no finance degree
-            required.
+          <p className="gp-section-sub">
+            Your step-by-step roadmap to taking complete control of your financial destiny.
           </p>
 
           <div className="gp-journey-deck">
-            {journeyList.map(({ num, title, desc }, idx) => {
-              const isActive = idx <= activeJourneyStep;
-              return (
-                <div
-                  key={num}
-                  className={`gp-journey-card-step ${isActive ? 'is-active' : ''}`}
-                >
-                  <div className="gp-journey-step-badge">{num}</div>
-                  <div className="gp-journey-step-content">
-                    <h3>{title}</h3>
-                    <p>{desc}</p>
-                  </div>
-                  {isActive && <CheckCircle2 size={18} className="gp-journey-check" />}
+            {journeyList.map(({ num, title, desc }) => (
+              <div key={num} className="gp-journey-card-step">
+                <div className="gp-journey-step-badge">{num}</div>
+                <div className="gp-journey-step-content">
+                  <h3>{title}</h3>
+                  <p>{desc}</p>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* STATISTICS SECTION */}
         <section className="gp-section gp-section--centered">
           <h2 className="gp-section-heading">
             Trusted by <em>Thousands of Savers</em>
@@ -322,24 +272,21 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* LEARN & EARN ARTICLES SECTION */}
         <section className="gp-section gp-section--centered">
           <h2 className="gp-section-heading">
             Financial Education That Actually <em>Helps</em>
           </h2>
           <div className="gp-articles-grid">
-            {articleList.map(({ tag, title, text, time }) => (
+            {articleList.map(({ tag, title, text }) => (
               <article key={title} className="gp-article-card">
                 <span className="gp-article-tag">{tag}</span>
                 <h3>{title}</h3>
                 <p>{text}</p>
-                <span className="gp-article-readtime">{time}</span>
               </article>
             ))}
           </div>
         </section>
 
-        {/* FINAL CTA SECTION */}
         <section className="gp-section">
           <div className="gp-final-cta-card">
             <h2>Ready to Take Control of Your Finances?</h2>

@@ -338,13 +338,13 @@
   gap: 10px;
   position: relative;
   transition: all 250ms ease;
-  opacity: 0.6;
-  transform: scale(0.97);
+  opacity: 0.85;
+  transform: scale(1);
 }
 
-.gp-journey-card-step.is-active {
+.gp-journey-card-step:hover {
   opacity: 1;
-  transform: scale(1);
+  transform: translateY(-4px) scale(1.02);
   border-color: rgba(0, 240, 255, 0.4);
   box-shadow: 0 8px 24px rgba(0, 240, 255, 0.15);
 }
@@ -360,9 +360,10 @@
   border-radius: 6px;
   display: grid;
   place-items: center;
+  transition: all 250ms ease;
 }
 
-.is-active .gp-journey-step-badge {
+.gp-journey-card-step:hover .gp-journey-step-badge {
   color: #00f0ff;
   border-color: #00f0ff;
   background: rgba(0, 240, 255, 0.15);
@@ -379,11 +380,6 @@
   font-size: 11px;
   color: #aeb6c7;
   line-height: 1.4;
-}
-
-.gp-journey-check {
-  color: #00f0ff;
-  margin-top: auto;
 }
 
 /* ============================================================
