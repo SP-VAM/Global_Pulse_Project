@@ -190,6 +190,7 @@ function OTPVerification() {
           localStorage.setItem("user", JSON.stringify(userData));
           navigate("/login-success", { replace: true });
         } else {
+          sessionStorage.setItem("signup_mobile_number", mobileNumber);
           navigate("/complete-profile", {
             state: { mobileNumber },
             replace: true,

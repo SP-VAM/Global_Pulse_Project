@@ -397,3 +397,45 @@ async def test_mobile_signup_valid_otp_generates_access_token(db_session):
     assert "sub" in payload
     assert payload.get("user_id") == user.user_id
     assert payload.get("username") == "otp_test_user_reg"
+
+
+@pytest.mark.asyncio
+async def test_mobile_signup_after_successful_otp(db_session):
+    """
+    Verify complete mobile signup flow: OTP -> Complete Profile Signup -> User Created in DB.
+    """
+    auth_svc = AuthService(db_session)
+
+    # Complete signup with mobile_number
+    signup_req = SignupRequest(
+        username="post_otp_user",
+        mobile_number="9887766554",
+        password="Password123!",
+    )
+    token_resp = await auth_svc.signup(signup_req)
+    assert token_resp is not None
+    assert token_resp.access_token is not None
+
+    # Verify user in database
+    user_repo = UserRepository(db_session)
+    user = await user_repo.get_by_mobile("9887766554")
+    assert user is not None
+    assert user.username == "post_otp_user"
+    assert user.mobile_number == "9887766554"
+
+
+@pytest.mark.asyncio
+async def test_mobile_signup_duplicate_mobile_returns_409(db_session):
+    """
+    Verify registering with an existing mobile number raises a ValidationError (409 Conflict).
+    """
+    auth_svc = AuthService(db_session)
+
+    req1 = SignupRequest(username="user_m1", mobile_number="9112233445", password="Password123!")
+    await auth_svc.signup(req1)
+
+    req2 = SignupRequest(username="user_m2", mobile_number="9112233445", password="Password123!")
+    with pytest.raises(ValidationError) as exc_info:
+        await auth_svc.signup(req2)
+
+    assert "already registered" in exc_info.value.message.lower() or "mobile" in exc_info.value.message.lower()

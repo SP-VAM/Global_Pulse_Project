@@ -11,6 +11,7 @@ class SignupRequest(BaseModel):
     username: str
     email: Optional[str] = None
     mobile_number: Optional[str] = None
+    mobileNumber: Optional[str] = None
     password: str
 
 

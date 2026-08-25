@@ -12,7 +12,7 @@ function CompleteProfile() {
 
   const isGoogleFlow = location.state?.isGoogle || !!location.state?.email;
   const emailFromGoogle = location.state?.email || "";
-  const mobileNumber = location.state?.mobileNumber || "";
+  const mobileNumber = location.state?.mobileNumber || sessionStorage.getItem("signup_mobile_number") || "";
 
   const [email, setEmail] = useState(emailFromGoogle);
   const [userName, setUserName] = useState("");
@@ -24,6 +24,17 @@ function CompleteProfile() {
   const [passwordError, setPasswordError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [generalError, setGeneralError] = useState("");
+
+  const parseErrorMessage = (data) => {
+    if (!data) return "Signup failed. Please try again.";
+    if (typeof data.detail === "string") return data.detail;
+    if (Array.isArray(data.detail)) {
+      return data.detail.map((err) => err.msg || JSON.stringify(err)).join(", ");
+    }
+    if (data.message) return data.message;
+    if (data.error?.message) return data.error.message;
+    return "Signup failed. Please try again.";
+  };
 
   // TC-28, TC-39: Password policy validation (>= 6 chars, contains letters and numbers)
   const isPasswordValid = (pwd) => {
@@ -186,13 +197,16 @@ function CompleteProfile() {
         const data = await response.json();
 
         if (!response.ok) {
-          // TC-29: Username already taken error
-          if (data.detail && data.detail.toLowerCase().includes("username")) {
+          const errorDetail = parseErrorMessage(data);
+          const lowerDetail = errorDetail.toLowerCase();
+          if (lowerDetail.includes("username")) {
             setUsernameError("Username is already taken.");
-          } else if (data.detail && data.detail.toLowerCase().includes("email")) {
+          } else if (lowerDetail.includes("email")) {
             setEmailError("Email already exists. Please log in.");
+          } else if (lowerDetail.includes("mobile")) {
+            setGeneralError("Mobile number already associated with another account. Please log in.");
           } else {
-            setGeneralError(data.detail || "Signup failed. Please try again.");
+            setGeneralError(errorDetail);
           }
           return;
         }

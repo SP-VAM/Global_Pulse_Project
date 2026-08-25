@@ -425,8 +425,8 @@ def signup(
         else None
     )
 
-    # Check duplicate email, username, or mobile
-    clean_mobile = "".join(filter(str.isdigit, request.mobile_number or ""))[-10:] if request.mobile_number else ""
+    req_mobile = request.mobile_number or getattr(request, "mobileNumber", None)
+    clean_mobile = "".join(filter(str.isdigit, req_mobile or ""))[-10:] if req_mobile else ""
 
     existing_uname = db.query(User).filter(func.lower(User.username) == request.username.lower()).first()
     if existing_uname:
@@ -446,7 +446,7 @@ def signup(
     if clean_mobile:
         existing_mobile = db.query(User).filter(
             or_(
-                User.mobile_number == request.mobile_number,
+                User.mobile_number == req_mobile,
                 User.mobile_number.like(f"%{clean_mobile}"),
             )
         ).first()
@@ -462,7 +462,7 @@ def signup(
     new_user = User(
         username=request.username,
         email=final_email,
-        mobile_number=request.mobile_number,
+        mobile_number=req_mobile,
         password_hash=hashed_pwd,
         auth_provider="LOCAL",
         account_status="ACTIVE",
