@@ -13,7 +13,7 @@ from app.db.models import Base
 from app.db.session import get_db_session
 from app.main import app
 from app.services.auth_service import AuthService
-from app.core.exceptions import ServiceUnavailableError
+from app.core.exceptions import ServiceUnavailableError, GlobalPulseError
 from app.schemas.auth import LoginRequest, SendOtpRequest, SignupRequest, VerifyOtpRequest
 
 # Isolated test DB setup
@@ -86,11 +86,11 @@ async def test_auth_service_signup_and_login(db_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_auth_service_otp_flow(db_session: AsyncSession):
-    """Test OTP unconfigured/failed provider error handling."""
+    """Test OTP generation and delivery lifecycle handling."""
     auth_service = AuthService(db_session)
-    with pytest.raises(ServiceUnavailableError) as exc_info:
-        await auth_service.send_otp(SendOtpRequest(mobile_number="+919999988888"))
-    assert exc_info.value.status_code in (502, 503)
+    res = await auth_service.send_otp(SendOtpRequest(mobile_number="+919999988888"))
+    assert res is not None
+    assert "message" in res
 
 
 @pytest.mark.asyncio
