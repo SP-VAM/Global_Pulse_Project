@@ -81,6 +81,22 @@ class NotificationRepository:
         await self.session.commit()
         return result.rowcount
 
+    async def delete_read_notifications(self, user_id: int) -> int:
+        """
+        Delete all read notifications for a specific user.
+        Strictly isolated to user_id. Returns the number of deleted records.
+        """
+        stmt = (
+            delete(NotificationModel)
+            .where(
+                NotificationModel.user_id == user_id,
+                NotificationModel.is_read == True,  # noqa: E712
+            )
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount
+
     async def create_notification(
         self,
         user_id: int,

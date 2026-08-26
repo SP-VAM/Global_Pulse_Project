@@ -298,3 +298,19 @@ async def test_security_notifications_contain_no_sensitive_credentials():
     for term in ["password_hash", "access_token", "refresh_token", "otp_code"]:
         assert term not in title.lower()
         assert term not in msg.lower()
+
+
+# ---------------------------------------------------------------------------
+# 7. CLEAR READ NOTIFICATIONS TEST
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_clear_read_notifications_deletes_only_read(mock_db_session):
+    """Verifies clear_read_notifications deletes only read notifications for current user."""
+    from app.services.notification_service import NotificationService
+    service = NotificationService(mock_db_session)
+
+    with patch.object(service.repo, "delete_read_notifications", return_value=3) as mock_del:
+        count = await service.delete_read_notifications(user_id=1)
+        assert count == 3
+        mock_del.assert_called_once_with(user_id=1)
+

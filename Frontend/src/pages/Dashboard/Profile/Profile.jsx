@@ -12,10 +12,14 @@ import {
   Mail,
   Eye,
   EyeOff,
+  Laptop,
+  Globe,
+  LogOut,
+  Clock,
 } from "lucide-react"
 import "./Profile.css"
 import { useUser } from "../../../context/UserContext.jsx"
-import { sendOtp, verifyOtp, changePassword } from "../../../api/authApi.js"
+import { sendOtp, verifyOtp, changePassword, getActiveSessions, revokeSession } from "../../../api/authApi.js"
 
 function Toggle({ on, onChange }) {
   return (
@@ -162,6 +166,49 @@ export default function Profile() {
   })
 
   const [twoFactor, setTwoFactor] = useState(true)
+
+  // Active Sessions States
+  const [sessions, setSessions] = useState([])
+  const [loadingSessions, setLoadingSessions] = useState(false)
+  const [sessionError, setSessionError] = useState(null)
+  const [revokingSessionId, setRevokingSessionId] = useState(null)
+  const [confirmRevokeSession, setConfirmRevokeSession] = useState(null)
+
+  useEffect(() => {
+    if (activeTab === "Security" || activeTab === "security") {
+      fetchActiveSessions()
+    }
+  }, [activeTab])
+
+  const fetchActiveSessions = async () => {
+    setLoadingSessions(true)
+    setSessionError(null)
+    try {
+      const res = await getActiveSessions()
+      setSessions(res.sessions || [])
+    } catch (err) {
+      console.warn("[Profile] Failed to fetch active sessions:", err)
+      setSessionError("Unable to load active sessions.")
+    } finally {
+      setLoadingSessions(false)
+    }
+  }
+
+  const handleConfirmRevoke = async () => {
+    if (!confirmRevokeSession) return
+    const targetId = confirmRevokeSession.sessionId || confirmRevokeSession.session_id
+    setRevokingSessionId(targetId)
+    try {
+      await revokeSession(targetId)
+      showNotification("Session signed out successfully.", "success")
+      setConfirmRevokeSession(null)
+      fetchActiveSessions()
+    } catch (err) {
+      showNotification(err.message || "Failed to sign out session.", "error")
+    } finally {
+      setRevokingSessionId(null)
+    }
+  }
 
   const handleToggle2FA = (newVal) => {
     if (!newVal) {
@@ -1449,6 +1496,113 @@ export default function Profile() {
                   </div>
                 </form>
               )}
+
+              {/* Active Sessions / Connected Devices Block */}
+              <div className="ac-sessions-block">
+                <div className="ac-sec-header" style={{ marginBottom: "16px", paddingTop: "20px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                  <Laptop size={20} className="ac-sec-title-icon" />
+                  <h2 className="ac-sec-title">Active Sessions & Devices</h2>
+                </div>
+                <p className="ac-2fa-sub" style={{ marginBottom: "16px" }}>
+                  View and manage devices currently signed in to your account.
+                </p>
+
+                {loadingSessions && (
+                  <div className="sessions-state-box">
+                    <div className="gp-spinner" />
+                    <span>Loading active sessions...</span>
+                  </div>
+                )}
+
+                {!loadingSessions && sessionError && (
+                  <div className="sessions-state-box sessions-error">
+                    <AlertCircle size={16} />
+                    <span>{sessionError}</span>
+                  </div>
+                )}
+
+                {!loadingSessions && !sessionError && sessions.length === 0 && (
+                  <div className="sessions-state-box">
+                    <p>No active sessions found.</p>
+                  </div>
+                )}
+
+                {!loadingSessions && !sessionError && sessions.length > 0 && (
+                  <div className="sessions-list-grid">
+                    {sessions.map((s) => {
+                      const isCurrent = s.isCurrent || s.is_current
+                      const sId = s.sessionId || s.session_id
+                      const devName = s.deviceName || s.device_name || "Web Browser"
+                      const ipAddr = s.ipAddress || s.ip_address || "127.0.0.1"
+                      const createdDate = s.createdAt || s.created_at
+
+                      return (
+                        <div key={sId} className={`session-card-item${isCurrent ? " is-current" : ""}`}>
+                          <div className="session-card-left">
+                            <div className="session-icon-circle">
+                              <Globe size={18} />
+                            </div>
+                            <div className="session-details">
+                              <div className="session-name-row">
+                                <span className="session-device-title">{devName}</span>
+                                {isCurrent && <span className="badge-current-device">This device</span>}
+                              </div>
+                              <div className="session-meta">
+                                <span>IP: {ipAddr}</span>
+                                <span>•</span>
+                                <span>Signed in: {createdDate ? new Date(createdDate).toLocaleDateString() : "Recently"}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {!isCurrent && (
+                            <button
+                              type="button"
+                              className="btn-revoke-session"
+                              disabled={revokingSessionId === sId}
+                              onClick={() => setConfirmRevokeSession(s)}
+                            >
+                              {revokingSessionId === sId ? "Signing out..." : "Sign out"}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Modal for Revoking Session */}
+        {confirmRevokeSession && (
+          <div className="profile-modal-overlay">
+            <div className="profile-modal-card">
+              <div className="modal-header-row">
+                <LogOut size={22} className="modal-icon--danger" />
+                <h3 className="modal-title">Sign Out Device?</h3>
+              </div>
+              <p className="modal-body-text">
+                Are you sure you want to sign out <strong>{confirmRevokeSession.deviceName || confirmRevokeSession.device_name || "this device"}</strong> (IP: {confirmRevokeSession.ipAddress || confirmRevokeSession.ip_address || "127.0.0.1"})?
+              </p>
+              <div className="modal-action-row">
+                <button
+                  type="button"
+                  className="btn-modal-cancel"
+                  onClick={() => setConfirmRevokeSession(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-modal-confirm--danger"
+                  disabled={!!revokingSessionId}
+                  onClick={handleConfirmRevoke}
+                >
+                  {revokingSessionId ? "Signing out..." : "Yes, Sign Out"}
+                </button>
+              </div>
             </div>
           </div>
         )}

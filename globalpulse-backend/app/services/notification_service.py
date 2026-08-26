@@ -61,6 +61,13 @@ class NotificationService:
         """
         return await self.repo.mark_all_as_read(user_id=user_id)
 
+    async def delete_read_notifications(self, user_id: int) -> int:
+        """
+        Delete all read notifications for current user.
+        Returns count of deleted records.
+        """
+        return await self.repo.delete_read_notifications(user_id=user_id)
+
     async def register_device_token(
         self,
         user_id: int,

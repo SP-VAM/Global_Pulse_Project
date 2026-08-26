@@ -134,3 +134,16 @@ export async function changePassword(payload) {
     body: JSON.stringify(payload),
   })
 }
+
+export async function getActiveSessions() {
+  return request('/sessions', {
+    method: 'GET',
+  })
+}
+
+export async function revokeSession(sessionId) {
+  return request(`/sessions/${sessionId}`, {
+    method: 'DELETE',
+  })
+}
+

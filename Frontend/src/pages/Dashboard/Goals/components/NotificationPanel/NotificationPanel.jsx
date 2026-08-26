@@ -1,6 +1,47 @@
-import React from "react"
+import React, { useState } from "react"
 import "./NotificationPanel.css"
-import { X, CheckCheck, Bell, ShieldAlert, AlertTriangle, Wallet, BookOpen, ExternalLink, TrendingUp, BrainCircuit, Newspaper, GraduationCap, Calendar, KeyRound, MailCheck, Lock } from "lucide-react"
+import {
+  X,
+  CheckCheck,
+  Bell,
+  ShieldAlert,
+  AlertTriangle,
+  Wallet,
+  BookOpen,
+  ExternalLink,
+  TrendingUp,
+  BrainCircuit,
+  Newspaper,
+  GraduationCap,
+  Calendar,
+  KeyRound,
+  MailCheck,
+  Lock,
+  Trash2,
+  Filter,
+} from "lucide-react"
+
+const SECURITY_TYPES = [
+  "PASSWORD_CHANGED",
+  "EMAIL_PHONE_UPDATED",
+  "MULTIPLE_FAILED_LOGINS",
+  "REMOTE_SESSION_REVOKED",
+  "SECURITY",
+]
+
+const FINANCIAL_TYPES = [
+  "BUDGET_THRESHOLD_80",
+  "BUDGET_THRESHOLD_90",
+  "MONTHLY_FINANCIAL_DIGEST",
+  "STOCK_PRICE_TARGET",
+  "ML_HIGH_CONFIDENCE_SIGNAL",
+  "NEWS_SENTIMENT_SHIFT",
+  "LEARNING_MODULE_COMPLETED",
+  "WEEKLY_EXPENSE_REMINDER",
+  "BUDGET_ALERT",
+  "FINANCIAL",
+  "REMINDER",
+]
 
 function getTypeIcon(type) {
   switch (type?.toUpperCase()) {
@@ -61,9 +102,25 @@ export default function NotificationPanel({
   loading = false,
   error = null,
   onMarkAllRead,
+  onClearRead,
   onNotificationClick,
 }) {
+  const [activeFilter, setActiveFilter] = useState("All")
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
+
   const hasUnread = notifications.some((n) => !n.is_read)
+  const hasRead = notifications.some((n) => n.is_read)
+
+  const filteredNotifications = notifications.filter((n) => {
+    const type = (n.notification_type || n.type || "").toUpperCase()
+    if (activeFilter === "Security") {
+      return SECURITY_TYPES.includes(type)
+    }
+    if (activeFilter === "Financial") {
+      return FINANCIAL_TYPES.includes(type)
+    }
+    return true
+  })
 
   return (
     <>
@@ -96,6 +153,46 @@ export default function NotificationPanel({
             </div>
           </div>
 
+          {/* Sub-header Filter Tabs & Clear Action */}
+          <div className="np-filter-bar">
+            <div className="np-filter-tabs">
+              <button
+                type="button"
+                className={`np-filter-tab${activeFilter === "All" ? " is-active" : ""}`}
+                onClick={() => setActiveFilter("All")}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={`np-filter-tab${activeFilter === "Security" ? " is-active" : ""}`}
+                onClick={() => setActiveFilter("Security")}
+              >
+                Security
+              </button>
+              <button
+                type="button"
+                className={`np-filter-tab${activeFilter === "Financial" ? " is-active" : ""}`}
+                onClick={() => setActiveFilter("Financial")}
+              >
+                Financial
+              </button>
+            </div>
+
+            {hasRead && onClearRead && (
+              <button
+                type="button"
+                className="np-btn-clear-read"
+                onClick={() => setShowClearConfirm(true)}
+                title="Clear Read Notifications"
+                aria-label="Clear Read Notifications"
+              >
+                <Trash2 size={13} />
+                <span>Clear Read</span>
+              </button>
+            )}
+          </div>
+
           <div className="np-list">
             {loading && (
               <div className="np-empty">
@@ -111,15 +208,25 @@ export default function NotificationPanel({
               </div>
             )}
 
-            {!loading && !error && notifications.length === 0 && (
+            {!loading && !error && filteredNotifications.length === 0 && (
               <div className="np-empty">
                 <Bell size={32} className="np-empty__icon" />
-                <p className="np-empty__title">All caught up!</p>
-                <span className="np-empty__subtitle">No new notifications right now.</span>
+                <p className="np-empty__title">
+                  {activeFilter === "Security"
+                    ? "No Security notifications found."
+                    : activeFilter === "Financial"
+                    ? "No Financial notifications found."
+                    : "All caught up!"}
+                </p>
+                <span className="np-empty__subtitle">
+                  {activeFilter === "All"
+                    ? "No new notifications right now."
+                    : `No ${activeFilter} alerts found in your notifications.`}
+                </span>
               </div>
             )}
 
-            {!loading && !error && notifications.map((n) => {
+            {!loading && !error && filteredNotifications.map((n) => {
               const isUnread = !n.is_read
               return (
                 <div
@@ -156,6 +263,39 @@ export default function NotificationPanel({
           </div>
         </div>
       </div>
+
+      {showClearConfirm && (
+        <div className="np-modal-backdrop" onClick={() => setShowClearConfirm(false)}>
+          <div className="np-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="np-modal-head">
+              <Trash2 size={20} className="np-modal-icon--danger" />
+              <h4>Clear Read Notifications?</h4>
+            </div>
+            <p className="np-modal-body">
+              Are you sure you want to delete all read notifications? Unread notifications will remain untouched.
+            </p>
+            <div className="np-modal-actions">
+              <button
+                type="button"
+                className="np-btn-modal-cancel"
+                onClick={() => setShowClearConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="np-btn-modal-confirm--danger"
+                onClick={() => {
+                  setShowClearConfirm(false)
+                  if (onClearRead) onClearRead()
+                }}
+              >
+                Yes, Clear Read
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -9,6 +9,7 @@ import {
   fetchUnreadCount,
   markAllNotificationsRead,
   markNotificationRead,
+  clearReadNotifications,
 } from "../../../api/notificationApi.js"
 import "./Navbar.css"
 
@@ -161,6 +162,15 @@ export default function Navbar({ onLogoutClick }) {
     }
   }
 
+  const handleClearRead = async () => {
+    setNotifications((prev) => prev.filter((n) => !n.is_read))
+    try {
+      await clearReadNotifications()
+    } catch (e) {
+      console.warn("Failed to clear read notifications:", e)
+    }
+  }
+
   const handleNotificationClick = async (notif) => {
     if (!notif) return
 
@@ -264,6 +274,7 @@ export default function Navbar({ onLogoutClick }) {
             loading={loading}
             error={error}
             onMarkAllRead={handleMarkAllRead}
+            onClearRead={handleClearRead}
             onNotificationClick={handleNotificationClick}
           />
         </div>

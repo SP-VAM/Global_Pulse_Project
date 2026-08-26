@@ -86,6 +86,24 @@ async def mark_all_notifications_read(
     )
 
 
+@router.delete("/clear-read", status_code=status.HTTP_200_OK)
+async def clear_read_notifications(
+    current_user: UserModel = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Delete all read notifications belonging to the authenticated user.
+    Strictly isolated to current_user.user_id. Unread notifications remain untouched.
+    """
+    service = NotificationService(db)
+    deleted_count = await service.delete_read_notifications(user_id=current_user.user_id)
+    return {
+        "success": True,
+        "deleted_count": deleted_count,
+        "message": f"{deleted_count} read notifications cleared successfully.",
+    }
+
+
 @router.patch("/{notification_id}/read", response_model=MarkReadResponse, status_code=status.HTTP_200_OK)
 async def mark_single_notification_read(
     notification_id: int = Path(..., description="ID of the notification to mark read"),

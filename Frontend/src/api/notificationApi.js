@@ -72,6 +72,21 @@ export async function markAllNotificationsRead() {
   return res.json()
 }
 
+export async function clearReadNotifications() {
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+  }
+  const res = await fetch(`${API_BASE_URL}/api/v1/notifications/clear-read`, {
+    method: "DELETE",
+    headers,
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to clear read notifications: ${res.statusText}`)
+  }
+  return res.json()
+}
+
 export async function registerDeviceToken(fcmToken, deviceType = "WEB") {
   const headers = {
     "Content-Type": "application/json",
