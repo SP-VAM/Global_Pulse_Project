@@ -70,9 +70,9 @@ async function request(endpoint, options = {}, retries = 2) {
       // Handle errors
       if (!response.ok) {
         const errorMessage =
+          data?.error?.message ||
           data?.detail ||
           data?.message ||
-          data?.error?.message ||
           `HTTP error ${response.status}`;
 
         throw new Error(errorMessage);

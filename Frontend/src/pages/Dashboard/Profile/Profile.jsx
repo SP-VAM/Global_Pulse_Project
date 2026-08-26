@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import "./Profile.css"
 import { useUser } from "../../../context/UserContext.jsx"
-import { sendOtp, verifyOtp } from "../../../api/authApi.js"
+import { sendOtp, verifyOtp, changePassword } from "../../../api/authApi.js"
 
 function Toggle({ on, onChange }) {
   return (
@@ -435,9 +435,6 @@ export default function Profile() {
     if (!trimmed) {
       return "Please enter your current password."
     }
-    if (val !== currentSavedPassword) {
-      return "Current password is incorrect."
-    }
     return ""
   }
 
@@ -511,7 +508,7 @@ export default function Profile() {
     setShowPass({ current: false, new: false, confirm: false })
   }
 
-  const handleSavePassword = (e) => {
+  const handleSavePassword = async (e) => {
     e.preventDefault()
 
     const { currentPassword, newPassword, confirmPassword } = passwordForm
@@ -534,25 +531,26 @@ export default function Profile() {
       return
     }
 
-    const trimmedNewPass = newPassword.trim()
-    const updatedHistory = [currentSavedPassword, ...passwordHistory.filter((p) => p !== currentSavedPassword)].slice(0, 3)
-    setPasswordHistory(updatedHistory)
-    setCurrentSavedPassword(trimmedNewPass)
-
     try {
-      const saved = localStorage.getItem("user")
-      const parsed = saved ? JSON.parse(saved) : {}
-      localStorage.setItem("user", JSON.stringify({ ...parsed, password: trimmedNewPass }))
-      localStorage.setItem("passwordHistory", JSON.stringify(updatedHistory))
-    } catch (err) {
-      console.error(err)
-    }
+      const res = await changePassword({
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      })
 
-    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
-    setPasswordErrors({ currentPassword: "", newPassword: "", confirmPassword: "" })
-    setShowPass({ current: false, new: false, confirm: false })
-    setIsChangingPassword(false)
-    showNotification("Password updated successfully.", "success")
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+      setPasswordErrors({ currentPassword: "", newPassword: "", confirmPassword: "" })
+      setShowPass({ current: false, new: false, confirm: false })
+      setIsChangingPassword(false)
+      showNotification(res.message || "Password updated successfully.", "success")
+    } catch (err) {
+      console.error("Change password error:", err)
+      const errorMsg = err.message || "Failed to update password."
+      if (errorMsg.toLowerCase().includes("current password")) {
+        setPasswordErrors((prev) => ({ ...prev, currentPassword: "Current password is incorrect." }))
+      }
+      showNotification(errorMsg, "error")
+    }
   }
 
   const handleInputChange = (e) => {

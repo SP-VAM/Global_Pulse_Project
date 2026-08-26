@@ -486,6 +486,44 @@ class AuthService:
 
         return {"message": "Password has been reset successfully. Please log in with your new password."}
 
+    async def change_password(self, user_id: int, req: Any) -> dict:
+        """Change user password after verifying current password against stored hash in database."""
+        current_pwd = getattr(req, "current_pass_val", "") or getattr(req, "current_password", "") or getattr(req, "currentPassword", "")
+        new_pwd = getattr(req, "new_pass_val", "") or getattr(req, "new_password", "") or getattr(req, "newPassword", "")
+        confirm_pwd = getattr(req, "confirm_pass_val", "") or getattr(req, "confirm_password", "") or getattr(req, "confirmPassword", "")
+
+        if not current_pwd:
+            raise ValidationError("Please enter your current password.", status_code=400)
+        if not new_pwd:
+            raise ValidationError("Please enter a new password.", status_code=400)
+        if confirm_pwd and new_pwd != confirm_pwd:
+            raise ValidationError("Passwords do not match.", status_code=400)
+
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise ValidationError("User account not found.", status_code=400)
+
+        # Check OAuth-only account
+        if not user.password_hash:
+            if user.auth_provider and user.auth_provider.upper() == "GOOGLE":
+                raise ValidationError("This account was created via Google Sign-In and does not have a local password.", status_code=400)
+            raise ValidationError("Current password is incorrect.", status_code=400)
+
+        # Verify current password using canonical verify_password function against DB hash
+        if not verify_password(current_pwd, user.password_hash):
+            raise ValidationError("Current password is incorrect.", status_code=400)
+
+        # Non-reuse check
+        if verify_password(new_pwd, user.password_hash):
+            raise ValidationError("You cannot reuse your current password.", status_code=400)
+
+        # Hash new password using canonical hash_password
+        new_pw_hash = hash_password(new_pwd)
+
+        # Update in database transactionally
+        await self.user_repo.update(user.user_id, {"password_hash": new_pw_hash})
+        return {"message": "Password updated successfully."}
+
     async def update_profile(self, user_id: int, req: UpdateProfileRequest) -> UserResponse:
         """Update authenticated user profile fields."""
         user = await self.user_repo.get_by_id(user_id)

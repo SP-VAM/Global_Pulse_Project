@@ -29,6 +29,7 @@ from app.final_models import (
     AuditLog,
 )
 from app.final_schemas import (
+    ChangePasswordRequest,
     SendOTPRequest,
     VerifyOTPRequest,
     SignupRequest,
@@ -513,6 +514,44 @@ def signup(
         "access_token": access_token,
         "user": serialize_user_entity(new_user),
     }
+
+
+@router.post("/change-password", status_code=status.HTTP_200_OK)
+@router.put("/change-password", status_code=status.HTTP_200_OK)
+def change_password_sync_route(
+    request: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_firebase_user),
+):
+    current_pwd = request.current_pass_val
+    new_pwd = request.new_pass_val
+    confirm_pwd = request.confirm_pass_val
+
+    if not current_pwd:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please enter your current password.")
+    if not new_pwd:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please enter a new password.")
+    if confirm_pwd and new_pwd != confirm_pwd:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match.")
+
+    user = db.query(User).filter(User.user_id == current_user.user_id).first() if hasattr(current_user, "user_id") else None
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User account not found.")
+
+    if not user.password_hash:
+        if user.auth_provider and user.auth_provider.upper() == "GOOGLE":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This account was created via Google Sign-In and does not have a local password.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect.")
+
+    if not verify_password(current_pwd, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect.")
+
+    if verify_password(new_pwd, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot reuse your current password.")
+
+    user.password_hash = hash_password(new_pwd)
+    db.commit()
+    return {"message": "Password updated successfully."}
 
 
 @router.post("/complete-profile")

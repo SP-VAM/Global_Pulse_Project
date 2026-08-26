@@ -85,8 +85,13 @@ async def test_auth_service_signup_and_login(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_auth_service_otp_flow(db_session: AsyncSession):
+async def test_auth_service_otp_flow(db_session: AsyncSession, monkeypatch):
     """Test OTP generation and delivery lifecycle handling."""
+    from app.services.sms_service import SMSService
+    async def mock_send_sms_otp(self, recipient_mobile, otp_code):
+        return True
+    monkeypatch.setattr(SMSService, "send_sms_otp", mock_send_sms_otp)
+
     auth_service = AuthService(db_session)
     res = await auth_service.send_otp(SendOtpRequest(mobile_number="+919999988888"))
     assert res is not None
@@ -124,5 +129,48 @@ async def test_auth_api_endpoints(db_session: AsyncSession):
             assert me_resp.status_code == 200
             me_data = me_resp.json()
             assert me_data["username"] == "api_user"
+
+            # Change Password API — Wrong Current Password
+            wrong_pass_resp = await client.post(
+                "/api/v1/auth/change-password",
+                json={
+                    "currentPassword": "WrongCurrentPassword!",
+                    "newPassword": "BrandNewPassword123!",
+                    "confirmPassword": "BrandNewPassword123!",
+                },
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert wrong_pass_resp.status_code == 400
+            err_json = wrong_pass_resp.json()
+            err_msg = err_json.get("detail") or err_json.get("error", {}).get("message") or ""
+            assert "incorrect" in err_msg.lower()
+
+            # Change Password API — Correct Current Password
+            change_resp = await client.post(
+                "/api/v1/auth/change-password",
+                json={
+                    "currentPassword": "Password123!",
+                    "newPassword": "BrandNewPassword123!",
+                    "confirmPassword": "BrandNewPassword123!",
+                },
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert change_resp.status_code == 200
+            assert "successfully" in change_resp.json()["message"].lower()
+
+            # Login with OLD password should FAIL
+            old_login = await client.post(
+                "/api/v1/auth/login",
+                json={"identity": "api_user", "password": "Password123!"},
+            )
+            assert old_login.status_code == 401
+
+            # Login with NEW password should SUCCEED
+            new_login = await client.post(
+                "/api/v1/auth/login",
+                json={"identity": "api_user", "password": "BrandNewPassword123!"},
+            )
+            assert new_login.status_code == 200
+            assert "accessToken" in new_login.json()
     finally:
         app.dependency_overrides.clear()

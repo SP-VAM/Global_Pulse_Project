@@ -14,6 +14,7 @@ from app.core.config import get_settings
 from app.db.models.user_model import UserModel
 from app.db.session import get_db_session
 from app.schemas.auth import (
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
     ResetPasswordRequest,
@@ -106,6 +107,20 @@ async def reset_password(request: Request, req: ResetPasswordRequest, db: AsyncS
     """Reset password using verification token."""
     service = AuthService(db)
     return await service.reset_password(req)
+
+
+@router.post("/change-password", status_code=status.HTTP_200_OK)
+@router.put("/change-password", status_code=status.HTTP_200_OK)
+@limiter.limit(_settings.RATE_LIMIT_AUTH)
+async def change_password(
+    request: Request,
+    req: ChangePasswordRequest,
+    current_user: UserModel = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Change authenticated user's password after verifying current password against stored hash."""
+    service = AuthService(db)
+    return await service.change_password(current_user.user_id, req)
 
 
 @router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)

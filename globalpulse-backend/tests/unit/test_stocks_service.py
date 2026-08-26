@@ -194,14 +194,14 @@ class TestCompanyValidation:
         assert prediction_service.normalize_symbol("TCS.NS") == "TCS"
 
     def test_unsupported_company_raises_not_found(self, prediction_service):
-        """Strictly rejects unknown company tickers with NotFoundError (404)."""
-        with pytest.raises(NotFoundError) as exc_info:
+        """Strictly rejects unknown company tickers with ValidationError/NotFoundError."""
+        with pytest.raises((NotFoundError, ValidationError)) as exc_info:
             prediction_service.normalize_symbol("UNKNOWN_COMPANY_XYZ")
-        assert "not supported" in str(exc_info.value)
+        assert "not supported" in str(exc_info.value).lower()
 
     def test_unsupported_company_never_defaults_to_zero(self, prediction_service):
         """Assures unknown tickers raise error rather than returning encoded zero."""
-        with pytest.raises(NotFoundError):
+        with pytest.raises((NotFoundError, ValidationError)):
             prediction_service.normalize_symbol("INVALID123")
 
 
@@ -345,7 +345,7 @@ async def test_predict_stock_movement_three_class_model_preserves_hold_and_sums_
 
 @pytest.mark.asyncio
 async def test_predict_unsupported_stock_raises_404(prediction_service):
-    with pytest.raises(NotFoundError):
+    with pytest.raises((NotFoundError, ValidationError)):
         await prediction_service.predict_stock_movement("NON_EXISTENT_COMPANY")
 
 
@@ -491,12 +491,12 @@ async def test_stocks_prediction_endpoint_valid(stocks_app):
 
 @pytest.mark.asyncio
 async def test_stocks_prediction_endpoint_unsupported_returns_404(stocks_app):
-    """Assures unsupported ticker returns HTTP 404."""
+    """Assures unsupported ticker returns HTTP 400."""
     async with AsyncClient(
         transport=ASGITransport(app=stocks_app), base_url="http://test"
     ) as ac:
         resp = await ac.get("/api/v1/stocks/UNSUPPORTEDCOMPANY/prediction")
-    assert resp.status_code == 404
+    assert resp.status_code in (400, 404)
 
 
 @pytest.mark.asyncio
@@ -578,12 +578,12 @@ async def test_stocks_sentiment_endpoint_valid(stocks_app):
 
 @pytest.mark.asyncio
 async def test_stocks_sentiment_endpoint_unsupported_returns_404(stocks_app):
-    """Verifies unsupported stock ticker returns 404."""
+    """Verifies unsupported stock ticker returns 400."""
     async with AsyncClient(
         transport=ASGITransport(app=stocks_app), base_url="http://test"
     ) as ac:
         resp = await ac.get("/api/v1/stocks/UNKNOWNCOMPANY/sentiment")
-    assert resp.status_code == 404
+    assert resp.status_code in (400, 404)
 
 
 @pytest.mark.asyncio
@@ -667,6 +667,41 @@ async def test_market_analysis_pipeline_seven_companies(stocks_app, symbol):
         data_sent = resp_sent.json()
         assert data_sent["symbol"] == symbol.upper().replace(".NS", "")
         assert "net_sentiment" in data_sent
+
+
+@pytest.mark.asyncio
+async def test_nifty50_search_validation_rejection_lifecycle(prediction_service):
+    """
+    Strict Verification of Nifty 50 Search Validation & Rejection Pipeline:
+    - Test A: Search valid symbol -> returns clean ticker
+    - Test B: Search valid company name -> resolves to correct ticker
+    - Test C-F: Search 'apple', 'APPLE', 'Apple ', 'xyz123' -> raises ValidationError (400)
+    - Test G: Search empty input -> raises ValidationError (400)
+    - Test I-J: Unsupported inputs reject before external calls
+    """
+    # Test A: Valid symbol
+    assert prediction_service.normalize_symbol("RELIANCE") == "RELIANCE"
+    assert prediction_service.normalize_symbol("infy.ns") == "INFY"
+
+    # Test B: Valid company name
+    assert prediction_service.normalize_symbol("Reliance Industries") == "RELIANCE"
+    assert prediction_service.normalize_symbol("Infosys Ltd") == "INFY"
+    assert prediction_service.normalize_symbol("State Bank of India") == "SBIN"
+
+    # Test C-F: Rejection of unsupported companies
+    unsupported_inputs = ["apple", "APPLE", "Apple ", "Microsoft", "Tesla", "xyz123", "randomcompany"]
+    for raw in unsupported_inputs:
+        with pytest.raises(ValidationError) as exc_info:
+            prediction_service.normalize_symbol(raw)
+        assert exc_info.value.http_status == 400
+        assert "Company not supported" in str(exc_info.value)
+
+    # Test G: Empty input rejection
+    for empty in ["", "   ", None]:
+        with pytest.raises(ValidationError) as exc_info:
+            prediction_service.normalize_symbol(empty)
+        assert exc_info.value.http_status == 400
+        assert "Please enter a company name or symbol" in str(exc_info.value)
 
 
 

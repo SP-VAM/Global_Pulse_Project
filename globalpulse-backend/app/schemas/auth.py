@@ -95,7 +95,31 @@ class ResetPasswordRequest(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     reset_token: str = Field(..., description="Password reset token obtained via OTP verification")
-    new_password: str = Field(..., min_length=8, description="New password")
+    new_password: str = Field(..., min_length=6, description="New password")
+
+
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    current_password: Optional[str] = Field(None, description="Current password for verification")
+    new_password: Optional[str] = Field(None, min_length=6, description="New password")
+    confirm_password: Optional[str] = Field(None, description="Confirm new password")
+
+    currentPassword: Optional[str] = Field(None)
+    newPassword: Optional[str] = Field(None)
+    confirmPassword: Optional[str] = Field(None)
+
+    @property
+    def current_pass_val(self) -> str:
+        return self.current_password or self.currentPassword or ""
+
+    @property
+    def new_pass_val(self) -> str:
+        return self.new_password or self.newPassword or ""
+
+    @property
+    def confirm_pass_val(self) -> str:
+        return self.confirm_password or self.confirmPassword or ""
 
 
 class UpdateProfileRequest(BaseModel):

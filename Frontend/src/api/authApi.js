@@ -126,3 +126,11 @@ export async function updateUserSettings(payload) {
     body: JSON.stringify(payload),
   })
 }
+
+export async function changePassword(payload) {
+  // payload: { currentPassword, newPassword, confirmPassword }
+  return request('/change-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}

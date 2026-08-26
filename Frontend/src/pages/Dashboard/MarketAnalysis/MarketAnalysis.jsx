@@ -523,19 +523,60 @@ export default function MarketAnalysis() {
     }))
   }, [liveApiData])
 
+  const [searchError, setSearchError] = useState(null)
+  const searchErrorTimerRef = useRef(null)
+
+  const showSearchError = (msg) => {
+    setSearchError(msg)
+    if (searchErrorTimerRef.current) clearTimeout(searchErrorTimerRef.current)
+    searchErrorTimerRef.current = setTimeout(() => {
+      setSearchError((prev) => (prev === msg ? null : prev))
+    }, 4500)
+  }
+
   function roundVal(v) {
     return Math.round(v * 100) / 100
   }
 
   const handleSearchSubmit = (e) => {
     if (e) e.preventDefault();
-    if (!searchQuery.trim()) return;
-    const q = searchQuery.trim().toLowerCase();
-    const match = activeCompanies.find(
-      (c) => c.symbol.toLowerCase() === q || c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
-    );
+    setSearchError(null);
+
+    const rawInput = searchQuery.trim();
+    if (!rawInput) {
+      showSearchError("Please enter a company name or symbol.");
+      return;
+    }
+
+    const cleanInput = rawInput.toUpperCase().replace(".NS", "");
+
+    // 1. Exact match on symbol or company name
+    let match = activeCompanies.find((c) => {
+      const symUpper = c.symbol.toUpperCase();
+      const nameUpper = (c.name || "").toUpperCase();
+      const nameClean = nameUpper.replace(" LTD", "").replace(" LIMITED", "").trim();
+      return (
+        symUpper === cleanInput ||
+        nameUpper === cleanInput ||
+        nameClean === cleanInput
+      );
+    });
+
+    // 2. Substring/partial match if exact match not found
+    if (!match) {
+      match = activeCompanies.find((c) => {
+        const symUpper = c.symbol.toUpperCase();
+        const nameUpper = (c.name || "").toUpperCase();
+        return symUpper.includes(cleanInput) || nameUpper.includes(cleanInput);
+      });
+    }
+
     if (match) {
       setSelectedSymbol(match.symbol);
+      setSearchError(null);
+    } else {
+      // UNSUPPORTED COMPANY: STOP THE FLOW IMMEDIATELY
+      showSearchError("Company not supported. Please select a company from the supported Nifty 50 list.");
     }
   };
 
@@ -560,7 +601,10 @@ export default function MarketAnalysis() {
               className="smp-sidebar__input"
               style={{ flex: 1 }}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSearchError(null);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSearchSubmit(e);
               }}
@@ -574,6 +618,26 @@ export default function MarketAnalysis() {
               <Search size={13} /> Search
             </button>
           </div>
+          {searchError && (
+            <div
+              style={{
+                marginTop: "8px",
+                padding: "8px 12px",
+                borderRadius: "6px",
+                background: "rgba(239, 68, 68, 0.15)",
+                border: "1px solid rgba(239, 68, 68, 0.4)",
+                color: "#fca5a5",
+                fontSize: "12px",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                lineHeight: "1.4",
+              }}
+            >
+              <AlertTriangle size={15} style={{ flexShrink: 0, color: "#ef4444" }} />
+              <span>{searchError}</span>
+            </div>
+          )}
         </form>
 
         <div className="smp-sidebar__group">
@@ -581,7 +645,10 @@ export default function MarketAnalysis() {
           <select
             className="smp-sidebar__select"
             value={selectedSymbol}
-            onChange={(e) => setSelectedSymbol(e.target.value)}
+            onChange={(e) => {
+              setSelectedSymbol(e.target.value);
+              setSearchError(null);
+            }}
           >
             {filteredCompanies.map((c) => (
               <option key={c.symbol} value={c.symbol}>

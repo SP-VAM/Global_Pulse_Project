@@ -129,3 +129,24 @@ class ResetPasswordRequest(BaseModel):
 
 class SendOTPRequest(BaseModel):
     mobile_number: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: Optional[str] = None
+    new_password: Optional[str] = None
+    confirm_password: Optional[str] = None
+    currentPassword: Optional[str] = None
+    newPassword: Optional[str] = None
+    confirmPassword: Optional[str] = None
+
+    @property
+    def current_pass_val(self) -> str:
+        return self.current_password or self.currentPassword or ""
+
+    @property
+    def new_pass_val(self) -> str:
+        return self.new_password or self.newPassword or ""
+
+    @property
+    def confirm_pass_val(self) -> str:
+        return self.confirm_password or self.confirmPassword or ""

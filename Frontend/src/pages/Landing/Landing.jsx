@@ -195,7 +195,7 @@ export default function Landing() {
         </div>
       </header>
 
-      <main className="gp-landing-main">
+      <main className="landing-content gp-landing-main">
         <section className="gp-hero">
           <div className="gp-hero-badge">
             <Zap size={14} className="gp-zap-icon" /> AI-POWERED PERSONAL FINANCE

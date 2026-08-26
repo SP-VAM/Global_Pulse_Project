@@ -346,11 +346,16 @@ async def test_duplicate_real_email_raises_validation_error(db_session):
 
 
 @pytest.mark.asyncio
-async def test_mobile_signup_valid_otp_generates_access_token(db_session):
+async def test_mobile_signup_valid_otp_generates_access_token(db_session, monkeypatch):
     """
     Regression test: Verify that valid OTP for mobile signup/login generates a JWT access token
     using the application's JWT contract without TypeError or missing claims.
     """
+    from app.services.sms_service import SMSService
+    async def mock_send_sms_otp(self, recipient_mobile, otp_code):
+        return True
+    monkeypatch.setattr(SMSService, "send_sms_otp", mock_send_sms_otp)
+
     from app.core.security import decode_token
     from app.final_auth import create_access_token
     from app.repositories.user_repository import UserRepository, OtpRepository

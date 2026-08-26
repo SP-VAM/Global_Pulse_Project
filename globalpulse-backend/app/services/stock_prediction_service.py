@@ -249,13 +249,32 @@ class StockPredictionService:
                     logger.debug("Failed loading %s: %s", fname, e)
 
     def normalize_symbol(self, raw_symbol: str) -> str:
-        clean = raw_symbol.upper().strip().replace(".NS", "")
-        if clean not in TICKER_TO_COMPANY:
-            raise NotFoundError(
-                f"Stock symbol '{raw_symbol}' is not supported. "
-                f"Supported tickers include: {list(TICKER_TO_COMPANY.keys())[:5]}..."
-            )
-        return clean
+        """
+        Normalize stock symbol or company name and validate against Nifty 50 universe.
+        Raises ValidationError (HTTP 400) for empty input or unsupported companies.
+        Single source of truth: TICKER_TO_COMPANY.
+        """
+        if not raw_symbol or not str(raw_symbol).strip():
+            raise ValidationError("Please enter a company name or symbol.", status_code=400)
+
+        cleaned = str(raw_symbol).strip().upper().replace(".NS", "")
+
+        # 1. Direct ticker match (e.g. RELIANCE, TCS, INFY)
+        if cleaned in TICKER_TO_COMPANY:
+            return cleaned
+
+        # 2. Match by company name or clean name (e.g. "Reliance Industries", "Infosys")
+        for ticker, name in TICKER_TO_COMPANY.items():
+            name_upper = name.upper()
+            name_clean = name_upper.replace(" LTD", "").replace(" LIMITED", "").strip()
+            if cleaned == name_upper or cleaned == name_clean or cleaned in name_upper:
+                return ticker
+
+        # 3. Reject unsupported companies cleanly
+        raise ValidationError(
+            "Company not supported. Please select a company from the supported Nifty 50 list.",
+            status_code=400,
+        )
 
     def get_supported_companies(self) -> List[Dict[str, str]]:
         """Return list of supported Nifty companies."""
