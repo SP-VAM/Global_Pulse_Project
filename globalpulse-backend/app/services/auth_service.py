@@ -8,7 +8,7 @@ import logging
 import random
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
