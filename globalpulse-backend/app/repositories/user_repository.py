@@ -167,6 +167,18 @@ class SessionRepository(BaseRepository[UserSessionModel, Any, Any]):
         res = await self.session.execute(stmt)
         return res.scalar_one_or_none()
 
+    async def get_all_active_user_sessions(self, user_id: int) -> List[UserSessionModel]:
+        stmt = (
+            select(UserSessionModel)
+            .where(
+                UserSessionModel.user_id == user_id,
+                UserSessionModel.is_active == True,
+            )
+            .order_by(UserSessionModel.created_at.desc())
+        )
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
     async def revoke_session(self, session_id: int) -> None:
         stmt = (
             update(UserSessionModel)

@@ -238,6 +238,7 @@ class AuthService:
                     raise ConflictError("This mobile number is already associated with another account.")
 
         # Transaction-safe execution of OTP consumption & profile update
+        value_changed = False
         try:
             # Atomically consume OTP to prevent race conditions / double verification
             consumed = await self.otp_repo.consume_otp_atomic(otp_record.otp_id)
@@ -248,10 +249,12 @@ class AuthService:
                 if channel == "EMAIL":
                     if user_to_update.email != target:
                         user_to_update.email = target
+                        value_changed = True
                     user_to_update.is_email_verified = True
                 else:
                     if user_to_update.mobile_number != target:
                         user_to_update.mobile_number = target
+                        value_changed = True
                     user_to_update.is_mobile_verified = True
 
             await self.session.commit()
@@ -268,6 +271,31 @@ class AuthService:
         except Exception as exc:
             await self.session.rollback()
             raise exc
+
+        # Post-commit security notification dispatch
+        if user_to_update and value_changed:
+            try:
+                from app.services.notification_service import NotificationService
+                notif_svc = NotificationService(self.session)
+                dedup = f"email_phone_updated:{user_to_update.user_id}:{otp_record.otp_id}"
+                if channel == "EMAIL":
+                    title = "📧 Email Address Updated"
+                    msg = "Your primary email address was successfully updated."
+                else:
+                    title = "📱 Phone Number Updated"
+                    msg = "Your primary phone number was successfully updated."
+
+                await notif_svc.create_and_send_notification(
+                    user_id=user_to_update.user_id,
+                    title=title,
+                    message=msg,
+                    notification_type="EMAIL_PHONE_UPDATED",
+                    action_url="/dashboard/profile",
+                    send_push=True,
+                    dedup_key=dedup,
+                )
+            except Exception as notif_err:
+                logger.debug("EMAIL_PHONE_UPDATED notification skipped/failed: %s", notif_err)
 
         # Issue temporary verification token
         ver_token = create_access_token(
@@ -347,6 +375,54 @@ class AuthService:
         """Authenticate user credentials and issue active session tokens."""
         user = await self.user_repo.get_by_identity(req.identity)
         if not user or not user.password_hash or not verify_password(req.password, user.password_hash):
+            if user:
+                try:
+                    failed_audit = await self.audit_repo.create(
+                        {
+                            "user_id": user.user_id,
+                            "table_name": "users",
+                            "action": "USER_LOGIN_FAILED",
+                            "description": "Failed password authentication attempt.",
+                        }
+                    )
+                    await self.session.commit()
+
+                    # True rolling 10-minute query
+                    ten_min_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
+                    from app.db.models.user_model import AuditLogModel
+                    stmt = select(func.count(AuditLogModel.audit_id)).where(
+                        AuditLogModel.user_id == user.user_id,
+                        AuditLogModel.action == "USER_LOGIN_FAILED",
+                        AuditLogModel.created_at >= ten_min_ago,
+                    )
+                    failed_count = (await self.session.execute(stmt)).scalar() or 0
+
+                    if failed_count >= 3:
+                        # Check if a MULTIPLE_FAILED_LOGINS notification already exists for this user in last 10 minutes
+                        from app.db.models.notification_model import NotificationModel
+                        notif_check = select(func.count(NotificationModel.notification_id)).where(
+                            NotificationModel.user_id == user.user_id,
+                            NotificationModel.notification_type == "MULTIPLE_FAILED_LOGINS",
+                            NotificationModel.created_at >= ten_min_ago,
+                        )
+                        recent_notifs = (await self.session.execute(notif_check)).scalar() or 0
+
+                        if recent_notifs == 0:
+                            from app.services.notification_service import NotificationService
+                            notif_svc = NotificationService(self.session)
+                            dedup = f"multiple_failed_logins:{user.user_id}:{failed_audit.audit_id}"
+                            await notif_svc.create_and_send_notification(
+                                user_id=user.user_id,
+                                title="⚠️ Multiple Failed Login Attempts",
+                                message="We detected multiple unsuccessful login attempts on your account within the last 10 minutes. If this wasn't you, please secure your account.",
+                                notification_type="MULTIPLE_FAILED_LOGINS",
+                                action_url="/dashboard/profile",
+                                send_push=True,
+                                dedup_key=dedup,
+                            )
+                except Exception as brute_err:
+                    logger.debug("MULTIPLE_FAILED_LOGINS handling skipped: %s", brute_err)
+
             raise AuthenticationError("Invalid username/email or password.")
 
         if user.account_status != "ACTIVE":
@@ -522,7 +598,81 @@ class AuthService:
 
         # Update in database transactionally
         await self.user_repo.update(user.user_id, {"password_hash": new_pw_hash})
+        audit_rec = await self.audit_repo.create(
+            {
+                "user_id": user.user_id,
+                "table_name": "users",
+                "action": "PASSWORD_CHANGED",
+                "description": "User updated account password.",
+            }
+        )
+        await self.session.commit()
+
+        # Post-commit security notification
+        try:
+            from app.services.notification_service import NotificationService
+            notif_svc = NotificationService(self.session)
+            dedup = f"password_changed:{user.user_id}:{audit_rec.audit_id}"
+            await notif_svc.create_and_send_notification(
+                user_id=user.user_id,
+                title="🔐 Password Changed",
+                message="Your account password was successfully changed. If you did not make this change, secure your account immediately.",
+                notification_type="PASSWORD_CHANGED",
+                action_url="/dashboard/profile",
+                send_push=True,
+                dedup_key=dedup,
+            )
+        except Exception as notif_err:
+            logger.debug("PASSWORD_CHANGED notification skipped: %s", notif_err)
+
         return {"message": "Password updated successfully."}
+
+    async def get_user_sessions(self, user_id: int, current_session_id: Optional[int] = None) -> list:
+        """Fetch all active sessions for authenticated user formatted as SessionResponse."""
+        sessions = await self.session_repo.get_all_active_user_sessions(user_id)
+        result = []
+        for s in sessions:
+            res_dict = {
+                "session_id": s.session_id,
+                "ip_address": s.ip_address,
+                "device_name": s.device_name,
+                "created_at": s.created_at,
+                "last_activity": s.created_at,
+                "is_current": (s.session_id == current_session_id) if current_session_id else False,
+            }
+            result.append(res_dict)
+        return result
+
+    async def revoke_remote_session(self, user_id: int, target_session_id: int, current_session_id: Optional[int] = None) -> dict:
+        """Revoke active session for user_id with server-side authorization check."""
+        target_sess = await self.session_repo.get_active_session(user_id=user_id, session_id=target_session_id)
+        if not target_sess:
+            raise ValidationError("Active session not found or access denied.", status_code=404)
+
+        if target_sess.user_id != user_id:
+            raise GlobalPulseError(message="Unauthorized session revocation.", status_code=403)
+
+        await self.session_repo.revoke_session(target_session_id)
+
+        # Trigger notification ONLY if target_session_id != current_session_id (remote revocation)
+        if current_session_id is None or target_session_id != current_session_id:
+            try:
+                from app.services.notification_service import NotificationService
+                notif_svc = NotificationService(self.session)
+                dedup = f"remote_session_revoked:{user_id}:{target_session_id}"
+                await notif_svc.create_and_send_notification(
+                    user_id=user_id,
+                    title="🔒 Remote Session Revoked",
+                    message="An active session on another device was signed out from your account.",
+                    notification_type="REMOTE_SESSION_REVOKED",
+                    action_url="/dashboard/profile",
+                    send_push=True,
+                    dedup_key=dedup,
+                )
+            except Exception as notif_err:
+                logger.debug("REMOTE_SESSION_REVOKED notification skipped: %s", notif_err)
+
+        return {"success": True, "message": "Session revoked successfully."}
 
     async def update_profile(self, user_id: int, req: UpdateProfileRequest) -> UserResponse:
         """Update authenticated user profile fields."""

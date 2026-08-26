@@ -1,11 +1,18 @@
 import React from "react"
 import "./NotificationPanel.css"
-import { X, CheckCheck, Bell, ShieldAlert, AlertTriangle, Wallet, BookOpen, ExternalLink, TrendingUp, BrainCircuit, Newspaper, GraduationCap, Calendar } from "lucide-react"
+import { X, CheckCheck, Bell, ShieldAlert, AlertTriangle, Wallet, BookOpen, ExternalLink, TrendingUp, BrainCircuit, Newspaper, GraduationCap, Calendar, KeyRound, MailCheck, Lock } from "lucide-react"
 
 function getTypeIcon(type) {
   switch (type?.toUpperCase()) {
     case "SECURITY":
+    case "MULTIPLE_FAILED_LOGINS":
       return <ShieldAlert size={16} className="np-type-icon np-type-icon--security" />
+    case "PASSWORD_CHANGED":
+      return <KeyRound size={16} className="np-type-icon np-type-icon--security" style={{ color: "#ef4444" }} />
+    case "EMAIL_PHONE_UPDATED":
+      return <MailCheck size={16} className="np-type-icon np-type-icon--security" style={{ color: "#3b82f6" }} />
+    case "REMOTE_SESSION_REVOKED":
+      return <Lock size={16} className="np-type-icon np-type-icon--security" style={{ color: "#f59e0b" }} />
     case "BUDGET_ALERT":
     case "BUDGET_THRESHOLD_80":
     case "BUDGET_THRESHOLD_90":

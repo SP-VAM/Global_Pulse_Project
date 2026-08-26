@@ -3,7 +3,7 @@ Pydantic Schemas for User Authentication & Authorization.
 Serializes fields to camelCase for frontend compatibility.
 """
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
 from pydantic.alias_generators import to_camel
@@ -181,5 +181,24 @@ class UserSettingsUpdate(BaseModel):
     dark_mode: Optional[bool] = Field(None)
     weekly_digest: Optional[bool] = Field(None)
     two_factor_auth: Optional[bool] = Field(None)
+
+
+class SessionResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, from_attributes=True)
+
+    session_id: int
+    ip_address: Optional[str] = None
+    device_name: Optional[str] = None
+    created_at: datetime
+    last_activity: Optional[datetime] = None
+    is_current: bool = False
+
+
+class SessionListResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    total: int
+    sessions: List[SessionResponse]
+
 
 

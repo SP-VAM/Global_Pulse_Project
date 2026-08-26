@@ -19,6 +19,8 @@ from app.schemas.auth import (
     LoginRequest,
     ResetPasswordRequest,
     SendOtpRequest,
+    SessionListResponse,
+    SessionResponse,
     SignupRequest,
     TokenResponse,
     UpdateProfileRequest,
@@ -160,5 +162,30 @@ async def update_settings(
     service = AuthService(db)
     updated = await service.update_user_settings(current_user.user_id, req.model_dump(exclude_unset=True))
     return UserSettingsResponse.model_validate(updated)
+
+
+@router.get("/sessions", response_model=SessionListResponse, status_code=status.HTTP_200_OK)
+async def get_sessions(
+    current_user: UserModel = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """List active sessions for authenticated user with safe metadata only."""
+    service = AuthService(db)
+    items = await service.get_user_sessions(user_id=current_user.user_id)
+    return SessionListResponse(
+        total=len(items),
+        sessions=[SessionResponse.model_validate(s) for s in items],
+    )
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_200_OK)
+async def revoke_session(
+    session_id: int,
+    current_user: UserModel = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Revoke an active session owned by current user."""
+    service = AuthService(db)
+    return await service.revoke_remote_session(user_id=current_user.user_id, target_session_id=session_id)
 
 
