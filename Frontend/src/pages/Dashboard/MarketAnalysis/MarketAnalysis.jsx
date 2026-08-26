@@ -1100,16 +1100,6 @@ export default function MarketAnalysis() {
                   </div>
 
                   <div className="smp-pred-stat-card">
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Model Confidence</div>
-                    <div className="smp-pred-stat-card__val" style={{ color: "#eab308" }}>
-                      {livePrediction.confidence}%
-                    </div>
-                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                      High Confidence Classification
-                    </div>
-                  </div>
-
-                  <div className="smp-pred-stat-card">
                     <div style={{ fontSize: 11, color: "#64748b" }}>Current Price</div>
                     <div className="smp-pred-stat-card__val" style={{ color: "#38bdf8" }}>
                       ₹{currentPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
