@@ -460,6 +460,12 @@ class StockPredictionService:
         prob_up = float(class_prob_map.get(1, 0.0))
         prob_hold = float(class_prob_map.get(2, 0.0))
 
+        tot_p = prob_down + prob_up + prob_hold
+        if tot_p > 0:
+            prob_down = round(prob_down / tot_p, 4)
+            prob_up = round(prob_up / tot_p, 4)
+            prob_hold = round(1.0 - (prob_down + prob_up), 4)
+
         if predicted_class == 1:
             predicted_direction = "UP"
             signal = "BULLISH"
