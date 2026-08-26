@@ -12,7 +12,7 @@ function getAuthHeader() {
 async function handleResponse(res, fallbackErrorMsg) {
   if (res.status === 401) {
     localStorage.removeItem("access_token")
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
       window.location.href = "/login"
     }
     throw new Error("Session expired. Please log in again.")

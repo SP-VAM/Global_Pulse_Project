@@ -21,7 +21,7 @@ async function request(endpoint, options = {}) {
   if (response.status === 401 && !endpoint.includes('/login') && !endpoint.includes('/signup')) {
     localStorage.removeItem('access_token')
     localStorage.removeItem('token')
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard')) {
       window.location.href = '/login'
     }
     throw new Error('Session expired. Please log in again.')
