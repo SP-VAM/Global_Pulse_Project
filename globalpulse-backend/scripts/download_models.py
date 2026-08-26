@@ -13,16 +13,11 @@ import time
 TARGET_FILES = [
     "label_encoder.pkl",
     "model_features.pkl",
-    "model_5d_binary.pkl",
-    "model_5d_binary_encoder.pkl",
-    "model_5d_binary_features.pkl",
-    "model_1d_binary.pkl",
-    "model_1d_binary_encoder.pkl",
-    "model_1d_binary_features.pkl",
+    "xgboost_model.pkl",
 ]
 
 # Explicitly ignore heavy multi-hundred-megabyte 3-class / multi-class models
-EXCLUDE_PATTERNS = ["3class", "sector", "10d", "xgboost_model"]
+EXCLUDE_PATTERNS = ["3class", "sector", "10d"]
 
 def main() -> None:
     print("=" * 60, flush=True)
