@@ -20,6 +20,8 @@ class NotificationModel(Base):
     notification_type: Mapped[str] = mapped_column(String(50), default="INFO", nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     action_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    dedup_key: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     read_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 

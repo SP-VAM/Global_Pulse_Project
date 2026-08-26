@@ -1,16 +1,29 @@
 import React from "react"
 import "./NotificationPanel.css"
-import { X, CheckCheck, Bell, ShieldAlert, AlertTriangle, Wallet, BookOpen, Info, ExternalLink } from "lucide-react"
+import { X, CheckCheck, Bell, ShieldAlert, AlertTriangle, Wallet, BookOpen, ExternalLink, TrendingUp, BrainCircuit, Newspaper, GraduationCap, Calendar } from "lucide-react"
 
 function getTypeIcon(type) {
   switch (type?.toUpperCase()) {
     case "SECURITY":
       return <ShieldAlert size={16} className="np-type-icon np-type-icon--security" />
     case "BUDGET_ALERT":
+    case "BUDGET_THRESHOLD_80":
+    case "BUDGET_THRESHOLD_90":
+      return <AlertTriangle size={16} className="np-type-icon np-type-icon--financial" style={{ color: "#f59e0b" }} />
+    case "MONTHLY_FINANCIAL_DIGEST":
     case "FINANCIAL":
       return <Wallet size={16} className="np-type-icon np-type-icon--financial" />
+    case "STOCK_PRICE_TARGET":
+      return <TrendingUp size={16} className="np-type-icon" style={{ color: "#10b981" }} />
+    case "ML_HIGH_CONFIDENCE_SIGNAL":
+      return <BrainCircuit size={16} className="np-type-icon" style={{ color: "#8b5cf6" }} />
+    case "NEWS_SENTIMENT_SHIFT":
+      return <Newspaper size={16} className="np-type-icon" style={{ color: "#3b82f6" }} />
+    case "LEARNING_MODULE_COMPLETED":
+      return <GraduationCap size={16} className="np-type-icon" style={{ color: "#ec4899" }} />
+    case "WEEKLY_EXPENSE_REMINDER":
     case "REMINDER":
-      return <BookOpen size={16} className="np-type-icon np-type-icon--reminder" />
+      return <Calendar size={16} className="np-type-icon np-type-icon--reminder" />
     default:
       return <Bell size={16} className="np-type-icon np-type-icon--info" />
   }

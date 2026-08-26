@@ -77,3 +77,20 @@ class CompanySentimentModel(Base):
     sentiment_neutral: Mapped[int] = mapped_column(default=0)
     sentiment_negative: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class UserStockWatchlistModel(Base):
+    __tablename__ = "user_stock_watchlists"
+
+    watchlist_id: Mapped[int] = mapped_column(BigIntegerPK, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    symbol: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    target_high_price: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    target_low_price: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    is_above_high: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_below_low: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    last_notified_sentiment: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    last_notified_ml_signal: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+

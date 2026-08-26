@@ -198,6 +198,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     asyncio.create_task(_warmup_snapshot())
 
+    # Start background Proactive Notification Scheduler Service
+    from app.services.notification_scheduler_service import NotificationSchedulerService
+    notif_scheduler = NotificationSchedulerService(
+        stock_prediction_service=app.state.stock_prediction_service,
+        poll_interval_seconds=900,  # 15 minutes
+    )
+    notif_scheduler.start()
+    app.state.notification_scheduler = notif_scheduler
+
     logger.info(
         "GlobalPulse startup complete. Providers: FinnhubMarketProvider, "
         "TradingEconomicsProvider, NewsApiProvider, StockMarketProvider (%s). Phase 1–6 Ready.",
@@ -206,11 +215,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield  # Application is running
 
-    # Shutdown — cancel model download task if still running, and close all HTTP clients
+    # Shutdown — stop scheduler, cancel model download task if still running, and close all HTTP clients
     logger.info("GlobalPulse shutting down...")
+    if hasattr(app.state, "notification_scheduler") and app.state.notification_scheduler:
+        await app.state.notification_scheduler.stop()
+
     if model_download_task and not model_download_task.done():
         model_download_task.cancel()
-
 
     await finnhub_provider.close()
     await te_provider.close()

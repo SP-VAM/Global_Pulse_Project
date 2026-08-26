@@ -86,7 +86,9 @@ class NotificationService:
         notification_type: str = "INFO",
         action_url: Optional[str] = None,
         send_push: bool = True,
-    ) -> NotificationModel:
+        dedup_key: Optional[str] = None,
+        payload_json: Optional[str] = None,
+    ) -> Optional[NotificationModel]:
         """
         Create notification record in PostgreSQL and optionally dispatch real-time FCM push notification.
         """
@@ -97,10 +99,12 @@ class NotificationService:
             message=message,
             notification_type=notification_type,
             action_url=action_url,
+            dedup_key=dedup_key,
+            payload_json=payload_json,
         )
 
         # 2. Dispatch real-time push via Firebase Cloud Messaging if enabled
-        if send_push:
+        if notification and send_push:
             try:
                 tokens = await self.repo.get_active_device_tokens(user_id)
                 if tokens:

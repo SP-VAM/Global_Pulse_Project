@@ -155,7 +155,7 @@ export default function LearningHub() {
       return updated;
     });
 
-    // 2. Sync to Backend API
+    // 2. Sync to Backend API & Trigger Completion Notification if complete
     const token = localStorage.getItem("access_token") || localStorage.getItem("firebase_id_token");
     if (token) {
       try {
@@ -173,6 +173,26 @@ export default function LearningHub() {
             is_completed: isComp,
           }),
         });
+
+        if (isComp) {
+          const courseObj = learningData.find((c) => String(c.id) === String(courseId));
+          const courseTitle = courseObj ? courseObj.title : `Module #${courseId}`;
+          await fetch("/api/v1/notifications/send", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              user_id: 0,
+              title: "Learning Module Completed 🎉",
+              message: `Congratulations! You completed the '${courseTitle}' module.`,
+              notification_type: "LEARNING_MODULE_COMPLETED",
+              action_url: "/dashboard/learning-hub",
+              send_push: true,
+            }),
+          }).catch(() => {});
+        }
       } catch (e) {
         console.warn("Backend sync failed, progress stored locally:", e);
       }

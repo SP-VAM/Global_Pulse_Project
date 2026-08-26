@@ -88,8 +88,23 @@ class NotificationRepository:
         message: str,
         notification_type: str = "INFO",
         action_url: Optional[str] = None,
-    ) -> NotificationModel:
-        """Create a new notification entry for a user."""
+        dedup_key: Optional[str] = None,
+        payload_json: Optional[str] = None,
+    ) -> Optional[NotificationModel]:
+        """
+        Create a new notification entry for a user.
+        Supports dedup_key with database IntegrityError handling for bulletproof idempotency.
+        """
+        from sqlalchemy.exc import IntegrityError
+
+        # Check existing by dedup_key first if passed
+        if dedup_key:
+            stmt = select(NotificationModel).where(NotificationModel.dedup_key == dedup_key)
+            existing = (await self.session.execute(stmt)).scalar_one_or_none()
+            if existing:
+                logger.debug("[NotificationRepo] Notification skipped (dedup_key exists): %s", dedup_key)
+                return existing
+
         notification = NotificationModel(
             user_id=user_id,
             title=title,
@@ -97,11 +112,21 @@ class NotificationRepository:
             notification_type=notification_type,
             is_read=False,
             action_url=action_url,
+            dedup_key=dedup_key,
+            payload_json=payload_json,
         )
-        self.session.add(notification)
-        await self.session.commit()
-        await self.session.refresh(notification)
-        return notification
+        try:
+            self.session.add(notification)
+            await self.session.commit()
+            await self.session.refresh(notification)
+            return notification
+        except IntegrityError:
+            await self.session.rollback()
+            logger.info("[NotificationRepo] IntegrityError caught on dedup_key '%s'. Rollback successful.", dedup_key)
+            if dedup_key:
+                stmt = select(NotificationModel).where(NotificationModel.dedup_key == dedup_key)
+                return (await self.session.execute(stmt)).scalar_one_or_none()
+            return None
 
     async def save_device_token(
         self,

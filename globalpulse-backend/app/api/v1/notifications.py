@@ -16,9 +16,14 @@ from app.schemas.notification import (
     DeviceTokenRegisterRequest,
     MarkReadResponse,
     NotificationListResponse,
+    NotificationPreferencesResponse,
+    NotificationPreferencesUpdateRequest,
     NotificationResponse,
     SendNotificationRequest,
     UnreadCountResponse,
+    WatchlistAddRequest,
+    WatchlistItemSchema,
+    WatchlistListResponse,
 )
 from app.services.notification_service import NotificationService
 
@@ -168,3 +173,117 @@ async def trigger_notification(
         send_push=payload.send_push,
     )
     return NotificationResponse.model_validate(notification)
+
+
+@router.get("/preferences", response_model=NotificationPreferencesResponse, status_code=status.HTTP_200_OK)
+async def get_notification_preferences(
+    current_user: UserModel = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Get notification category preferences and timezone for current authenticated user."""
+    from app.services.proactive_notification_service import ProactiveNotificationService
+    svc = ProactiveNotificationService(db)
+    settings = await svc.get_user_settings(current_user.user_id)
+    return NotificationPreferencesResponse.model_validate(settings)
+
+
+@router.put("/preferences", response_model=NotificationPreferencesResponse, status_code=status.HTTP_200_OK)
+async def update_notification_preferences(
+    payload: NotificationPreferencesUpdateRequest,
+    current_user: UserModel = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Update notification category preferences for current authenticated user."""
+    from app.services.proactive_notification_service import ProactiveNotificationService
+    svc = ProactiveNotificationService(db)
+    settings = await svc.get_user_settings(current_user.user_id)
+
+    for field, val in payload.model_dump(exclude_unset=True).items():
+        if val is not None and hasattr(settings, field):
+            setattr(settings, field, val)
+
+    await db.commit()
+    await db.refresh(settings)
+    return NotificationPreferencesResponse.model_validate(settings)
+
+
+@router.get("/watchlists", response_model=WatchlistListResponse, status_code=status.HTTP_200_OK)
+async def get_user_watchlists(
+    current_user: UserModel = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """List tracked stock price target watchlists for current authenticated user."""
+    from sqlalchemy import select
+    from app.db.models.market_model import UserStockWatchlistModel
+
+    stmt = select(UserStockWatchlistModel).where(UserStockWatchlistModel.user_id == current_user.user_id)
+    items = list((await db.execute(stmt)).scalars().all())
+    return WatchlistListResponse(
+        total=len(items),
+        items=[WatchlistItemSchema.model_validate(item) for item in items],
+    )
+
+
+@router.post("/watchlists", response_model=WatchlistItemSchema, status_code=status.HTTP_201_CREATED)
+async def add_user_watchlist(
+    payload: WatchlistAddRequest,
+    current_user: UserModel = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Add or update a stock target price watchlist item for current user."""
+    from sqlalchemy import select
+    from app.db.models.market_model import UserStockWatchlistModel
+    from app.services.stock_prediction_service import TICKER_TO_COMPANY
+
+    clean_symbol = payload.symbol.strip().upper().replace(".NS", "")
+    if clean_symbol not in TICKER_TO_COMPANY:
+        from app.core.exceptions import ValidationError
+        raise ValidationError("Company not supported. Please select a company from the supported Nifty 50 list.", status_code=400)
+
+    stmt = select(UserStockWatchlistModel).where(
+        UserStockWatchlistModel.user_id == current_user.user_id,
+        UserStockWatchlistModel.symbol == clean_symbol,
+    )
+    item = (await db.execute(stmt)).scalar_one_or_none()
+    if not item:
+        item = UserStockWatchlistModel(
+            user_id=current_user.user_id,
+            symbol=clean_symbol,
+            target_high_price=payload.target_high_price,
+            target_low_price=payload.target_low_price,
+        )
+        db.add(item)
+    else:
+        if payload.target_high_price is not None:
+            item.target_high_price = payload.target_high_price
+            item.is_above_high = False
+        if payload.target_low_price is not None:
+            item.target_low_price = payload.target_low_price
+            item.is_below_low = False
+
+    await db.commit()
+    await db.refresh(item)
+    return WatchlistItemSchema.model_validate(item)
+
+
+@router.delete("/watchlists/{watchlist_id}", status_code=status.HTTP_200_OK)
+async def delete_user_watchlist(
+    watchlist_id: int = Path(..., description="Watchlist ID to remove"),
+    current_user: UserModel = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Delete a stock target price watchlist entry owned by current user."""
+    from sqlalchemy import select
+    from app.db.models.market_model import UserStockWatchlistModel
+
+    stmt = select(UserStockWatchlistModel).where(
+        UserStockWatchlistModel.watchlist_id == watchlist_id,
+        UserStockWatchlistModel.user_id == current_user.user_id,
+    )
+    item = (await db.execute(stmt)).scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Watchlist entry not found.")
+
+    await db.delete(item)
+    await db.commit()
+    return {"success": True, "message": "Watchlist entry removed."}
