@@ -24,8 +24,8 @@ except ImportError:
     sys.exit(1)
 
 # ── CONFIGURE THESE ────────────────────────────────────────────────────────────
-HF_TOKEN    = os.environ.get("HF_TOKEN", "")          # paste your HF token here if not set as env var
-HF_USERNAME = os.environ.get("HF_USERNAME", "")       # your Hugging Face username
+HF_TOKEN    = os.environ.get("HF_TOKEN", "")          # Hugging Face token (set via env var HF_TOKEN)
+HF_USERNAME = os.environ.get("HF_USERNAME", "Sanjuuuuu")       # Hugging Face username
 REPO_NAME   = "globalpulse-ml-models"                 # will be created automatically
 
 # Local model directory
@@ -52,8 +52,12 @@ def main():
 
     # Create the repo if it doesn't exist (private by default)
     print(f"Creating/verifying repo: {repo_id} ...")
-    create_repo(repo_id=repo_id, repo_type="model", private=True, exist_ok=True, token=HF_TOKEN)
-    print(f"✓ Repo ready: https://huggingface.co/{repo_id}")
+    try:
+        create_repo(repo_id=repo_id, repo_type="model", private=True, exist_ok=True, token=HF_TOKEN)
+        print(f"Repo ready: https://huggingface.co/{repo_id}")
+    except Exception as exc:
+        print(f"Notice during create_repo: {exc}")
+        print(f"Proceeding with upload directly to {repo_id}...")
 
     # Find all .pkl files in model directory
     model_path = os.path.abspath(MODEL_DIR)
@@ -75,7 +79,7 @@ def main():
     for filename in pkl_files:
         local_path = os.path.join(model_path, filename)
         size_mb = os.path.getsize(local_path) / (1024 * 1024)
-        print(f"\n↑ Uploading {filename} ({size_mb:.1f} MB) ...", flush=True)
+        print(f"\nUploading {filename} ({size_mb:.1f} MB) ...", flush=True)
         try:
             api.upload_file(
                 path_or_fileobj=local_path,
@@ -84,9 +88,9 @@ def main():
                 repo_type="model",
                 token=HF_TOKEN,
             )
-            print(f"  ✓ Done: {filename}", flush=True)
+            print(f"  SUCCESS: {filename}", flush=True)
         except Exception as e:
-            print(f"  ✗ FAILED: {filename} — {e}", flush=True)
+            print(f"  FAILED: {filename} - {e}", flush=True)
 
     print(f"\n{'='*60}")
     print(f"All models uploaded to: https://huggingface.co/{repo_id}")

@@ -13,12 +13,19 @@ function getAuthHeader() {
 }
 
 export async function fetchNotifications({ limit = 50, offset = 0, unreadOnly = false } = {}) {
+  const authHeader = getAuthHeader()
+  if (!authHeader.Authorization) {
+    return { notifications: [], total: 0, unread_count: 0 }
+  }
   const headers = {
     "Content-Type": "application/json",
-    ...getAuthHeader(),
+    ...authHeader,
   }
   const url = `${API_BASE_URL}/api/v1/notifications?limit=${limit}&offset=${offset}&unread_only=${unreadOnly}`
   const res = await fetch(url, { headers })
+  if (res.status === 401) {
+    return { notifications: [], total: 0, unread_count: 0 }
+  }
   if (!res.ok) {
     throw new Error(`Failed to fetch notifications: ${res.statusText}`)
   }

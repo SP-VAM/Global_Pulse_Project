@@ -113,7 +113,7 @@ export default function Navbar({ onLogoutClick }) {
     setError(null)
 
     const token = localStorage.getItem("token") || localStorage.getItem("access_token")
-    if (!token) {
+    if (!token || token === "demo_token" || token === "null" || token === "undefined") {
       setNotifications([])
       setLoading(false)
       return
@@ -122,7 +122,7 @@ export default function Navbar({ onLogoutClick }) {
     fetchNotifications({ limit: 50 })
       .then(async (res) => {
         if (!isMounted) return
-        const notifs = res.notifications || []
+        const notifs = res?.notifications || []
         setNotifications(notifs)
         setLoading(false)
 
@@ -143,7 +143,12 @@ export default function Navbar({ onLogoutClick }) {
       .catch((err) => {
         if (!isMounted) return
         console.warn("[Navbar] Notification fetch error:", err)
-        setError("Notifications temporarily unavailable")
+        if (err?.message?.includes("401") || err?.message?.includes("Unauthorized") || err?.message?.includes("authenticated")) {
+          setNotifications([])
+          setError(null)
+        } else {
+          setError("Notifications temporarily unavailable")
+        }
         setLoading(false)
       })
 
