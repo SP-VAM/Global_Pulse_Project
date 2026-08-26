@@ -24,7 +24,7 @@ except ImportError:
     sys.exit(1)
 
 # ── CONFIGURE THESE ────────────────────────────────────────────────────────────
-HF_TOKEN    = os.environ.get("HF_TOKEN", "")          # Hugging Face token (set via env var HF_TOKEN)
+HF_TOKEN    = os.environ.get("HF_TOKEN", "")          # Hugging Face token (set env var HF_TOKEN)
 HF_USERNAME = os.environ.get("HF_USERNAME", "Sanjuuuuu")       # Hugging Face username
 REPO_NAME   = "globalpulse-ml-models"                 # will be created automatically
 
