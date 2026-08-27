@@ -323,6 +323,34 @@ export default function MarketAnalysis() {
   const [sentimentLoading, setSentimentLoading] = useState(true)
   const [sentimentError, setSentimentError] = useState(null)
 
+  // Frontend-only presentation filter state for News Sentiment
+  const [selectedSentimentFilter, setSelectedSentimentFilter] = useState("ALL") // "ALL" | "POSITIVE" | "NEUTRAL" | "NEGATIVE"
+
+  // Derived filtered news articles (Pure presentation layer — ZERO refetch / API side-effects)
+  const filteredNewsArticles = useMemo(() => {
+    const rawList = sentimentData?.news_list || []
+    if (selectedSentimentFilter === "ALL") return rawList
+
+    return rawList.filter((item) => {
+      const s = (item?.sentiment || "").trim().toUpperCase()
+      if (selectedSentimentFilter === "POSITIVE") return s === "POSITIVE"
+      if (selectedSentimentFilter === "NEUTRAL") return s === "NEUTRAL"
+      if (selectedSentimentFilter === "NEGATIVE") return s === "NEGATIVE"
+      return true
+    })
+  }, [sentimentData?.news_list, selectedSentimentFilter])
+
+  // Contextual empty state message for filtered news
+  const getEmptyNewsMessage = () => {
+    if (!sentimentData?.news_list || sentimentData.news_list.length === 0) {
+      return `No recent news articles traced for ${currentCompany?.name || 'this company'}.`
+    }
+    if (selectedSentimentFilter === "POSITIVE") return "No positive news articles found."
+    if (selectedSentimentFilter === "NEUTRAL") return "No neutral news articles found."
+    if (selectedSentimentFilter === "NEGATIVE") return "No negative news articles found."
+    return "No news articles available."
+  }
+
   // Fetch analysis + sentiment in PARALLEL — both fire simultaneously.
   // Analysis data renders chart/price instantly on arrival.
   // Sentiment renders independently when it resolves.
@@ -1215,48 +1243,107 @@ export default function MarketAnalysis() {
               </div>
 
               <div className="smp-card">
-                <h3 className="smp-card__title">
-                  <Newspaper size={18} /> Live News Articles & Sentiment Scores
-                </h3>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
+                  <h3 className="smp-card__title" style={{ margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Newspaper size={18} /> Live News Articles & Sentiment Scores
+                  </h3>
 
-                {!sentimentData?.news_list || sentimentData.news_list.length === 0 ? (
+                  {/* Sentiment Filter Controls */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 500 }}>Filter by Sentiment:</span>
+                    <div style={{ display: "inline-flex", background: "rgba(15, 23, 42, 0.6)", borderRadius: "8px", padding: "3px", border: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                      {[
+                        { id: "ALL", label: "All" },
+                        { id: "POSITIVE", label: "Positive" },
+                        { id: "NEUTRAL", label: "Neutral" },
+                        { id: "NEGATIVE", label: "Negative" },
+                      ].map((tab) => {
+                        const isActive = selectedSentimentFilter === tab.id
+                        
+                        let activeBg = "rgba(59, 130, 246, 0.2)"
+                        let activeBorder = "rgba(59, 130, 246, 0.4)"
+                        let activeColor = "#60a5fa"
+
+                        if (tab.id === "POSITIVE") {
+                          activeBg = "rgba(34, 197, 94, 0.18)"
+                          activeBorder = "rgba(34, 197, 94, 0.4)"
+                          activeColor = "#4ade80"
+                        } else if (tab.id === "NEUTRAL") {
+                          activeBg = "rgba(148, 163, 184, 0.18)"
+                          activeBorder = "rgba(148, 163, 184, 0.4)"
+                          activeColor = "#cbd5e1"
+                        } else if (tab.id === "NEGATIVE") {
+                          activeBg = "rgba(239, 68, 68, 0.18)"
+                          activeBorder = "rgba(239, 68, 68, 0.4)"
+                          activeColor = "#f87171"
+                        }
+
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setSelectedSentimentFilter(tab.id)}
+                            style={{
+                              padding: "5px 12px",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              fontWeight: isActive ? "600" : "500",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                              border: isActive ? `1px solid ${activeBorder}` : "1px solid transparent",
+                              background: isActive ? activeBg : "transparent",
+                              color: isActive ? activeColor : "#94a3b8",
+                            }}
+                          >
+                            {tab.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {!filteredNewsArticles || filteredNewsArticles.length === 0 ? (
                   <div style={{ padding: 24, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
-                    No recent news articles traced for {currentCompany.name}.
+                    {getEmptyNewsMessage()}
                   </div>
                 ) : (
                   <div className="smp-news-grid">
-                    {sentimentData.news_list.map((item) => (
-                      <div key={item.id} className="smp-news-card">
-                        <div className="smp-news-card__head">
-                          {item.url ? (
-                            <a
-                              href={item.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="smp-news-card__title"
-                              style={{ textDecoration: "none", color: "inherit" }}
+                    {filteredNewsArticles.map((item) => {
+                      const sentimentUpper = (item.sentiment || "").trim().toUpperCase()
+                      return (
+                        <div key={item.id} className="smp-news-card">
+                          <div className="smp-news-card__head">
+                            {item.url ? (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="smp-news-card__title"
+                                style={{ textDecoration: "none", color: "inherit" }}
+                              >
+                                {item.title}
+                              </a>
+                            ) : (
+                              <div className="smp-news-card__title">{item.title}</div>
+                            )}
+                            <span
+                              className={
+                                sentimentUpper === "POSITIVE"
+                                  ? "smp-badge--pos"
+                                  : sentimentUpper === "NEGATIVE"
+                                  ? "smp-badge--neg"
+                                  : "gp-chip"
+                              }
                             >
-                              {item.title}
-                            </a>
-                          ) : (
-                            <div className="smp-news-card__title">{item.title}</div>
-                          )}
-                          <span
-                            className={
-                              item.sentiment === "POSITIVE"
-                                ? "smp-badge--pos"
-                                : item.sentiment === "NEGATIVE"
-                                ? "smp-badge--neg"
-                                : "gp-chip"
-                            }
-                          >
-                            {item.sentiment} ({item.confidence})
-                          </span>
+                              {item.sentiment} ({item.confidence})
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#64748b" }}>{item.source_date}</div>
+                          <div className="smp-news-card__snippet">{item.excerpt}</div>
                         </div>
-                        <div style={{ fontSize: 11, color: "#64748b" }}>{item.source_date}</div>
-                        <div className="smp-news-card__snippet">{item.excerpt}</div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
