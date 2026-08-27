@@ -959,6 +959,40 @@ export default function Profile() {
       return
     }
 
+    const nameChanged =
+      (formData.firstName || "").trim() !== (user?.firstName || "").trim() ||
+      (formData.lastName || "").trim() !== (user?.lastName || "").trim()
+
+    const emailChanged =
+      (formData.email || "").trim().toLowerCase() !== (user?.email || "").trim().toLowerCase()
+
+    const phoneChanged =
+      (formData.phone || "").trim() !== (user?.phone || "").trim()
+
+    const photoChanged =
+      formData.avatar !== user?.avatar
+
+    const changedFields = []
+    if (nameChanged) changedFields.push("name")
+    if (emailChanged) changedFields.push("email")
+    if (phoneChanged) changedFields.push("phone")
+    if (photoChanged) changedFields.push("photo")
+
+    if (changedFields.length === 0) {
+      showNotification("No changes were made to your profile.", "info")
+      return
+    }
+
+    let toastMessage = "Profile updated successfully."
+    if (changedFields.length === 1) {
+      if (nameChanged) toastMessage = "Name updated successfully."
+      else if (emailChanged) toastMessage = "Email address updated successfully."
+      else if (phoneChanged) toastMessage = "Phone number updated successfully."
+      else if (photoChanged) toastMessage = "Profile photo updated successfully."
+    } else {
+      toastMessage = "Profile updated successfully."
+    }
+
     const updatedUser = {
       ...formData,
       full_name: `${formData.firstName} ${formData.lastName}`.trim(),
@@ -968,7 +1002,7 @@ export default function Profile() {
 
     setUser(updatedUser)
     updateUser(updatedUser)
-    showNotification("Email address updated successfully.", "success")
+    showNotification(toastMessage, "success")
   }
 
 
