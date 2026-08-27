@@ -278,6 +278,7 @@ export default function NotificationPanel({
               <button
                 type="button"
                 className="np-btn-modal-cancel"
+                disabled={isClearing}
                 onClick={() => setShowClearConfirm(false)}
               >
                 Cancel
@@ -285,12 +286,10 @@ export default function NotificationPanel({
               <button
                 type="button"
                 className="np-btn-modal-confirm--danger"
-                onClick={() => {
-                  setShowClearConfirm(false)
-                  if (onClearRead) onClearRead()
-                }}
+                disabled={isClearing}
+                onClick={handleConfirmClear}
               >
-                Yes, Clear Read
+                {isClearing ? "Clearing..." : "Yes, Clear Read"}
               </button>
             </div>
           </div>

@@ -67,6 +67,7 @@ function Login() {
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setErrorMessage("");
 
     const cleanedIdentifier = identifier.trim();

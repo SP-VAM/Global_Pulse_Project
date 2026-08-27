@@ -79,19 +79,19 @@ export default function BudgetModal({ open, mode, initial, existingBudgets = [],
  
   const submit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
-    if (!isEdit && checkDuplicateCategory(form.category)) {
-      setError("This category already exists");
+    const catObj = CATEGORIES.find((c) => c.id === form.category);
+    const categoryName = catObj ? catObj.label : "Other";
+
+    if (checkDuplicateCategory(form.category)) {
+      setError(`A budget limit for ${categoryName} already exists.`);
       return;
     }
 
-    const catObj = CATEGORIES.find((c) => c.id === form.category);
-    const categoryName = catObj ? catObj.label : (form.category || "General");
-
-    const minAllowed = isEdit ? initialLimit : 1;
     const limitVal = validateFinancialAmount(form.limit, {
       fieldName: "Monthly limit",
-      min: minAllowed,
+      min: isEdit ? initialLimit : 0.01,
       minError: isEdit
         ? `Monthly limit can only be increased (minimum ${formatINR(initialLimit)}).`
         : "Enter a monthly limit greater than 0.",
@@ -103,6 +103,7 @@ export default function BudgetModal({ open, mode, initial, existingBudgets = [],
     }
  
     try {
+      setIsSubmitting(true);
       await onSave({
         category: form.category,
         label: categoryName,
@@ -111,6 +112,8 @@ export default function BudgetModal({ open, mode, initial, existingBudgets = [],
       });
     } catch (err) {
       setError(err.message || "Failed to save budget.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
  
@@ -220,9 +223,10 @@ export default function BudgetModal({ open, mode, initial, existingBudgets = [],
             <button
               type="submit"
               className="drawer-panel__btn-submit"
+              disabled={isSubmitting}
               style={{ height: "44px", borderRadius: "10px", fontWeight: 700, fontSize: "14px" }}
             >
-              {isEdit ? "Update Budget" : "Create Budget"}
+              {isSubmitting ? "Saving..." : (isEdit ? "Update Budget" : "Create Budget")}
             </button>
           </div>
         </form>

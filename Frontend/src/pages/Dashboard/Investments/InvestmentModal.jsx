@@ -63,16 +63,19 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
 
-  const submit = (e) => {
-    e.preventDefault()
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-    const tickerVal = validateTextLength(form.ticker, 50, "Stock ticker", true)
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (isSubmitting) return
+
+    const tickerVal = validateTextLength(form.ticker, 10, "Ticker symbol", true)
     if (!tickerVal.isValid) {
       setError(tickerVal.error)
       return
     }
 
-    const companyVal = validateTextLength(form.companyName, 150, "Company name", true)
+    const companyVal = validateTextLength(form.companyName, MAX_NAME_LENGTH, "Company name", true)
     if (!companyVal.isValid) {
       setError(companyVal.error)
       return
@@ -81,7 +84,7 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
     const qtyVal = validateFinancialAmount(form.quantity, {
       fieldName: "Quantity",
       min: 0.0001,
-      minError: "Quantity must be a positive number greater than 0.",
+      minError: "Quantity must be greater than 0.",
     })
     if (!qtyVal.isValid) {
       setError(qtyVal.error)
@@ -115,16 +118,24 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
       return
     }
 
-    onSave({
-      assetType: form.assetType,
-      ticker: form.ticker.trim().toUpperCase(),
-      companyName: form.companyName.trim(),
-      quantity: qtyVal.numValue,
-      purchasePrice: priceVal.numValue,
-      purchaseDate: form.purchaseDate,
-      brokerName: form.brokerName.trim() || null,
-      notes: form.notes.trim() || null,
-    })
+    try {
+      setIsSubmitting(true)
+      await onSave({
+        assetType: form.assetType,
+        ticker: form.ticker.trim().toUpperCase(),
+        companyName: form.companyName.trim(),
+        quantity: qtyVal.numValue,
+        purchasePrice: priceVal.numValue,
+        purchaseDate: form.purchaseDate,
+        brokerName: form.brokerName.trim() || null,
+        notes: form.notes.trim() || null,
+      })
+    } catch (err) {
+      console.error(err)
+      setError(err.message || "Failed to save holding.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const title = isEdit ? "Edit Holding" : "Add Investment Holding"
@@ -214,8 +225,8 @@ export default function InvestmentModal({ open, mode, initial, onClose, onSave }
             <button type="button" style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#8a94a6", cursor: "pointer", fontWeight: "600" }} onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "none", background: "#2f6bff", color: "#fff", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-              <CheckCircle2 size={18} /> {isEdit ? "Update Holding" : "Save Holding"}
+            <button type="submit" disabled={isSubmitting} style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "none", background: isSubmitting ? "#1d4ed8" : "#2f6bff", color: "#fff", fontWeight: "600", cursor: isSubmitting ? "not-allowed" : "pointer", opacity: isSubmitting ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+              <CheckCircle2 size={18} /> {isSubmitting ? "Saving..." : (isEdit ? "Update Holding" : "Save Holding")}
             </button>
           </div>
         </form>

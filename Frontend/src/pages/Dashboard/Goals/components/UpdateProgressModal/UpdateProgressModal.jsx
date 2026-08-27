@@ -40,8 +40,11 @@ export default function UpdateProgressModal({ onClose }) {
     if (error) setError("")
   }
 
-  function handleSubmit(e) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function handleSubmit(e) {
     e.preventDefault()
+    if (isSubmitting) return
 
     const nameVal = validateTextLength(goalName, MAX_NAME_LENGTH, "Goal name", true)
     if (!nameVal.isValid) {
@@ -58,7 +61,7 @@ export default function UpdateProgressModal({ onClose }) {
     const amtVal = validateFinancialAmount(amount, {
       fieldName: "Contribution amount",
       min: 1,
-      minError: "Contribution amount must be greater than zero.",
+      max: 100000000,
     })
     if (!amtVal.isValid) {
       setError(amtVal.error)
@@ -70,14 +73,22 @@ export default function UpdateProgressModal({ onClose }) {
       return
     }
 
-    addProgress(selected.id, {
-      name: goalName.trim(),
-      amount: amtVal.numValue,
-      assetType: asset || "Gold",
-      date,
-      notes: notes.trim(),
-    })
-    onClose()
+    try {
+      setIsSubmitting(true)
+      await addProgress(selected.id, {
+        name: goalName.trim(),
+        amount: amtVal.numValue,
+        assetType: asset || "Gold",
+        date,
+        notes: notes.trim(),
+      })
+      onClose()
+    } catch (err) {
+      console.error(err)
+      setError(err.message || "Failed to update progress.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -163,8 +174,8 @@ export default function UpdateProgressModal({ onClose }) {
             <button type="button" className="up-btn up-btn--cancel" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="up-btn up-btn--submit">
-              Update Goal
+            <button type="submit" className="up-btn up-btn--submit" disabled={isSubmitting}>
+              {isSubmitting ? "Contributing..." : "Update Goal"}
             </button>
           </div>
         </form>

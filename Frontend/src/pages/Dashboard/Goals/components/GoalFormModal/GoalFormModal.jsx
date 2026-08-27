@@ -113,40 +113,50 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
     }
   }
 
-  function handleSubmit(event) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function handleSubmit(event) {
     event.preventDefault()
+    if (isSubmitting) return
 
     if (!validate()) return
 
-    if (goalToEdit) {
-      updateGoal(goalToEdit.id, {
-        name,
-        notes,
-        target: Number(target),
-        startDate,
-        endDate,
-      })
-      if (onClose) onClose()
-    } else {
-      const payload = {
-        id: `goal-${Date.now()}`,
-        name,
-        notes,
-        asset: "finance",
-        unit: "₹",
-        target: Number(target),
-        progress: 0,
-        startDate,
-        endDate,
-      }
+    try {
+      setIsSubmitting(true)
+      if (goalToEdit) {
+        await updateGoal(goalToEdit.id, {
+          name,
+          notes,
+          target: Number(target),
+          startDate,
+          endDate,
+        })
+        if (onClose) onClose()
+      } else {
+        const payload = {
+          id: `goal-${Date.now()}`,
+          name,
+          notes,
+          asset: "finance",
+          unit: "₹",
+          target: Number(target),
+          progress: 0,
+          startDate,
+          endDate,
+        }
 
-      const created = createGoal(payload)
-      if (onCreate) {
-        onCreate(created)
+        const created = await createGoal(payload)
+        if (onCreate) {
+          onCreate(created)
+        }
+        if (onClose) {
+          onClose()
+        }
       }
-      if (onClose) {
-        onClose()
-      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -280,8 +290,8 @@ export default function GoalFormModal({ onClose, onCreate, goalToEdit, onDeleteR
                 Cancel
               </button>
             )}
-            <button type="submit" className="gf-btn gf-btn--submit">
-              {goalToEdit ? "Update Goal" : "Set Goal"}
+            <button type="submit" className="gf-btn gf-btn--submit" disabled={isSubmitting}>
+              {isSubmitting ? (goalToEdit ? "Updating..." : "Creating...") : (goalToEdit ? "Update Goal" : "Set Goal")}
             </button>
           </div>
         </form>

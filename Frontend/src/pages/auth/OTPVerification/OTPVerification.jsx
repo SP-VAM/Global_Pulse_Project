@@ -100,7 +100,7 @@ function OTPVerification() {
 
   // TC-07, TC-08, TC-13, TC-14, TC-17: Trigger verification
   const triggerVerification = async (codeToVerify) => {
-    if (isLocked) return;
+    if (loading || isLocked) return;
 
     if (codeToVerify.length !== 6) {
       setErrorMessage("Please enter a valid 6-digit OTP code.");

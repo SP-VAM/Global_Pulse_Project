@@ -128,6 +128,7 @@ export default function Profile() {
 
   // Security Tab Password Change States
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false)
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -555,8 +556,9 @@ export default function Profile() {
     setShowPass({ current: false, new: false, confirm: false })
   }
 
-  const handleSavePassword = async (e) => {
+  const handleUpdatePassword = async (e) => {
     e.preventDefault()
+    if (isSubmittingPassword) return
 
     const { currentPassword, newPassword, confirmPassword } = passwordForm
 
@@ -579,6 +581,7 @@ export default function Profile() {
     }
 
     try {
+      setIsSubmittingPassword(true)
       const res = await changePassword({
         currentPassword: currentPassword,
         newPassword: newPassword,
@@ -597,6 +600,8 @@ export default function Profile() {
         setPasswordErrors((prev) => ({ ...prev, currentPassword: "Current password is incorrect." }))
       }
       showNotification(errorMsg, "error")
+    } finally {
+      setIsSubmittingPassword(false)
     }
   }
 
@@ -1524,8 +1529,8 @@ export default function Profile() {
                   </div>
 
                   <div className="change-pass-actions">
-                    <button type="submit" className="btn-save">
-                      Save
+                    <button type="submit" className="btn-save" disabled={isSubmittingPassword}>
+                      {isSubmittingPassword ? "Updating..." : "Save"}
                     </button>
                   </div>
                 </form>
