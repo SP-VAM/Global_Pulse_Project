@@ -1430,7 +1430,7 @@ export default function Profile() {
                   </div>
                 </div>
               ) : (
-                <form className="change-password-card" onSubmit={handleSavePassword} noValidate>
+                <form className="change-password-card" onSubmit={handleUpdatePassword} noValidate>
                   <div className="change-pass-title-row">
                     <h3 className="change-pass-title">Change Password</h3>
                     <button
