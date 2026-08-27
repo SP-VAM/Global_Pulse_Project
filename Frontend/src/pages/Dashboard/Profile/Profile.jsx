@@ -122,6 +122,10 @@ export default function Profile() {
   const [phoneOtp, setPhoneOtp] = useState(["", "", "", "", "", ""])
   const [generatedEmailOtp, setGeneratedEmailOtp] = useState("")
   const [generatedPhoneOtp, setGeneratedPhoneOtp] = useState("")
+  const [isSendingEmailOtp, setIsSendingEmailOtp] = useState(false)
+  const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false)
+  const [isSendingPhoneOtp, setIsSendingPhoneOtp] = useState(false)
+  const [isVerifyingPhoneOtp, setIsVerifyingPhoneOtp] = useState(false)
 
   const [notificationMsg, setNotificationMsg] = useState(null)
   const fileInputRef = useRef(null)
@@ -731,11 +735,19 @@ export default function Profile() {
   // Email Flow Actions
   const handleEditEmailClick = () => {
     setIsEditingEmail(true)
-    setIsEmailVerified(false)
     setShowEmailOtp(false)
+    setErrors((prev) => ({ ...prev, email: "", emailOtp: "" }))
+  }
+
+  const handleCancelEmailClick = () => {
+    setIsEditingEmail(false)
+    setShowEmailOtp(false)
+    setFormData((prev) => ({ ...prev, email: user?.email || "" }))
+    setErrors((prev) => ({ ...prev, email: "", emailOtp: "" }))
   }
 
   const handleSendEmailOtp = async () => {
+    if (isSendingEmailOtp) return
     if (!formData.email || !formData.email.trim()) {
       const msg = "Please enter an email address before requesting email verification."
       setErrors((prev) => ({ ...prev, email: msg }))
@@ -750,6 +762,7 @@ export default function Profile() {
     }
     setErrors((prev) => ({ ...prev, email: "", emailOtp: "" }))
     try {
+      setIsSendingEmailOtp(true)
       showNotification(`Sending verification code to ${formData.email}...`, "info")
       await sendOtp({ target: formData.email, channel: "EMAIL", purpose: "PROFILE_CHANGE" })
       setEmailOtp(["", "", "", "", "", ""])
@@ -759,10 +772,13 @@ export default function Profile() {
       const msg = err.message || "Failed to send email verification code."
       setErrors((prev) => ({ ...prev, email: msg }))
       showNotification(msg, "error")
+    } finally {
+      setIsSendingEmailOtp(false)
     }
   }
 
   const handleVerifyEmailOtp = async () => {
+    if (isVerifyingEmailOtp) return
     const code = emailOtp.join("")
     if (code.length !== 6 || !/^\d{6}$/.test(code)) {
       setErrors((prev) => ({ ...prev, emailOtp: "Please enter a valid 6-digit OTP." }))
@@ -771,6 +787,7 @@ export default function Profile() {
     }
 
     try {
+      setIsVerifyingEmailOtp(true)
       await verifyOtp({ target: formData.email, channel: "EMAIL", purpose: "PROFILE_CHANGE", otpCode: code })
       setIsEmailVerified(true)
       setIsEditingEmail(false)
@@ -781,11 +798,15 @@ export default function Profile() {
       const msg = err.message || "Invalid OTP code. Verification failed."
       setErrors((prev) => ({ ...prev, emailOtp: msg }))
       showNotification(msg, "error")
+    } finally {
+      setIsVerifyingEmailOtp(false)
     }
   }
 
   const handleResendEmailOtp = async () => {
+    if (isSendingEmailOtp) return
     try {
+      setIsSendingEmailOtp(true)
       showNotification(`Resending verification code to ${formData.email}...`, "info")
       await sendOtp({ target: formData.email, channel: "EMAIL", purpose: "PROFILE_CHANGE" })
       setEmailOtp(["", "", "", "", "", ""])
@@ -794,17 +815,27 @@ export default function Profile() {
     } catch (err) {
       const msg = err.message || "Failed to resend email verification code."
       showNotification(msg, "error")
+    } finally {
+      setIsSendingEmailOtp(false)
     }
   }
 
   // Phone Flow Actions
   const handleEditPhoneClick = () => {
     setIsEditingPhone(true)
-    setIsPhoneVerified(false)
     setShowPhoneOtp(false)
+    setErrors((prev) => ({ ...prev, phone: "", phoneOtp: "" }))
+  }
+
+  const handleCancelPhoneClick = () => {
+    setIsEditingPhone(false)
+    setShowPhoneOtp(false)
+    setFormData((prev) => ({ ...prev, phone: user?.phone || "" }))
+    setErrors((prev) => ({ ...prev, phone: "", phoneOtp: "" }))
   }
 
   const handleSendPhoneOtp = async () => {
+    if (isSendingPhoneOtp) return
     if (!formData.phone || formData.phone.trim() === "") {
       const err = "Please enter your phone number."
       setErrors((prev) => ({ ...prev, phone: err }))
@@ -819,6 +850,7 @@ export default function Profile() {
     }
     setErrors((prev) => ({ ...prev, phone: "", phoneOtp: "" }))
     try {
+      setIsSendingPhoneOtp(true)
       showNotification(`Sending verification SMS to ${formData.phone}...`, "info")
       await sendOtp({ target: formData.phone, channel: "SMS", purpose: "PROFILE_CHANGE" })
       setPhoneOtp(["", "", "", "", "", ""])
@@ -828,10 +860,13 @@ export default function Profile() {
       const msg = err.message || "Failed to send SMS verification code."
       setErrors((prev) => ({ ...prev, phone: msg }))
       showNotification(msg, "error")
+    } finally {
+      setIsSendingPhoneOtp(false)
     }
   }
 
   const handleVerifyPhoneOtp = async () => {
+    if (isVerifyingPhoneOtp) return
     const code = phoneOtp.join("")
     if (code.length !== 6 || !/^\d{6}$/.test(code)) {
       setErrors((prev) => ({ ...prev, phoneOtp: "Please enter a valid 6-digit OTP." }))
@@ -840,6 +875,7 @@ export default function Profile() {
     }
 
     try {
+      setIsVerifyingPhoneOtp(true)
       await verifyOtp({ target: formData.phone, channel: "SMS", purpose: "PROFILE_CHANGE", otpCode: code })
       setIsPhoneVerified(true)
       setIsEditingPhone(false)
@@ -850,11 +886,15 @@ export default function Profile() {
       const msg = err.message || "Invalid OTP code. Verification failed."
       setErrors((prev) => ({ ...prev, phoneOtp: msg }))
       showNotification(msg, "error")
+    } finally {
+      setIsVerifyingPhoneOtp(false)
     }
   }
 
   const handleResendPhoneOtp = async () => {
+    if (isSendingPhoneOtp) return
     try {
+      setIsSendingPhoneOtp(true)
       showNotification(`Resending verification SMS to ${formData.phone}...`, "info")
       await sendOtp({ target: formData.phone, channel: "SMS", purpose: "PROFILE_CHANGE" })
       setPhoneOtp(["", "", "", "", "", ""])
@@ -863,6 +903,8 @@ export default function Profile() {
     } catch (err) {
       const msg = err.message || "Failed to resend SMS verification code."
       showNotification(msg, "error")
+    } finally {
+      setIsSendingPhoneOtp(false)
     }
   }
 
@@ -1172,14 +1214,16 @@ export default function Profile() {
                       }
                     }}
                     placeholder="Enter Email Address"
-                    readOnly={isEmailVerified && !isEditingEmail}
+                    readOnly={!isEditingEmail}
                   />
                   <div className="action-buttons">
-                    {isEmailVerified && !isEditingEmail ? (
+                    {!isEditingEmail ? (
                       <>
-                        <span className="verified-badge" title="Verified Email">
-                          <CheckCircle2 size={18} className="icon-emerald" />
-                        </span>
+                        {isEmailVerified && (
+                          <span className="verified-badge" title="Verified Email">
+                            <CheckCircle2 size={18} className="icon-emerald" />
+                          </span>
+                        )}
                         <button
                           type="button"
                           className="btn-edit-icon"
@@ -1194,17 +1238,33 @@ export default function Profile() {
                         <button
                           type="button"
                           className="btn-send-request"
+                          disabled={isSendingEmailOtp}
                           onClick={handleSendEmailOtp}
                         >
-                          SEND REQUEST
+                          {isSendingEmailOtp ? "Sending..." : "SEND REQUEST"}
                         </button>
                         <button
                           type="button"
-                          className="btn-edit-icon"
-                          aria-label="Edit Email"
-                          onClick={handleEditEmailClick}
+                          className="btn-cancel-edit"
+                          aria-label="Cancel Editing Email"
+                          onClick={handleCancelEmailClick}
+                          title="Cancel editing"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: "6px 12px",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            color: "#94a3b8",
+                            background: "rgba(255, 255, 255, 0.05)",
+                            border: "1px solid rgba(255, 255, 255, 0.1)",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}
                         >
-                          <Pencil size={15} />
+                          Cancel
                         </button>
                       </>
                     )}
@@ -1251,16 +1311,18 @@ export default function Profile() {
                       <button
                         type="button"
                         className="btn-verify-otp"
+                        disabled={isVerifyingEmailOtp}
                         onClick={handleVerifyEmailOtp}
                       >
-                        Verify OTP
+                        {isVerifyingEmailOtp ? "Verifying..." : "Verify OTP"}
                       </button>
                       <button
                         type="button"
                         className="btn-resend-otp"
+                        disabled={isSendingEmailOtp}
                         onClick={handleResendEmailOtp}
                       >
-                        Resend OTP
+                        {isSendingEmailOtp ? "Sending..." : "Resend OTP"}
                       </button>
                     </div>
                   </div>
@@ -1281,14 +1343,16 @@ export default function Profile() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     placeholder="Enter 10-digit Indian Mobile Number"
-                    readOnly={isPhoneVerified && !isEditingPhone}
+                    readOnly={!isEditingPhone}
                   />
                   <div className="action-buttons">
-                    {isPhoneVerified && !isEditingPhone ? (
+                    {!isEditingPhone ? (
                       <>
-                        <span className="verified-badge" title="Verified Phone">
-                          <CheckCircle2 size={18} className="icon-emerald" />
-                        </span>
+                        {isPhoneVerified && (
+                          <span className="verified-badge" title="Verified Phone">
+                            <CheckCircle2 size={18} className="icon-emerald" />
+                          </span>
+                        )}
                         <button
                           type="button"
                           className="btn-edit-icon"
@@ -1303,17 +1367,33 @@ export default function Profile() {
                         <button
                           type="button"
                           className="btn-send-request"
+                          disabled={isSendingPhoneOtp}
                           onClick={handleSendPhoneOtp}
                         >
-                          SEND REQUEST
+                          {isSendingPhoneOtp ? "Sending..." : "SEND REQUEST"}
                         </button>
                         <button
                           type="button"
-                          className="btn-edit-icon"
-                          aria-label="Edit Phone"
-                          onClick={handleEditPhoneClick}
+                          className="btn-cancel-edit"
+                          aria-label="Cancel Editing Phone"
+                          onClick={handleCancelPhoneClick}
+                          title="Cancel editing"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: "6px 12px",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            color: "#94a3b8",
+                            background: "rgba(255, 255, 255, 0.05)",
+                            border: "1px solid rgba(255, 255, 255, 0.1)",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}
                         >
-                          <Pencil size={15} />
+                          Cancel
                         </button>
                       </>
                     )}
@@ -1360,16 +1440,18 @@ export default function Profile() {
                       <button
                         type="button"
                         className="btn-verify-otp"
+                        disabled={isVerifyingPhoneOtp}
                         onClick={handleVerifyPhoneOtp}
                       >
-                        Verify OTP
+                        {isVerifyingPhoneOtp ? "Verifying..." : "Verify OTP"}
                       </button>
                       <button
                         type="button"
                         className="btn-resend-otp"
+                        disabled={isSendingPhoneOtp}
                         onClick={handleResendPhoneOtp}
                       >
-                        Resend OTP
+                        {isSendingPhoneOtp ? "Sending..." : "Resend OTP"}
                       </button>
                     </div>
                   </div>

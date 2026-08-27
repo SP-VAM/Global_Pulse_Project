@@ -2,10 +2,10 @@
   {
     "symbol": "ADANIENT",
     "company_name": "Adani Enterprises Ltd",
-    "current_price": 3164.5,
+    "current_price": 3169.0,
     "previous_close": 3112.0,
-    "change": 52.5,
-    "change_percent": 1.69,
+    "change": 57.0,
+    "change_percent": 1.83,
     "market_cap": 4304494657536.0,
     "price_history": [
       {
@@ -102,17 +102,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 3164.5
+        "close": 3169.0
       }
     ]
   },
   {
     "symbol": "ADANIPORTS",
     "company_name": "Adani Ports & Special Economic Zone Ltd",
-    "current_price": 1711.4,
+    "current_price": 1714.0,
     "previous_close": 1691.5,
-    "change": 19.9,
-    "change_percent": 1.18,
+    "change": 22.5,
+    "change_percent": 1.33,
     "market_cap": 3851528175616.0,
     "price_history": [
       {
@@ -209,17 +209,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1711.4
+        "close": 1714.0
       }
     ]
   },
   {
     "symbol": "APOLLOHOSP",
     "company_name": "Apollo Hospitals Enterprise Ltd",
-    "current_price": 8829.5,
+    "current_price": 8800.0,
     "previous_close": 8766.5,
-    "change": 63.0,
-    "change_percent": 0.72,
+    "change": 33.5,
+    "change_percent": 0.38,
     "market_cap": 1292767854592.0,
     "price_history": [
       {
@@ -316,17 +316,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 8829.5
+        "close": 8800.0
       }
     ]
   },
   {
     "symbol": "ASIANPAINT",
     "company_name": "Asian Paints Ltd",
-    "current_price": 2639.1,
+    "current_price": 2631.0,
     "previous_close": 2626.5,
-    "change": 12.6,
-    "change_percent": 0.48,
+    "change": 4.5,
+    "change_percent": 0.17,
     "market_cap": 2633395863552.0,
     "price_history": [
       {
@@ -423,17 +423,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 2639.1
+        "close": 2631.0
       }
     ]
   },
   {
     "symbol": "AXISBANK",
     "company_name": "Axis Bank Ltd",
-    "current_price": 1256.2,
+    "current_price": 1256.0,
     "previous_close": 1255.0,
-    "change": 1.2,
-    "change_percent": 0.1,
+    "change": 1.0,
+    "change_percent": 0.08,
     "market_cap": 3824177905664.0,
     "price_history": [
       {
@@ -530,17 +530,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1256.2
+        "close": 1256.0
       }
     ]
   },
   {
     "symbol": "BAJAJ-AUTO",
     "company_name": "Bajaj Auto Ltd",
-    "current_price": 11710.0,
+    "current_price": 11720.0,
     "previous_close": 11724.0,
-    "change": -14.0,
-    "change_percent": -0.12,
+    "change": -4.0,
+    "change_percent": -0.03,
     "market_cap": 3165332176896.0,
     "price_history": [
       {
@@ -637,17 +637,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 11710.0
+        "close": 11720.0
       }
     ]
   },
   {
     "symbol": "BAJFINANCE",
     "company_name": "Bajaj Finance Ltd",
-    "current_price": 1085.3,
+    "current_price": 1083.0,
     "previous_close": 1085.0,
-    "change": 0.3,
-    "change_percent": 0.03,
+    "change": -2.0,
+    "change_percent": -0.18,
     "market_cap": 7010655928320.0,
     "price_history": [
       {
@@ -744,17 +744,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1085.3
+        "close": 1083.0
       }
     ]
   },
   {
     "symbol": "BAJAJFINSV",
     "company_name": "Bajaj Finserv Ltd",
-    "current_price": 2007.2,
+    "current_price": 2011.0,
     "previous_close": 2010.0,
-    "change": -2.8,
-    "change_percent": -0.14,
+    "change": 1.0,
+    "change_percent": 0.05,
     "market_cap": 3190911926272.0,
     "price_history": [
       {
@@ -851,17 +851,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 2007.2
+        "close": 2011.0
       }
     ]
   },
   {
     "symbol": "BEL",
     "company_name": "Bharat Electronics Ltd",
-    "current_price": 410.25,
+    "current_price": 411.0,
     "previous_close": 406.9,
-    "change": 3.35,
-    "change_percent": 0.82,
+    "change": 4.1,
+    "change_percent": 1.01,
     "market_cap": 2831808200704.0,
     "price_history": [
       {
@@ -958,17 +958,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 410.25
+        "close": 411.0
       }
     ]
   },
   {
     "symbol": "BHARTIARTL",
     "company_name": "Bharti Airtel Ltd",
-    "current_price": 1887.1,
+    "current_price": 1878.3,
     "previous_close": 1902.1,
-    "change": -15.0,
-    "change_percent": -0.79,
+    "change": -23.8,
+    "change_percent": -1.25,
     "market_cap": 12236504432640.0,
     "price_history": [
       {
@@ -1065,17 +1065,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1887.1
+        "close": 1878.3
       }
     ]
   },
   {
     "symbol": "BPCL",
     "company_name": "Bharat Petroleum Corporation Ltd",
-    "current_price": 320.15,
+    "current_price": 318.0,
     "previous_close": 318.0,
-    "change": 2.15,
-    "change_percent": 0.68,
+    "change": 0.0,
+    "change_percent": 0.0,
     "market_cap": null,
     "price_history": [
       {
@@ -1172,17 +1172,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 320.15
+        "close": 318.0
       }
     ]
   },
   {
     "symbol": "BRITANNIA",
     "company_name": "Britannia Industries Ltd",
-    "current_price": 5291.5,
+    "current_price": 5298.0,
     "previous_close": 5310.0,
-    "change": -18.5,
-    "change_percent": -0.35,
+    "change": -12.0,
+    "change_percent": -0.23,
     "market_cap": null,
     "price_history": [
       {
@@ -1279,17 +1279,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 5291.5
+        "close": 5298.0
       }
     ]
   },
   {
     "symbol": "CIPLA",
     "company_name": "Cipla Ltd",
-    "current_price": 1417.6,
+    "current_price": 1420.0,
     "previous_close": 1402.7,
-    "change": 14.9,
-    "change_percent": 1.06,
+    "change": 17.3,
+    "change_percent": 1.23,
     "market_cap": 1184462798848.0,
     "price_history": [
       {
@@ -1386,17 +1386,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1417.6
+        "close": 1420.0
       }
     ]
   },
   {
     "symbol": "COALINDIA",
     "company_name": "Coal India Ltd",
-    "current_price": 399.8,
+    "current_price": 400.0,
     "previous_close": 403.5,
-    "change": -3.7,
-    "change_percent": -0.92,
+    "change": -3.5,
+    "change_percent": -0.87,
     "market_cap": 2544282370048.0,
     "price_history": [
       {
@@ -1493,17 +1493,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 399.8
+        "close": 400.0
       }
     ]
   },
   {
     "symbol": "DIVISLAB",
     "company_name": "Divi's Laboratories Ltd",
-    "current_price": 9088.5,
+    "current_price": 9060.0,
     "previous_close": 9025.0,
-    "change": 63.5,
-    "change_percent": 0.7,
+    "change": 35.0,
+    "change_percent": 0.39,
     "market_cap": null,
     "price_history": [
       {
@@ -1600,17 +1600,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 9088.5
+        "close": 9060.0
       }
     ]
   },
   {
     "symbol": "DRREDDY",
     "company_name": "Dr. Reddy's Laboratories Ltd",
-    "current_price": 1176.9,
+    "current_price": 1177.0,
     "previous_close": 1182.0,
-    "change": -5.1,
-    "change_percent": -0.43,
+    "change": -5.0,
+    "change_percent": -0.42,
     "market_cap": 957783539712.0,
     "price_history": [
       {
@@ -1707,17 +1707,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1176.9
+        "close": 1177.0
       }
     ]
   },
   {
     "symbol": "EICHERMOT",
     "company_name": "Eicher Motors Ltd",
-    "current_price": 8101.5,
+    "current_price": 8100.0,
     "previous_close": 8035.0,
-    "change": 66.5,
-    "change_percent": 0.83,
+    "change": 65.0,
+    "change_percent": 0.81,
     "market_cap": 2159936667648.0,
     "price_history": [
       {
@@ -1814,17 +1814,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 8101.5
+        "close": 8100.0
       }
     ]
   },
   {
     "symbol": "ETERNAL",
     "company_name": "Eternal Ltd",
-    "current_price": 330.2,
+    "current_price": 328.5,
     "previous_close": 327.0,
-    "change": 3.2,
-    "change_percent": 0.98,
+    "change": 1.5,
+    "change_percent": 0.46,
     "market_cap": 2826516037632.0,
     "price_history": [
       {
@@ -1921,17 +1921,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 330.2
+        "close": 328.5
       }
     ]
   },
   {
     "symbol": "GRASIM",
     "company_name": "Grasim Industries Ltd",
-    "current_price": 3267.3,
+    "current_price": 3258.0,
     "previous_close": 3299.9,
-    "change": -32.6,
-    "change_percent": -0.99,
+    "change": -41.9,
+    "change_percent": -1.27,
     "market_cap": 2118454476800.0,
     "price_history": [
       {
@@ -2028,17 +2028,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 3267.3
+        "close": 3258.0
       }
     ]
   },
   {
     "symbol": "HCLTECH",
     "company_name": "HCL Technologies Ltd",
-    "current_price": 1284.2,
+    "current_price": 1282.0,
     "previous_close": 1298.5,
-    "change": -14.3,
-    "change_percent": -1.1,
+    "change": -16.5,
+    "change_percent": -1.27,
     "market_cap": 3629786071040.0,
     "price_history": [
       {
@@ -2135,17 +2135,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1284.2
+        "close": 1282.0
       }
     ]
   },
   {
     "symbol": "HDFCBANK",
     "company_name": "HDFC Bank Ltd",
-    "current_price": 714.5,
+    "current_price": 711.0,
     "previous_close": 727.2,
-    "change": -12.7,
-    "change_percent": -1.75,
+    "change": -16.2,
+    "change_percent": -2.23,
     "market_cap": 11561468952576.0,
     "price_history": [
       {
@@ -2242,17 +2242,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 714.5
+        "close": 711.0
       }
     ]
   },
   {
     "symbol": "HDFCLIFE",
     "company_name": "HDFC Life Insurance Ltd",
-    "current_price": 552.9,
+    "current_price": 548.0,
     "previous_close": 553.0,
-    "change": -0.1,
-    "change_percent": -0.02,
+    "change": -5.0,
+    "change_percent": -0.9,
     "market_cap": 1187396976640.0,
     "price_history": [
       {
@@ -2349,17 +2349,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 552.9
+        "close": 548.0
       }
     ]
   },
   {
     "symbol": "HEROMOTOCO",
     "company_name": "Hero MotoCorp Ltd",
-    "current_price": 5561.0,
+    "current_price": 5550.0,
     "previous_close": 5595.0,
-    "change": -34.0,
-    "change_percent": -0.61,
+    "change": -45.0,
+    "change_percent": -0.8,
     "market_cap": 1075479576576.0,
     "price_history": [
       {
@@ -2456,17 +2456,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 5561.0
+        "close": 5550.0
       }
     ]
   },
   {
     "symbol": "HINDALCO",
     "company_name": "Hindalco Industries Ltd",
-    "current_price": 1022.3,
+    "current_price": 1024.0,
     "previous_close": 1053.0,
-    "change": -30.7,
-    "change_percent": -2.92,
+    "change": -29.0,
+    "change_percent": -2.75,
     "market_cap": 2182321930240.0,
     "price_history": [
       {
@@ -2563,17 +2563,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1022.3
+        "close": 1024.0
       }
     ]
   },
   {
     "symbol": "HINDUNILVR",
     "company_name": "Hindustan Unilever Ltd",
-    "current_price": 2013.7,
+    "current_price": 2009.0,
     "previous_close": 2021.0,
-    "change": -7.3,
-    "change_percent": -0.36,
+    "change": -12.0,
+    "change_percent": -0.59,
     "market_cap": 4939076075520.0,
     "price_history": [
       {
@@ -2670,17 +2670,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 2013.7
+        "close": 2009.0
       }
     ]
   },
   {
     "symbol": "ICICIBANK",
     "company_name": "ICICI Bank Ltd",
-    "current_price": 1447.2,
+    "current_price": 1443.0,
     "previous_close": 1430.0,
-    "change": 17.2,
-    "change_percent": 1.2,
+    "change": 13.0,
+    "change_percent": 0.91,
     "market_cap": 10295805214720.0,
     "price_history": [
       {
@@ -2777,17 +2777,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1447.2
+        "close": 1443.0
       }
     ]
   },
   {
     "symbol": "INDUSINDBK",
     "company_name": "IndusInd Bank Ltd",
-    "current_price": 999.8,
+    "current_price": 1002.9,
     "previous_close": 1004.0,
-    "change": -4.2,
-    "change_percent": -0.42,
+    "change": -1.1,
+    "change_percent": -0.11,
     "market_cap": 778197794816.0,
     "price_history": [
       {
@@ -2884,17 +2884,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 999.8
+        "close": 1002.9
       }
     ]
   },
   {
     "symbol": "INFY",
     "company_name": "Infosys Ltd",
-    "current_price": 1109.4,
+    "current_price": 1110.8,
     "previous_close": 1120.0,
-    "change": -10.6,
-    "change_percent": -0.95,
+    "change": -9.2,
+    "change_percent": -0.82,
     "market_cap": 4585549725696.0,
     "price_history": [
       {
@@ -2991,17 +2991,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1109.4
+        "close": 1110.8
       }
     ]
   },
   {
     "symbol": "ITC",
     "company_name": "ITC Ltd",
-    "current_price": 268.4,
+    "current_price": 269.0,
     "previous_close": 270.25,
-    "change": -1.85,
-    "change_percent": -0.68,
+    "change": -1.25,
+    "change_percent": -0.46,
     "market_cap": 3525792235520.0,
     "price_history": [
       {
@@ -3098,17 +3098,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 268.4
+        "close": 269.0
       }
     ]
   },
   {
     "symbol": "JSWSTEEL",
     "company_name": "JSW Steel Ltd",
-    "current_price": 1333.6,
+    "current_price": 1337.5,
     "previous_close": 1341.0,
-    "change": -7.4,
-    "change_percent": -0.55,
+    "change": -3.5,
+    "change_percent": -0.26,
     "market_cap": 3095160422400.0,
     "price_history": [
       {
@@ -3205,17 +3205,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1333.6
+        "close": 1337.5
       }
     ]
   },
   {
     "symbol": "KOTAKBANK",
     "company_name": "Kotak Mahindra Bank Ltd",
-    "current_price": 424.3,
+    "current_price": 424.2,
     "previous_close": 416.7,
-    "change": 7.6,
-    "change_percent": 1.82,
+    "change": 7.5,
+    "change_percent": 1.8,
     "market_cap": 3874148319232.0,
     "price_history": [
       {
@@ -3312,17 +3312,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 424.3
+        "close": 424.2
       }
     ]
   },
   {
     "symbol": "LT",
     "company_name": "Larsen & Toubro Ltd",
-    "current_price": 4040.0,
+    "current_price": 4027.0,
     "previous_close": 4038.1,
-    "change": 1.9,
-    "change_percent": 0.05,
+    "change": -11.1,
+    "change_percent": -0.27,
     "market_cap": 5398210805760.0,
     "price_history": [
       {
@@ -3419,17 +3419,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 4040.0
+        "close": 4027.0
       }
     ]
   },
   {
     "symbol": "M&M",
     "company_name": "Mahindra & Mahindra Ltd",
-    "current_price": 3340.0,
+    "current_price": 3330.0,
     "previous_close": 3398.2,
-    "change": -58.2,
-    "change_percent": -1.71,
+    "change": -68.2,
+    "change_percent": -2.01,
     "market_cap": 4115372441600.0,
     "price_history": [
       {
@@ -3526,17 +3526,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 3340.0
+        "close": 3330.0
       }
     ]
   },
   {
     "symbol": "MARUTI",
     "company_name": "Maruti Suzuki India Ltd",
-    "current_price": 13450.0,
+    "current_price": 13440.0,
     "previous_close": 13520.0,
-    "change": -70.0,
-    "change_percent": -0.52,
+    "change": -80.0,
+    "change_percent": -0.59,
     "market_cap": 4473319587840.0,
     "price_history": [
       {
@@ -3633,17 +3633,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 13450.0
+        "close": 13440.0
       }
     ]
   },
   {
     "symbol": "NESTLEIND",
     "company_name": "Nestle India Ltd",
-    "current_price": 1447.9,
+    "current_price": 1450.0,
     "previous_close": 1451.5,
-    "change": -3.6,
-    "change_percent": -0.25,
+    "change": -1.5,
+    "change_percent": -0.1,
     "market_cap": 2907898118144.0,
     "price_history": [
       {
@@ -3740,17 +3740,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1447.9
+        "close": 1450.0
       }
     ]
   },
   {
     "symbol": "NTPC",
     "company_name": "NTPC Ltd",
-    "current_price": 329.45,
+    "current_price": 330.9,
     "previous_close": 334.6,
-    "change": -5.15,
-    "change_percent": -1.54,
+    "change": -3.7,
+    "change_percent": -1.11,
     "market_cap": 3343895494656.0,
     "price_history": [
       {
@@ -3847,7 +3847,7 @@
       },
       {
         "date": "2026-08-27",
-        "close": 329.45
+        "close": 330.9
       }
     ]
   },
@@ -3961,10 +3961,10 @@
   {
     "symbol": "POWERGRID",
     "company_name": "Power Grid Corporation of India Ltd",
-    "current_price": 265.85,
+    "current_price": 264.9,
     "previous_close": 265.2,
-    "change": 0.65,
-    "change_percent": 0.25,
+    "change": -0.3,
+    "change_percent": -0.11,
     "market_cap": 2641371594752.0,
     "price_history": [
       {
@@ -4061,17 +4061,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 265.85
+        "close": 264.9
       }
     ]
   },
   {
     "symbol": "RELIANCE",
     "company_name": "Reliance Industries Ltd",
-    "current_price": 1288.1,
+    "current_price": 1282.2,
     "previous_close": 1298.0,
-    "change": -9.9,
-    "change_percent": -0.76,
+    "change": -15.8,
+    "change_percent": -1.22,
     "market_cap": 17589507981312.0,
     "price_history": [
       {
@@ -4168,17 +4168,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1288.1
+        "close": 1282.2
       }
     ]
   },
   {
     "symbol": "SBILIFE",
     "company_name": "SBI Life Insurance Ltd",
-    "current_price": 1782.0,
+    "current_price": 1773.2,
     "previous_close": 1768.2,
-    "change": 13.8,
-    "change_percent": 0.78,
+    "change": 5.0,
+    "change_percent": 0.28,
     "market_cap": 1888237649920.0,
     "price_history": [
       {
@@ -4275,17 +4275,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1782.0
+        "close": 1773.2
       }
     ]
   },
   {
     "symbol": "SBIN",
     "company_name": "State Bank of India",
-    "current_price": 1047.5,
+    "current_price": 1042.9,
     "previous_close": 1052.0,
-    "change": -4.5,
-    "change_percent": -0.43,
+    "change": -9.1,
+    "change_percent": -0.87,
     "market_cap": 9455844458496.0,
     "price_history": [
       {
@@ -4382,17 +4382,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1047.5
+        "close": 1042.9
       }
     ]
   },
   {
     "symbol": "SHRIRAMFIN",
     "company_name": "Shriram Finance Ltd",
-    "current_price": 1102.8,
+    "current_price": 1101.0,
     "previous_close": 1117.5,
-    "change": -14.7,
-    "change_percent": -1.32,
+    "change": -16.5,
+    "change_percent": -1.48,
     "market_cap": 2448478175232.0,
     "price_history": [
       {
@@ -4489,17 +4489,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1102.8
+        "close": 1101.0
       }
     ]
   },
   {
     "symbol": "SUNPHARMA",
     "company_name": "Sun Pharmaceutical Industries Ltd",
-    "current_price": 1914.5,
+    "current_price": 1913.3,
     "previous_close": 1899.5,
-    "change": 15.0,
-    "change_percent": 0.79,
+    "change": 13.8,
+    "change_percent": 0.73,
     "market_cap": 4833699954688.0,
     "price_history": [
       {
@@ -4596,17 +4596,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1914.5
+        "close": 1913.3
       }
     ]
   },
   {
     "symbol": "TATACONSUM",
     "company_name": "Tata Consumer Products Ltd",
-    "current_price": 1040.5,
+    "current_price": 1042.0,
     "previous_close": 1047.1,
-    "change": -6.6,
-    "change_percent": -0.63,
+    "change": -5.1,
+    "change_percent": -0.49,
     "market_cap": 1077533081600.0,
     "price_history": [
       {
@@ -4703,17 +4703,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1040.5
+        "close": 1042.0
       }
     ]
   },
   {
     "symbol": "TATASTEEL",
     "company_name": "Tata Steel Ltd",
-    "current_price": 186.92,
+    "current_price": 186.8,
     "previous_close": 188.01,
-    "change": -1.09,
-    "change_percent": -0.58,
+    "change": -1.21,
+    "change_percent": -0.64,
     "market_cap": 2333482942464.0,
     "price_history": [
       {
@@ -4810,17 +4810,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 186.92
+        "close": 186.8
       }
     ]
   },
   {
     "symbol": "TCS",
     "company_name": "Tata Consultancy Services Ltd",
-    "current_price": 2256.5,
+    "current_price": 2248.4,
     "previous_close": 2270.0,
-    "change": -13.5,
-    "change_percent": -0.59,
+    "change": -21.6,
+    "change_percent": -0.95,
     "market_cap": 8584274378752.0,
     "price_history": [
       {
@@ -4917,17 +4917,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 2256.5
+        "close": 2248.4
       }
     ]
   },
   {
     "symbol": "TECHM",
     "company_name": "Tech Mahindra Ltd",
-    "current_price": 1590.4,
+    "current_price": 1585.0,
     "previous_close": 1571.0,
-    "change": 19.4,
-    "change_percent": 1.23,
+    "change": 14.0,
+    "change_percent": 0.89,
     "market_cap": 1461208219648.0,
     "price_history": [
       {
@@ -5024,17 +5024,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 1590.4
+        "close": 1585.0
       }
     ]
   },
   {
     "symbol": "TITAN",
     "company_name": "Titan Company Ltd",
-    "current_price": 5148.9,
+    "current_price": 5139.3,
     "previous_close": 5100.0,
-    "change": 48.9,
-    "change_percent": 0.96,
+    "change": 39.3,
+    "change_percent": 0.77,
     "market_cap": 4309265940480.0,
     "price_history": [
       {
@@ -5131,17 +5131,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 5148.9
+        "close": 5139.3
       }
     ]
   },
   {
     "symbol": "TRENT",
     "company_name": "Trent Ltd",
-    "current_price": 2880.2,
+    "current_price": 2878.5,
     "previous_close": 2908.2,
-    "change": -28.0,
-    "change_percent": -0.96,
+    "change": -29.7,
+    "change_percent": -1.02,
     "market_cap": 1603109519360.0,
     "price_history": [
       {
@@ -5238,17 +5238,17 @@
       },
       {
         "date": "2026-08-27",
-        "close": 2880.2
+        "close": 2878.5
       }
     ]
   },
   {
     "symbol": "ULTRACEMCO",
     "company_name": "UltraTech Cement Ltd",
-    "current_price": 11726.0,
+    "current_price": 11717.0,
     "previous_close": 11717.0,
-    "change": 9.0,
-    "change_percent": 0.08,
+    "change": 0.0,
+    "change_percent": 0.0,
     "market_cap": 3513856294912.0,
     "price_history": [
       {
@@ -5345,7 +5345,7 @@
       },
       {
         "date": "2026-08-27",
-        "close": 11726.0
+        "close": 11717.0
       }
     ]
   }
