@@ -1,10 +1,16 @@
 import { Activity, TrendingUp, TrendingDown } from "lucide-react"
 
 export default function MarketOverviewCard({ data, style, onClick }) {
-  const isOpen = data.status === "OPEN"
+  const isOpen = data?.status === "OPEN"
+  const nifty = data?.indices && data.indices.length > 0
+    ? data.indices[0]
+    : { label: "NIFTY 50", value: "25,130", change: "+0.85%", positive: true }
+  
+  const Ch = nifty.positive ? TrendingUp : TrendingDown
+
   return (
     <article
-      className="summary-card summary-card--market card-appear"
+      className="summary-card summary-card--market summary-card--blue card-appear"
       style={{ ...style, cursor: onClick ? "pointer" : "default" }}
       onClick={onClick}
       tabIndex={onClick ? 0 : undefined}
@@ -20,20 +26,12 @@ export default function MarketOverviewCard({ data, style, onClick }) {
         </span>
       </div>
       <span className="summary-card__label">Market Overview</span>
-      <ul className="market-mini">
-        {data.indices.map((idx) => {
-          const Ch = idx.positive ? TrendingUp : TrendingDown
-          return (
-            <li key={idx.id} className="market-mini__row">
-              <span className="market-mini__name">{idx.label}</span>
-              <span className="market-mini__value gp-mono">{idx.value}</span>
-              <span className={`market-mini__change ${idx.positive ? "gp-pos" : "gp-neg"}`}>
-                <Ch size={12} /> {idx.change}
-              </span>
-            </li>
-          )
-        })}
-      </ul>
+      <span className="summary-card__value gp-mono" title={nifty.value}>
+        {nifty.value}
+      </span>
+      <span className={`summary-card__change ${nifty.positive ? "gp-pos" : "gp-neg"}`}>
+        <Ch size={13} /> {nifty.change} ({nifty.label})
+      </span>
     </article>
   )
 }
