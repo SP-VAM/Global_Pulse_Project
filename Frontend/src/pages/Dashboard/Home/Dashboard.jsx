@@ -39,6 +39,7 @@ export default function Dashboard() {
 
   // Live Market Snapshot State
   const [liveMarketItems, setLiveMarketItems] = useState([])
+  const [liveIndexQuote, setLiveIndexQuote] = useState(null)
   const [loadingMarket, setLoadingMarket] = useState(true)
   const [marketError, setMarketError] = useState(null)
 
@@ -53,6 +54,9 @@ export default function Dashboard() {
         setMarketError("Live market data unavailable")
         setLiveMarketItems([])
       }
+      if (res && res.index_quote) {
+        setLiveIndexQuote(res.index_quote)
+      }
     } catch (err) {
       console.error("[Dashboard] Live market snapshot fetch error:", err)
       setMarketError("Live market data unavailable")
@@ -64,6 +68,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchLiveSnapshot()
+    const timer = setInterval(() => {
+      fetchLiveSnapshot()
+    }, 30000)
+    return () => clearInterval(timer)
   }, [])
 
   useEffect(() => {
@@ -403,6 +411,27 @@ export default function Dashboard() {
     return topMovers || []
   }, [liveMarketItems])
 
+  const marketOverviewData = useMemo(() => {
+    if (liveIndexQuote && liveIndexQuote.current_price) {
+      const p = liveIndexQuote.current_price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      const chg = liveIndexQuote.change >= 0 ? `+${liveIndexQuote.change.toFixed(2)}` : liveIndexQuote.change.toFixed(2)
+      const pct = liveIndexQuote.change_percent >= 0 ? `+${liveIndexQuote.change_percent.toFixed(2)}%` : `${liveIndexQuote.change_percent.toFixed(2)}%`
+      return {
+        status: liveIndexQuote.is_live ? "OPEN" : "CLOSED",
+        indices: [
+          {
+            label: "NIFTY 50",
+            value: p,
+            change: `${chg} (${pct})`,
+            positive: liveIndexQuote.change >= 0,
+            data_state: liveIndexQuote.data_state,
+          }
+        ]
+      }
+    }
+    return marketOverview
+  }, [liveIndexQuote])
+
   return (
     <div className="dashboard-home">
       {/* Greeting */}
@@ -417,7 +446,7 @@ export default function Dashboard() {
       <section className="dashboard__summary" aria-label="Financial summary">
         {/* CARD 1: Market Overview (Navigates to 50 Companies) */}
         <MarketOverviewCard
-          data={marketOverview}
+          data={marketOverviewData}
           style={{ animationDelay: "0ms" }}
           onClick={() => navigate("/dashboard/constituents")}
         />

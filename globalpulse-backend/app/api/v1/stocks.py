@@ -20,6 +20,7 @@ from app.schemas.stocks import (
     StockCompanyListResponse,
     StockFullAnalysisResponse,
     StockHealthResponse,
+    StockIndexQuoteSchema,
     StockMarketSnapshotItemSchema,
     StockMarketSnapshotResponse,
     StockNewsSentimentResponse,
@@ -216,6 +217,10 @@ async def get_market_snapshot(
     items_data = await prediction_service.get_market_snapshot(symbols=symbol_list)
     items = [StockMarketSnapshotItemSchema(**item) for item in items_data]
 
+    # Fetch authoritative NIFTY 50 Index quote
+    nifty_quote_dict = prediction_service._fetch_nifty_index_quote()
+    nifty_quote = StockIndexQuoteSchema(**nifty_quote_dict) if nifty_quote_dict else None
+
     duration_ms = (time.time() - t_start) * 1000
     is_stale = (time.time() - prediction_service._snapshot_cache_timestamp) > prediction_service._cache_ttl_seconds
     updated_at = TimezoneService.now_utc().isoformat()
@@ -230,6 +235,7 @@ async def get_market_snapshot(
     return StockMarketSnapshotResponse(
         total=len(items),
         items=items,
+        index_quote=nifty_quote,
         source="cache",
         cached=True,
         is_stale=is_stale,
