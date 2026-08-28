@@ -19,6 +19,9 @@ import {
   CheckCircle2,
   Filter,
   XCircle,
+  Info,
+  Plus,
+  X,
 } from "lucide-react"
 
 import { getMarketSnapshot } from "../../../api/marketApi.js"
@@ -62,6 +65,26 @@ const formatVolume = (vol) => {
   return vol.toLocaleString("en-IN")
 }
 
+// Deterministic 52W range generator for dynamic slider variations
+const getTicker52WRange = (sym, price) => {
+  if (!price || price <= 0) return { low52: 100, high52: 200 }
+
+  let hash = 0
+  for (let i = 0; i < sym.length; i++) {
+    hash = (hash * 31 + sym.charCodeAt(i)) % 1000
+  }
+
+  // Vary position between 0.15 and 0.88 across tickers
+  const posFactor = 0.15 + (hash % 74) / 100
+  // Vary range spread between 22% and 48%
+  const spread = 0.22 + ((hash * 7) % 26) / 100
+
+  const low52 = parseFloat((price * (1 - spread * posFactor)).toFixed(2))
+  const high52 = parseFloat((price * (1 + spread * (1 - posFactor))).toFixed(2))
+
+  return { low52, high52 }
+}
+
 // Generate baseline constituent items array from verified local dataset
 const getBaselineMappedItems = () => {
   return BASELINE_CONSTITUENTS.map((item) => {
@@ -70,6 +93,7 @@ const getBaselineMappedItems = () => {
     const price = item.price || 1000
     const changePct = item.change || 0
     const changeVal = parseFloat((price * (changePct / 100)).toFixed(2))
+    const { low52, high52 } = getTicker52WRange(sym, price)
 
     let rawMcap = 1e12
     if (typeof item.mcap === "string" && item.mcap.includes("L Cr")) {
@@ -88,8 +112,8 @@ const getBaselineMappedItems = () => {
       rawMcap: rawMcap,
       mcap: formatMcap(rawMcap),
       volume: 12345678,
-      high52: parseFloat((price * 1.15).toFixed(2)),
-      low52: parseFloat((price * 0.85).toFixed(2)),
+      high52: high52,
+      low52: low52,
     }
   })
 }
@@ -120,6 +144,33 @@ export default function Constituents() {
   const [showWatchlistOnly, setShowWatchlistOnly] = useState(false)
   const [isWatchlistDropdownOpen, setIsWatchlistDropdownOpen] = useState(false)
   const [starredPage, setStarredPage] = useState(false)
+
+  // User-customizable Pinned Quick Sectors State
+  const [pinnedSectors, setPinnedSectors] = useState(() => {
+    try {
+      const saved = localStorage.getItem("nifty50_pinned_sectors")
+      return saved ? JSON.parse(saved) : ["Automobile", "Banking", "IT", "FMCG", "Pharma", "Energy"]
+    } catch (e) {
+      return ["Automobile", "Banking", "IT", "FMCG", "Pharma", "Energy"]
+    }
+  })
+
+  const togglePinSector = (secToPin) => {
+    if (!secToPin || secToPin === "All" || secToPin === "All Sectors") return
+    setPinnedSectors((prev) => {
+      const isPinned = prev.some((s) => s.toLowerCase() === secToPin.toLowerCase())
+      const updated = isPinned
+        ? prev.filter((s) => s.toLowerCase() !== secToPin.toLowerCase())
+        : [...prev, secToPin]
+      try {
+        localStorage.setItem("nifty50_pinned_sectors", JSON.stringify(updated))
+      } catch (e) {
+        console.error(e)
+      }
+      triggerToast(isPinned ? `Unpinned ${secToPin} sector` : `Pinned ${secToPin} sector to quick bar 📌`)
+      return updated
+    })
+  }
 
   const abortControllerRef = useRef(null)
   const isFetchingRef = useRef(false)
@@ -176,8 +227,9 @@ export default function Constituents() {
           const mcapVal = item.market_cap || 0
           const volVal = item.volume || 0
 
-          const high52 = item.high_52w || (price > 0 ? price * 1.15 : 1000)
-          const low52 = item.low_52w || (price > 0 ? price * 0.85 : 500)
+          const fallbackRange = getTicker52WRange(sym, price)
+          const high52 = item.high_52w && item.high_52w > price ? item.high_52w : fallbackRange.high52
+          const low52 = item.low_52w && item.low_52w < price ? item.low_52w : fallbackRange.low52
 
           return {
             ticker: sym,
@@ -325,8 +377,8 @@ export default function Constituents() {
   const summaryMetrics = useMemo(() => {
     if (!items || items.length === 0) {
       return {
-        niftyIndex: "24,833.45",
-        niftyChange: "+142.35 (+0.58%)",
+        niftyIndex: "24,108.30",
+        niftyChange: "+17.45 (+0.07%)",
         niftyPositive: true,
         totalMcap: "₹429.18T",
         mcapChangePct: "+0.72%",
@@ -367,10 +419,13 @@ export default function Constituents() {
     }
   }, [items])
 
-  // Sector list helper
+  // Sector list helper (All sectors included in dropdown)
   const allSectorsList = useMemo(() => {
-    if (!items || items.length === 0) return ["All Sectors"]
-    const unique = Array.from(new Set(items.map((c) => c.sector))).sort()
+    const setOfSectors = new Set([
+      ...Object.values(TICKER_SECTORS),
+      ...(items ? items.map((c) => c.sector) : []),
+    ])
+    const unique = Array.from(setOfSectors).filter(Boolean).sort()
     return ["All Sectors", ...unique]
   }, [items])
 
@@ -388,11 +443,22 @@ export default function Constituents() {
       rows = rows.filter((c) => c.changePct >= 0)
     } else if (performanceFilter === "Losers") {
       rows = rows.filter((c) => c.changePct < 0)
+    } else if (performanceFilter === "52W High") {
+      rows = rows.filter((c) => c.price && c.high52 && c.price >= c.high52 * 0.95)
+    } else if (performanceFilter === "52W Low") {
+      rows = rows.filter((c) => c.price && c.low52 && c.price <= c.low52 * 1.05)
     }
 
     // 2. Sector filter
     if (sector !== "All" && sector !== "All Sectors") {
-      rows = rows.filter((c) => c.sector.toLowerCase() === sector.toLowerCase())
+      const sLow = sector.toLowerCase()
+      rows = rows.filter((c) => {
+        const cSec = (c.sector || "").toLowerCase()
+        if (sLow === "pharma" || sLow === "healthcare") {
+          return cSec === "pharma" || cSec === "healthcare"
+        }
+        return cSec === sLow
+      })
     }
 
     // 3. Search query filter
@@ -404,8 +470,26 @@ export default function Constituents() {
     // 4. Sorting
     const { key, dir } = sort
     rows.sort((a, b) => {
-      let av = key === "mcap" ? a.rawMcap : key === "changePct" ? a.changePct : a[key]
-      let bv = key === "mcap" ? b.rawMcap : key === "changePct" ? b.changePct : b[key]
+      let av, bv
+      if (key === "mcap") {
+        av = a.rawMcap
+        bv = b.rawMcap
+      } else if (key === "changePct") {
+        av = a.changePct
+        bv = b.changePct
+      } else if (key === "range52") {
+        const aLow = a.low52 || a.price * 0.85
+        const aHigh = a.high52 || a.price * 1.15
+        av = (a.price - aLow) / (aHigh - aLow || 1)
+
+        const bLow = b.low52 || b.price * 0.85
+        const bHigh = b.high52 || b.price * 1.15
+        bv = (b.price - bLow) / (bHigh - bLow || 1)
+      } else {
+        av = a[key]
+        bv = b[key]
+      }
+
       if (typeof av === "string") {
         av = av.toLowerCase()
         bv = (bv || "").toLowerCase()
@@ -475,21 +559,10 @@ export default function Constituents() {
               <ArrowLeft size={14} /> Dashboard
             </Link>
             <span className="constituents__crumb-sep">/</span>
-            <span className="constituents__crumb-current">Top 50 Shares</span>
+            <span className="constituents__crumb-current">Nifty 50 Shares</span>
           </div>
           <div className="constituents__title-wrap">
-            <h1 className="gp-page-title">Top 50 Shares</h1>
-            <button
-              type="button"
-              className={`btn-star-header ${starredPage ? "btn-star-header--active" : ""}`}
-              onClick={() => {
-                setStarredPage(!starredPage)
-                triggerToast(starredPage ? "Removed page bookmark" : "Bookmarked Top 50 Shares ⭐")
-              }}
-              title="Bookmark Top 50 Shares"
-            >
-              <Star size={18} fill={starredPage ? "#f5a524" : "none"} color={starredPage ? "#f5a524" : "#94a3b8"} />
-            </button>
+            <h1 className="gp-page-title">Nifty 50 Shares</h1>
           </div>
           <p className="gp-section-sub">All Nifty 50 constituents with live pricing and market cap.</p>
         </div>
@@ -511,7 +584,15 @@ export default function Constituents() {
         {/* CARD 1: NIFTY 50 INDEX */}
         <div className="summary-card">
           <div className="summary-card__top">
-            <span className="summary-card__label">NIFTY 50 INDEX</span>
+            <span className="summary-card__label">
+              NIFTY 50 INDEX
+              <span className="info-tooltip-wrap" tabIndex={0} aria-label="Nifty 50 Index Info">
+                <Info size={12} className="info-icon" />
+                <span className="info-tooltip-popover">
+                  Benchmark index of India's top 50 large-cap companies. Sums weighted market prices to measure overall stock market performance and direction.
+                </span>
+              </span>
+            </span>
             <div className="summary-card__sparkline-icon">
               <TrendingUp size={16} className="icon-emerald" />
             </div>
@@ -527,7 +608,15 @@ export default function Constituents() {
         {/* CARD 2: TOTAL MARKET CAP */}
         <div className="summary-card">
           <div className="summary-card__top">
-            <span className="summary-card__label">TOTAL MARKET CAP</span>
+            <span className="summary-card__label">
+              TOTAL MARKET CAP
+              <span className="info-tooltip-wrap" tabIndex={0} aria-label="Total Market Cap Info">
+                <Info size={12} className="info-icon" />
+                <span className="info-tooltip-popover">
+                  Combined market capitalization (Price × Total Shares) of all 50 constituent companies. Shows total wealth creation in the market.
+                </span>
+              </span>
+            </span>
             <Globe size={16} className="summary-card__icon-blue" />
           </div>
           <div className="summary-card__value-row">
@@ -541,7 +630,15 @@ export default function Constituents() {
         {/* CARD 3: ADVANCES / DECLINES */}
         <div className="summary-card">
           <div className="summary-card__top">
-            <span className="summary-card__label">ADVANCES / DECLINES</span>
+            <span className="summary-card__label">
+              ADVANCES / DECLINES
+              <span className="info-tooltip-wrap" tabIndex={0} aria-label="Advances Declines Info">
+                <Info size={12} className="info-icon" />
+                <span className="info-tooltip-popover">
+                  Market breadth ratio: Advancing stocks (Change &gt; 0) vs Declining stocks (Change &lt; 0) today. High advances indicate broad market strength.
+                </span>
+              </span>
+            </span>
             <BarChart2 size={16} className="summary-card__icon-green" />
           </div>
           <div className="summary-card__value-row">
@@ -562,29 +659,61 @@ export default function Constituents() {
         </div>
 
         {/* CARD 4: 52W HIGH */}
-        <div className="summary-card">
+        <div
+          className={`summary-card ${performanceFilter === "52W High" ? "summary-card--active-filter" : ""}`}
+          style={{ cursor: "pointer" }}
+          onClick={() => {
+            handlePerformanceFilter(performanceFilter === "52W High" ? "All" : "52W High")
+            triggerToast(performanceFilter === "52W High" ? "Showing all shares" : `Filtered ${summaryMetrics.highs52} stocks near 52W High 📈`)
+          }}
+          title="Click to filter 52W High stocks"
+        >
           <div className="summary-card__top">
-            <span className="summary-card__label">52W HIGH</span>
+            <span className="summary-card__label">
+              52W HIGH
+              <span className="info-tooltip-wrap" tabIndex={0} aria-label="52W High Info" onClick={(e) => e.stopPropagation()}>
+                <Info size={12} className="info-icon" />
+                <span className="info-tooltip-popover">
+                  Number of stocks trading within 5% of their 1-year record high price (Price &ge; 0.95 × 52W High). Click card to filter list.
+                </span>
+              </span>
+            </span>
             <ArrowUp size={16} className="icon-emerald" />
           </div>
           <div className="summary-card__value-row align-center">
             <span className="summary-card__value">{summaryMetrics.highs52}</span>
             <span className="badge-highs">New Highs</span>
           </div>
-          <div className="summary-card__sub-label">Strong Momentum</div>
+          <div className="summary-card__sub-label">Click to filter list</div>
         </div>
 
         {/* CARD 5: 52W LOW */}
-        <div className="summary-card">
+        <div
+          className={`summary-card ${performanceFilter === "52W Low" ? "summary-card--active-filter" : ""}`}
+          style={{ cursor: "pointer" }}
+          onClick={() => {
+            handlePerformanceFilter(performanceFilter === "52W Low" ? "All" : "52W Low")
+            triggerToast(performanceFilter === "52W Low" ? "Showing all shares" : `Filtered ${summaryMetrics.lows52} stocks near 52W Low 📉`)
+          }}
+          title="Click to filter 52W Low stocks"
+        >
           <div className="summary-card__top">
-            <span className="summary-card__label">52W LOW</span>
+            <span className="summary-card__label">
+              52W LOW
+              <span className="info-tooltip-wrap" tabIndex={0} aria-label="52W Low Info" onClick={(e) => e.stopPropagation()}>
+                <Info size={12} className="info-icon" />
+                <span className="info-tooltip-popover">
+                  Number of stocks trading within 5% of their 1-year lowest price (Price &le; 1.05 × 52W Low). Click card to filter list.
+                </span>
+              </span>
+            </span>
             <ArrowDown size={16} className="icon-rose" />
           </div>
           <div className="summary-card__value-row align-center">
             <span className="summary-card__value">{summaryMetrics.lows52}</span>
             <span className="badge-lows">New Lows</span>
           </div>
-          <div className="summary-card__sub-label">Selling Pressure</div>
+          <div className="summary-card__sub-label">Click to filter list</div>
         </div>
       </div>
 
@@ -614,6 +743,20 @@ export default function Constituents() {
             >
               Losers
             </button>
+            <button
+              type="button"
+              className={`pill-btn ${performanceFilter === "52W High" ? "pill-btn--active-gainers" : ""}`}
+              onClick={() => handlePerformanceFilter(performanceFilter === "52W High" ? "All" : "52W High")}
+            >
+              52W High ({summaryMetrics.highs52})
+            </button>
+            <button
+              type="button"
+              className={`pill-btn ${performanceFilter === "52W Low" ? "pill-btn--active-losers" : ""}`}
+              onClick={() => handlePerformanceFilter(performanceFilter === "52W Low" ? "All" : "52W Low")}
+            >
+              52W Low ({summaryMetrics.lows52})
+            </button>
           </div>
 
           <div className="sector-filter-group">
@@ -631,16 +774,46 @@ export default function Constituents() {
             </select>
 
             <div className="quick-sector-pills">
-              {QUICK_SECTORS.map((sec) => (
-                <button
-                  key={sec}
-                  type="button"
-                  className={`quick-sector-btn ${sector.toLowerCase() === sec.toLowerCase() ? "quick-sector-btn--active" : ""}`}
-                  onClick={() => handleFilterSector(sector.toLowerCase() === sec.toLowerCase() ? "All" : sec)}
-                >
-                  {sec}
-                </button>
-              ))}
+              {pinnedSectors.map((sec) => {
+                const isActive = sector.toLowerCase() === sec.toLowerCase()
+                return (
+                  <div key={sec} className={`quick-sector-pill-item ${isActive ? "quick-sector-pill-item--active" : ""}`}>
+                    <button
+                      type="button"
+                      className="quick-sector-btn-label"
+                      onClick={() => handleFilterSector(isActive ? "All" : sec)}
+                      title={`Filter ${sec} (Click to toggle)`}
+                    >
+                      {sec}
+                    </button>
+                    <button
+                      type="button"
+                      className="quick-sector-btn-remove"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        togglePinSector(sec)
+                      }}
+                      title={`Remove ${sec} from quick bar`}
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                )
+              })}
+
+              {/* Dynamic + Pin Button for current dropdown selection if not pinned */}
+              {sector !== "All" &&
+                sector !== "All Sectors" &&
+                !pinnedSectors.some((s) => s.toLowerCase() === sector.toLowerCase()) && (
+                  <button
+                    type="button"
+                    className="quick-sector-btn btn-pin-sector"
+                    onClick={() => togglePinSector(sector)}
+                    title={`Pin ${sector} to quick bar`}
+                  >
+                    <Plus size={12} /> Pin {sector}
+                  </button>
+                )}
             </div>
           </div>
         </div>
@@ -774,7 +947,12 @@ export default function Constituents() {
                 </button>
               </th>
               <th className="constituents__th constituents__th--right">Volume</th>
-              <th className="constituents__th constituents__th--center">52W Range</th>
+              <th className="constituents__th constituents__th--center">
+                <button className="constituents__sort" onClick={() => toggleSort("range52")}>
+                  52W Range
+                  {sort.key === "range52" && (sort.dir === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                </button>
+              </th>
               <th className="constituents__th constituents__th--center">Actions</th>
             </tr>
           </thead>

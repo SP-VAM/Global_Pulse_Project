@@ -19,7 +19,7 @@ export const summaryCards = [
 export const marketOverview = {
   status: "OPEN",
   indices: [
-    { id: "nifty", label: "NIFTY 50", value: "25,130", change: "+0.85%", positive: true },
+    { id: "nifty", label: "NIFTY 50", value: "24,108.30", change: "+17.45 (+0.07%)", positive: true },
   ],
 }
 
