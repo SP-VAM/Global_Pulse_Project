@@ -264,7 +264,13 @@ export default function Dashboard() {
       positive: topMover ? isTopPos : null,
       icon: "Activity",
       tone: topMover ? (isTopPos ? "green" : "red") : "blue",
-      onClick: () => navigate("/dashboard/constituents"),
+      onClick: () => {
+        if (topMoverSym) {
+          navigate(`/dashboard/market-analysis?symbol=${encodeURIComponent(topMoverSym)}`)
+        } else {
+          navigate("/dashboard/market-analysis")
+        }
+      },
     }
 
     // CARD 5: Learning Hub (Last Active Module)
@@ -468,6 +474,7 @@ export default function Dashboard() {
                     company={c}
                     series={c.series && c.series.length > 0 ? c.series : (sparklines[c.id] || sparklines[c.ticker])}
                     style={{ animationDelay: `${i * 70}ms` }}
+                    onClick={() => navigate(`/dashboard/market-analysis?symbol=${encodeURIComponent(c.ticker || c.symbol)}`)}
                   />
                 ))}
               </div>

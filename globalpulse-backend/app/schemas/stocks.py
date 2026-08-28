@@ -184,6 +184,9 @@ class StockMarketSnapshotItemSchema(BaseModel):
     change: float
     change_percent: float
     market_cap: Optional[float] = Field(None, description="Live market capitalization in INR")
+    volume: Optional[float] = Field(None, description="Latest trading volume")
+    high_52w: Optional[float] = Field(None, description="52-week high price")
+    low_52w: Optional[float] = Field(None, description="52-week low price")
     price_history: List[PriceHistoryPointSchema] = Field(
         default_factory=list, description="Latest 30 trading days closing price points for Sparkline rendering"
     )

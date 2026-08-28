@@ -45,7 +45,7 @@ function getDynamicAxisLabels(history) {
   return [formatShortDate(d1), formatShortDate(d2), formatShortDate(d3), formatShortDate(now)]
 }
 
-export default function CompanyCard({ company, series, sparkline, style }) {
+export default function CompanyCard({ company, series, sparkline, style, onClick }) {
   const chartData = useMemo(() => {
     const raw = series || company?.series || sparkline || []
     if (Array.isArray(raw)) {
@@ -64,7 +64,12 @@ export default function CompanyCard({ company, series, sparkline, style }) {
   }, [company?.labels, company?.price_history, company?.history])
 
   return (
-    <article className="company-card card-appear" style={style} tabIndex={0}>
+    <article
+      className="company-card card-appear"
+      style={{ ...style, cursor: onClick ? "pointer" : "default" }}
+      onClick={onClick}
+      tabIndex={0}
+    >
       <div className="company-card__top">
         <div className="company-card__header-left">
           <h3 className="company-card__name" title={company?.name || company?.ticker}>

@@ -589,6 +589,15 @@ class StockPredictionService:
                     prev_close = round(current_close - change, 2) if len(prices_df) >= 2 else current_close
                     price_history = self.extract_price_history(prices_df, limit=30)
                     market_cap = self._mcap_cache.get(symbol)
+                    
+                    volume = None
+                    if "Volume" in prices_df.columns and not prices_df["Volume"].empty:
+                        last_vol = prices_df["Volume"].dropna()
+                        if not last_vol.empty:
+                            volume = float(last_vol.iloc[-1])
+
+                    high_52w = float(prices_df["High"].max()) if "High" in prices_df.columns and not prices_df["High"].empty else None
+                    low_52w = float(prices_df["Low"].min()) if "Low" in prices_df.columns and not prices_df["Low"].empty else None
 
                     snapshot_items.append({
                         "symbol": symbol,
@@ -598,6 +607,9 @@ class StockPredictionService:
                         "change": float(change),
                         "change_percent": float(change_pct),
                         "market_cap": market_cap,
+                        "volume": volume,
+                        "high_52w": high_52w,
+                        "low_52w": low_52w,
                         "price_history": price_history,
                     })
                 elif symbol in existing_items_map:
