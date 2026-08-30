@@ -213,26 +213,21 @@ export default function Constituents() {
   }
 
   const fetchLiveConstituents = async () => {
-    if (isFetchingRef.current) return
-
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
 
     const controller = new AbortController()
     abortControllerRef.current = controller
-    isFetchingRef.current = true
 
     setError(null)
 
     const timeoutId = setTimeout(() => {
-      if (isFetchingRef.current) {
-        controller.abort()
-      }
+      controller.abort()
     }, 15000)
 
     try {
-      const res = await getMarketSnapshot(undefined, { signal: controller.signal })
+      const res = await getMarketSnapshot()
       clearTimeout(timeoutId)
 
       if (res) {
@@ -280,10 +275,10 @@ export default function Constituents() {
       }
     } catch (err) {
       clearTimeout(timeoutId)
-      setWarning("Showing verified Nifty 50 market snapshot. Live background refresh active.")
-      setStatus("partial_success")
-    } finally {
-      isFetchingRef.current = false
+      if (err.name !== "AbortError") {
+        setWarning("Showing verified Nifty 50 market snapshot. Live background refresh active.")
+        setStatus("partial_success")
+      }
     }
   }
 
