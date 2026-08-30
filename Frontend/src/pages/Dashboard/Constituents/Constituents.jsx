@@ -85,6 +85,23 @@ const getTicker52WRange = (sym, price) => {
   return { low52, high52 }
 }
 
+// Mutually exclusive 52W High / Low classification helpers dynamically evaluated on live price
+const isNear52WHigh = (item) => {
+  if (!item || !item.price || !item.high52 || !item.low52) return false
+  const range = item.high52 - item.low52
+  if (range <= 0) return item.price >= item.high52
+  const ratio = (item.price - item.low52) / range
+  return ratio >= 0.5 && item.price >= item.high52 * 0.95
+}
+
+const isNear52WLow = (item) => {
+  if (!item || !item.price || !item.high52 || !item.low52) return false
+  const range = item.high52 - item.low52
+  if (range <= 0) return false
+  const ratio = (item.price - item.low52) / range
+  return ratio < 0.5 && item.price <= item.low52 * 1.05
+}
+
 // Generate baseline constituent items array from verified local dataset
 const getBaselineMappedItems = () => {
   return BASELINE_CONSTITUENTS.map((item) => {
@@ -120,6 +137,7 @@ const getBaselineMappedItems = () => {
 
 export default function Constituents() {
   const [items, setItems] = useState(() => getBaselineMappedItems())
+  const [liveIndexQuote, setLiveIndexQuote] = useState(null)
   const [status, setStatus] = useState("success") // "loading" | "success" | "partial_success" | "error" | "empty"
   const [error, setError] = useState(null)
   const [warning, setWarning] = useState(null)
@@ -217,42 +235,47 @@ export default function Constituents() {
       const res = await getMarketSnapshot(undefined, { signal: controller.signal })
       clearTimeout(timeoutId)
 
-      if (res && res.items && res.items.length > 0) {
-        const mapped = res.items.map((item) => {
-          const sym = item.symbol.toUpperCase()
-          const sec = TICKER_SECTORS[sym] || item.sector || "General"
-          const price = item.current_price ?? item.previous_close ?? 0
-          const changePct = item.change_percent ?? 0
-          const changeVal = item.change ?? 0
-          const mcapVal = item.market_cap || 0
-          const volVal = item.volume || 0
+      if (res) {
+        if (res.index_quote || res.indexQuote) {
+          setLiveIndexQuote(res.index_quote || res.indexQuote)
+        }
+        if (res.items && res.items.length > 0) {
+          const mapped = res.items.map((item) => {
+            const sym = item.symbol.toUpperCase()
+            const sec = TICKER_SECTORS[sym] || item.sector || "General"
+            const price = item.current_price ?? item.previous_close ?? 0
+            const changePct = item.change_percent ?? 0
+            const changeVal = item.change ?? 0
+            const mcapVal = item.market_cap || 0
+            const volVal = item.volume || 0
 
-          const fallbackRange = getTicker52WRange(sym, price)
-          const high52 = item.high_52w && item.high_52w > price ? item.high_52w : fallbackRange.high52
-          const low52 = item.low_52w && item.low_52w < price ? item.low_52w : fallbackRange.low52
+            const fallbackRange = getTicker52WRange(sym, price)
+            const high52 = item.high_52w ? Math.max(item.high_52w, price) : fallbackRange.high52
+            const low52 = item.low_52w ? Math.min(item.low_52w, price) : fallbackRange.low52
 
-          return {
-            ticker: sym,
-            name: item.company_name,
-            sector: sec,
-            price: price,
-            change: changeVal,
-            changePct: changePct,
-            rawMcap: mcapVal,
-            mcap: formatMcap(mcapVal),
-            volume: volVal,
-            high52: high52,
-            low52: low52,
+            return {
+              ticker: sym,
+              name: item.company_name,
+              sector: sec,
+              price: price,
+              change: changeVal,
+              changePct: changePct,
+              rawMcap: mcapVal,
+              mcap: formatMcap(mcapVal),
+              volume: volVal,
+              high52: high52,
+              low52: low52,
+            }
+          })
+
+          setItems(mapped)
+          if (res.is_stale) {
+            setStatus("partial_success")
+            setWarning("Showing verified Nifty 50 market snapshot. Live background refresh active.")
+          } else {
+            setStatus("success")
+            setWarning(null)
           }
-        })
-
-        setItems(mapped)
-        if (res.is_stale) {
-          setStatus("partial_success")
-          setWarning("Showing verified Nifty 50 market snapshot. Live background refresh active.")
-        } else {
-          setStatus("success")
-          setWarning(null)
         }
       }
     } catch (err) {
@@ -375,18 +398,17 @@ export default function Constituents() {
 
   // Summary Metrics calculations for Top 5 Cards
   const summaryMetrics = useMemo(() => {
-    if (!items || items.length === 0) {
-      return {
-        niftyIndex: "24,108.30",
-        niftyChange: "+17.45 (+0.07%)",
-        niftyPositive: true,
-        totalMcap: "₹429.18T",
-        mcapChangePct: "+0.72%",
-        advances: 32,
-        declines: 18,
-        highs52: 26,
-        lows52: 3,
-      }
+    let niftyIndex = "N/A"
+    let niftyChange = "Data Unavailable"
+    let niftyPositive = true
+
+    if (liveIndexQuote && typeof liveIndexQuote.current_price === "number") {
+      const p = liveIndexQuote.current_price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      const chg = liveIndexQuote.change >= 0 ? `+${liveIndexQuote.change.toFixed(2)}` : liveIndexQuote.change.toFixed(2)
+      const pct = liveIndexQuote.change_percent >= 0 ? `+${liveIndexQuote.change_percent.toFixed(2)}%` : `${liveIndexQuote.change_percent.toFixed(2)}%`
+      niftyIndex = p
+      niftyChange = `${chg} (${pct})`
+      niftyPositive = liveIndexQuote.change >= 0
     }
 
     let totalMcapVal = 0
@@ -395,29 +417,31 @@ export default function Constituents() {
     let highs = 0
     let lows = 0
 
-    items.forEach((item) => {
-      totalMcapVal += item.rawMcap || 0
-      if (item.changePct >= 0) adv++
-      else dec++
+    if (items && items.length > 0) {
+      items.forEach((item) => {
+        totalMcapVal += item.rawMcap || 0
+        if (item.changePct >= 0) adv++
+        else dec++
 
-      if (item.price && item.high52 && item.price >= item.high52 * 0.95) highs++
-      if (item.price && item.low52 && item.price <= item.low52 * 1.05) lows++
-    })
+        if (isNear52WHigh(item)) highs++
+        if (isNear52WLow(item)) lows++
+      })
+    }
 
-    const avgPct = items.reduce((acc, c) => acc + c.changePct, 0) / items.length
+    const avgPct = items && items.length > 0 ? items.reduce((acc, c) => acc + c.changePct, 0) / items.length : 0
 
     return {
-      niftyIndex: "24,833.45",
-      niftyChange: `${avgPct >= 0 ? "+" : ""}${(142.35 * (avgPct / 0.58 || 1)).toFixed(2)} (${avgPct >= 0 ? "+" : ""}${avgPct.toFixed(2)}%)`,
-      niftyPositive: avgPct >= 0,
-      totalMcap: formatMcap(totalMcapVal > 0 ? totalMcapVal : 4.2918e14),
+      niftyIndex,
+      niftyChange,
+      niftyPositive,
+      totalMcap: formatMcap(totalMcapVal),
       mcapChangePct: `${avgPct >= 0 ? "+" : ""}${avgPct.toFixed(2)}%`,
       advances: adv,
       declines: dec,
-      highs52: highs || 26,
-      lows52: lows || 3,
+      highs52: highs,
+      lows52: lows,
     }
-  }, [items])
+  }, [items, liveIndexQuote])
 
   // Sector list helper (All sectors included in dropdown)
   const allSectorsList = useMemo(() => {

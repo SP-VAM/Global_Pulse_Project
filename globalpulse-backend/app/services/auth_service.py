@@ -448,6 +448,9 @@ class AuthService:
         user_sess.refresh_token = refresh
         await self.session.commit()
 
+        # Strict Security Policy: Enforce maximum 3 concurrent active sessions limit per user
+        await self.session_repo.enforce_active_session_limit(user.user_id, max_allowed=3)
+
         # Audit log
         await self.audit_repo.create(
             {"user_id": user.user_id, "table_name": "users", "action": "USER_LOGIN", "description": "User logged in."}

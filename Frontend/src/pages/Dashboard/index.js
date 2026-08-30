@@ -2,6 +2,7 @@ export { default as DashboardLayout } from "./DashboardLayout/DashboardLayout";
 export { default as Dashboard } from "./Home/Dashboard";
 export { default as Goals } from "./Goals/Goals";
 export { default as Constituents } from "./Constituents/Constituents";
+export { default as ConstituentsOld } from "./Constituents/Constituents_old";
 export { default as MarketAnalysis } from "./MarketAnalysis/MarketAnalysis";
 export { default as LearningHub } from "./LearningHub/LearningHub";
 export { default as ExpenseTracker } from "./ExpenseTracker/ExpenseTracker";

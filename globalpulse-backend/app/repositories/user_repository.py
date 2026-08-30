@@ -167,7 +167,11 @@ class SessionRepository(BaseRepository[UserSessionModel, Any, Any]):
         res = await self.session.execute(stmt)
         return res.scalar_one_or_none()
 
-    async def get_all_active_user_sessions(self, user_id: int) -> List[UserSessionModel]:
+    async def enforce_active_session_limit(self, user_id: int, max_allowed: int = 3) -> None:
+        """
+        Strict Security Policy: Maximum 3 concurrent active sessions per user.
+        Automatically revokes excess older sessions so that active session count never exceeds 3.
+        """
         stmt = (
             select(UserSessionModel)
             .where(
@@ -175,6 +179,31 @@ class SessionRepository(BaseRepository[UserSessionModel, Any, Any]):
                 UserSessionModel.is_active == True,
             )
             .order_by(UserSessionModel.created_at.desc())
+        )
+        res = await self.session.execute(stmt)
+        active_sessions = list(res.scalars().all())
+
+        if len(active_sessions) > max_allowed:
+            excess = active_sessions[max_allowed:]
+            excess_ids = [s.session_id for s in excess]
+            revoke_stmt = (
+                update(UserSessionModel)
+                .where(UserSessionModel.session_id.in_(excess_ids))
+                .values(is_active=False, logout_time=datetime.now(timezone.utc))
+            )
+            await self.session.execute(revoke_stmt)
+            await self.session.commit()
+
+    async def get_all_active_user_sessions(self, user_id: int, max_allowed: int = 3) -> List[UserSessionModel]:
+        await self.enforce_active_session_limit(user_id, max_allowed=max_allowed)
+        stmt = (
+            select(UserSessionModel)
+            .where(
+                UserSessionModel.user_id == user_id,
+                UserSessionModel.is_active == True,
+            )
+            .order_by(UserSessionModel.created_at.desc())
+            .limit(max_allowed)
         )
         res = await self.session.execute(stmt)
         return list(res.scalars().all())

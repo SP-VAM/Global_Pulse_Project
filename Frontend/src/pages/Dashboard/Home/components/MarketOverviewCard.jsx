@@ -2,9 +2,9 @@ import { Activity, TrendingUp, TrendingDown } from "lucide-react"
 
 export default function MarketOverviewCard({ data, style, onClick }) {
   const isOpen = data?.status === "OPEN"
-  const nifty = data?.indices && data.indices.length > 0
+  const nifty = data?.indices && data.indices.length > 0 && data.indices[0].value
     ? data.indices[0]
-    : { label: "NIFTY 50", value: "24,108.30", change: "+17.45 (+0.07%)", positive: true }
+    : { label: "NIFTY 50", value: "N/A", change: "Data Unavailable", positive: true }
   
   const Ch = nifty.positive ? TrendingUp : TrendingDown
 

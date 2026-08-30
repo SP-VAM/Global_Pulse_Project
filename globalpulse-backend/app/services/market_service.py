@@ -57,24 +57,61 @@ class MarketService:
         ticker_symbol = INDEX_SYMBOL_MAP.get(symbol.upper(), symbol.upper())
         try:
             ticker = yf.Ticker(ticker_symbol)
-            df = ticker.history(period="5d")
-            if df.empty:
-                return None
-
-            current_close = float(df["Close"].iloc[-1])
-            prev_close = float(df["Close"].iloc[-2]) if len(df) >= 2 else current_close
-            change = round(current_close - prev_close, 2)
-            change_pct = round((change / prev_close) * 100, 2) if prev_close != 0 else 0.0
-
             now_utc = TimezoneService.now_utc()
             now_ist = TimezoneService.utc_to_ist(now_utc)
+
+            current_close: Optional[float] = None
+            prev_close: Optional[float] = None
+            open_price: Optional[float] = None
+            high_price: Optional[float] = None
+            low_price: Optional[float] = None
+
+            # 1. Try fast_info for instantaneous real-time index & stock quotes
+            try:
+                fi = ticker.fast_info
+                lp = getattr(fi, "last_price", None)
+                pc = getattr(fi, "previous_close", None) or getattr(fi, "regular_market_previous_close", None)
+                if lp is not None and lp > 0:
+                    current_close = float(lp)
+                if pc is not None and pc > 0:
+                    prev_close = float(pc)
+                open_price = float(getattr(fi, "open", 0) or 0) or None
+                high_price = float(getattr(fi, "day_high", 0) or 0) or None
+                low_price = float(getattr(fi, "day_low", 0) or 0) or None
+            except Exception as fi_err:
+                logger.debug("fast_info fetch skipped for %s: %s", ticker_symbol, fi_err)
+
+            # 2. If fast_info is incomplete, query history dataframe
+            if current_close is None or prev_close is None:
+                df = ticker.history(period="5d")
+                if not df.empty:
+                    if current_close is None:
+                        current_close = float(df["Close"].iloc[-1])
+                    if prev_close is None:
+                        prev_close = float(df["Close"].iloc[-2]) if len(df) >= 2 else current_close
+                    if open_price is None:
+                        open_price = float(df["Open"].iloc[-1])
+                    if high_price is None:
+                        high_price = float(df["High"].iloc[-1])
+                    if low_price is None:
+                        low_price = float(df["Low"].iloc[-1])
+
+            # 3. If no valid price data could be retrieved from provider, return None (NO hardcoded fake values)
+            if current_close is None or current_close <= 0:
+                return None
+
+            if prev_close is None or prev_close <= 0:
+                prev_close = current_close
+
+            change = round(current_close - prev_close, 2)
+            change_pct = round((change / prev_close) * 100, 2) if prev_close != 0 else 0.0
 
             return NormalizedQuote(
                 symbol=symbol.upper(),
                 price=round(current_close, 2),
-                open=round(float(df["Open"].iloc[-1]), 2),
-                high=round(float(df["High"].iloc[-1]), 2),
-                low=round(float(df["Low"].iloc[-1]), 2),
+                open=round(open_price, 2) if open_price else round(current_close, 2),
+                high=round(high_price, 2) if high_price else round(current_close, 2),
+                low=round(low_price, 2) if low_price else round(current_close, 2),
                 previous_close=round(prev_close, 2),
                 change=change,
                 change_percent=change_pct,

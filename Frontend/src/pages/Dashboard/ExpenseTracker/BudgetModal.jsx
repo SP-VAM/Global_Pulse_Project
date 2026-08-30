@@ -24,6 +24,7 @@ export default function BudgetModal({ open, mode, initial, existingBudgets = [],
   const [form, setForm] = useState(BLANK);
   const [error, setError] = useState("");
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
  
   const initialLimit = isEdit ? Number(initial?.limit || 0) : 0;
  

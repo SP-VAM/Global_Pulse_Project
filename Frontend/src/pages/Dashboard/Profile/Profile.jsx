@@ -1055,6 +1055,18 @@ export default function Profile() {
 
   const currentTab = activeTab.toLowerCase()
 
+  const userInitial = (
+    formData.firstName?.trim() ||
+    user?.firstName?.trim() ||
+    formData.email?.trim() ||
+    user?.email?.trim() ||
+    globalUser?.first_name ||
+    globalUser?.username ||
+    globalUser?.email ||
+    localStorage.getItem("email") ||
+    "N"
+  ).charAt(0).toUpperCase()
+
   return (
     <div className="profile-container">
       {notificationMsg && (
@@ -1120,7 +1132,9 @@ export default function Profile() {
                     className="avatar-image"
                   />
                 ) : (
-                  <User size={46} className="avatar-placeholder-icon" />
+                  <span className="profile-initial-avatar">
+                    {userInitial}
+                  </span>
                 )}
               </div>
               <input
@@ -1623,9 +1637,12 @@ export default function Profile() {
                 <div className="ac-sec-header" style={{ marginBottom: "16px", paddingTop: "20px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                   <Laptop size={20} className="ac-sec-title-icon" />
                   <h2 className="ac-sec-title">Active Sessions & Devices</h2>
+                  <span className="session-policy-badge" style={{ marginLeft: "auto", fontSize: "11px", color: "#38bdf8", background: "rgba(56, 189, 248, 0.1)", padding: "4px 8px", borderRadius: "6px", border: "1px solid rgba(56, 189, 248, 0.2)" }}>
+                    🔒 Max Limit: 3 Active Devices
+                  </span>
                 </div>
                 <p className="ac-2fa-sub" style={{ marginBottom: "16px" }}>
-                  View and manage devices currently signed in to your account.
+                  View and manage devices currently signed in to your account (Maximum 3 active sessions allowed).
                 </p>
 
                 {loadingSessions && (
@@ -1650,7 +1667,7 @@ export default function Profile() {
 
                 {!loadingSessions && !sessionError && sessions.length > 0 && (
                   <div className="sessions-list-grid">
-                    {sessions.map((s) => {
+                    {sessions.slice(0, 3).map((s) => {
                       const isCurrent = s.isCurrent || s.is_current
                       const sId = s.sessionId || s.session_id
                       const devName = s.deviceName || s.device_name || "Web Browser"

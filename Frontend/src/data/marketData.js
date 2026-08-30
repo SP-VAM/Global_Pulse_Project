@@ -17,9 +17,9 @@ export const summaryCards = [
 
 // Market overview mini-index tile (Nifty 50 + status).
 export const marketOverview = {
-  status: "OPEN",
+  status: "CLOSED",
   indices: [
-    { id: "nifty", label: "NIFTY 50", value: "24,108.30", change: "+17.45 (+0.07%)", positive: true },
+    { id: "nifty", label: "NIFTY 50", value: null, change: null, positive: null },
   ],
 }
 

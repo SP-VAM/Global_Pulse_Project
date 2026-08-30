@@ -719,18 +719,19 @@ class StockPredictionService:
             # PRESERVE original timestamp (do NOT overwrite with current time)
             return stale_copy
 
-        # 4. Ultimate fallback if cache is empty
+        # 4. Ultimate fallback if cache is empty and provider is unreachable: return explicit UNAVAILABLE state
         return {
             "symbol": "^NSEI",
             "label": "NIFTY 50",
-            "current_price": 24108.30,
-            "previous_close": 24090.85,
-            "change": 17.45,
-            "change_percent": 0.07,
+            "current_price": None,
+            "previous_close": None,
+            "change": None,
+            "change_percent": None,
             "timestamp_utc": now_utc.isoformat(),
             "timestamp_ist": now_ist.isoformat(),
             "data_state": "UNAVAILABLE",
             "is_live": False,
+            "is_stale": True,
         }
 
     async def get_market_snapshot(self, symbols: Optional[List[str]] = None) -> List[Dict[str, Any]]:
