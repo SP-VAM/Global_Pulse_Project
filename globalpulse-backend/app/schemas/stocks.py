@@ -195,12 +195,12 @@ class StockMarketSnapshotItemSchema(BaseModel):
 class StockIndexQuoteSchema(BaseModel):
     symbol: str = Field("^NSEI", description="Authoritative index symbol e.g. ^NSEI")
     label: str = Field("NIFTY 50", description="Display index label")
-    current_price: float = Field(..., description="Authoritative index price level")
-    previous_close: float = Field(..., description="Index previous close level")
-    change: float = Field(..., description="Absolute daily change = current_price - previous_close")
-    change_percent: float = Field(..., description="Percentage daily change = (change / previous_close) * 100")
-    timestamp_utc: str = Field(..., description="ISO UTC timestamp of the index quote")
-    timestamp_ist: str = Field(..., description="ISO IST timestamp of the index quote")
+    current_price: Optional[float] = Field(None, description="Authoritative index price level")
+    previous_close: Optional[float] = Field(None, description="Index previous close level")
+    change: Optional[float] = Field(None, description="Absolute daily change = current_price - previous_close")
+    change_percent: Optional[float] = Field(None, description="Percentage daily change = (change / previous_close) * 100")
+    timestamp_utc: Optional[str] = Field(None, description="ISO UTC timestamp of the index quote")
+    timestamp_ist: Optional[str] = Field(None, description="ISO IST timestamp of the index quote")
     data_state: str = Field("LIVE", description="Data state: 'LIVE', 'STALE', or 'UNAVAILABLE'")
     is_live: bool = Field(True, description="True if quote is live fresh during open market hours")
 
