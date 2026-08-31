@@ -52,6 +52,37 @@ class MarketService:
     def __init__(self, provider: MarketDataProvider) -> None:
         self._provider = provider
 
+    def _fetch_direct_yahoo_chart_api(self, ticker_symbol: str) -> Optional[Dict[str, float]]:
+        """Direct HTTP query with custom User-Agent to bypass cloud IP rate-limiting on Render."""
+        try:
+            import urllib.request
+            import urllib.parse
+            import json
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(ticker_symbol)}?interval=1m&range=1d"
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                result = data["chart"]["result"][0]
+                meta = result["meta"]
+                price = float(meta.get("regularMarketPrice") or 0)
+                prev_close = float(meta.get("previousClose") or meta.get("chartPreviousClose") or price)
+                if price > 0:
+                    return {
+                        "price": price,
+                        "previous_close": prev_close,
+                        "open": float(meta.get("regularMarketDayOpen") or price),
+                        "high": float(meta.get("regularMarketDayHigh") or price),
+                        "low": float(meta.get("regularMarketDayLow") or price),
+                    }
+        except Exception as e:
+            logger.debug("Direct Yahoo chart API fetch skipped for %s: %s", ticker_symbol, e)
+        return None
+
     def _fetch_yfinance_quote(self, symbol: str) -> Optional[NormalizedQuote]:
         """Fallback sync fetcher for yfinance quotes when primary provider returns null."""
         ticker_symbol = INDEX_SYMBOL_MAP.get(symbol.upper(), symbol.upper())
@@ -66,20 +97,33 @@ class MarketService:
             high_price: Optional[float] = None
             low_price: Optional[float] = None
 
-            # 1. Try fast_info for instantaneous real-time index & stock quotes
-            try:
-                fi = ticker.fast_info
-                lp = getattr(fi, "last_price", None)
-                pc = getattr(fi, "previous_close", None) or getattr(fi, "regular_market_previous_close", None)
-                if lp is not None and lp > 0:
-                    current_close = float(lp)
-                if pc is not None and pc > 0:
-                    prev_close = float(pc)
-                open_price = float(getattr(fi, "open", 0) or 0) or None
-                high_price = float(getattr(fi, "day_high", 0) or 0) or None
-                low_price = float(getattr(fi, "day_low", 0) or 0) or None
-            except Exception as fi_err:
-                logger.debug("fast_info fetch skipped for %s: %s", ticker_symbol, fi_err)
+            # 1. Try direct HTTP Yahoo chart API with custom User-Agent (bypasses cloud IP blocking on Render)
+            direct_data = self._fetch_direct_yahoo_chart_api(ticker_symbol)
+            if direct_data and direct_data.get("price"):
+                current_close = direct_data["price"]
+                prev_close = direct_data["previous_close"]
+                open_price = direct_data.get("open")
+                high_price = direct_data.get("high")
+                low_price = direct_data.get("low")
+
+            # 2. Try fast_info for instantaneous real-time index & stock quotes
+            if current_close is None or prev_close is None:
+                try:
+                    fi = ticker.fast_info
+                    lp = getattr(fi, "last_price", None)
+                    pc = getattr(fi, "previous_close", None) or getattr(fi, "regular_market_previous_close", None)
+                    if lp is not None and lp > 0 and current_close is None:
+                        current_close = float(lp)
+                    if pc is not None and pc > 0 and prev_close is None:
+                        prev_close = float(pc)
+                    if open_price is None:
+                        open_price = float(getattr(fi, "open", 0) or 0) or None
+                    if high_price is None:
+                        high_price = float(getattr(fi, "day_high", 0) or 0) or None
+                    if low_price is None:
+                        low_price = float(getattr(fi, "day_low", 0) or 0) or None
+                except Exception as fi_err:
+                    logger.debug("fast_info fetch skipped for %s: %s", ticker_symbol, fi_err)
 
             # 2. If fast_info is incomplete, query history dataframe
             if current_close is None or prev_close is None:
