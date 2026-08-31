@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 
 import { getMarketSnapshot } from "../../../api/marketApi.js"
+import { fetchUserWatchlists, addUserWatchlist, deleteUserWatchlist } from "../../../api/notificationApi.js"
 import { constituents as BASELINE_CONSTITUENTS } from "../../../data/marketData.js"
 import "./Constituents.css"
 
@@ -180,6 +181,30 @@ export default function Constituents() {
   const [isWatchlistDropdownOpen, setIsWatchlistDropdownOpen] = useState(false)
   const [starredPage, setStarredPage] = useState(false)
 
+  // Load Watchlist from Backend Database API for cross-device synchronization
+  useEffect(() => {
+    let isMounted = true
+    const syncBackendWatchlist = async () => {
+      try {
+        const res = await fetchUserWatchlists()
+        if (Array.isArray(res) && isMounted && res.length > 0) {
+          const tickers = res.map((w) => (w.symbol || w.ticker || "").toUpperCase()).filter(Boolean)
+          if (tickers.length > 0) {
+            setWatchlist(tickers)
+            const key = getUserWatchlistKey()
+            localStorage.setItem(key, JSON.stringify(tickers))
+          }
+        }
+      } catch (err) {
+        console.warn("[Constituents] Backend watchlist sync skipped:", err)
+      }
+    }
+    syncBackendWatchlist()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   // User-customizable Pinned Quick Sectors State
   const [pinnedSectors, setPinnedSectors] = useState(() => {
     try {
@@ -308,9 +333,10 @@ export default function Constituents() {
     }
   }, [])
 
-  const toggleWatchlist = (ticker) => {
+  const toggleWatchlist = async (ticker) => {
+    let isPresent = false
     setWatchlist((prev) => {
-      const isPresent = prev.includes(ticker)
+      isPresent = prev.includes(ticker)
       const updated = isPresent
         ? prev.filter((t) => t !== ticker)
         : [...prev, ticker]
@@ -323,6 +349,20 @@ export default function Constituents() {
       triggerToast(isPresent ? `Removed ${ticker} from Watchlist` : `Added ${ticker} to Watchlist ⭐`)
       return updated
     })
+
+    try {
+      if (isPresent) {
+        const userWatchlists = await fetchUserWatchlists().catch(() => [])
+        const match = Array.isArray(userWatchlists) ? userWatchlists.find((w) => (w.symbol || "").toUpperCase() === ticker.toUpperCase()) : null
+        if (match && match.id) {
+          await deleteUserWatchlist(match.id)
+        }
+      } else {
+        await addUserWatchlist({ symbol: ticker })
+      }
+    } catch (err) {
+      console.warn("[Constituents] Backend watchlist toggle error:", err)
+    }
   }
 
   const handleBulkAddWatchlist = (tickersToAdd) => {
