@@ -5,6 +5,7 @@ import { Navbar, Sidebar, LogoutConfirmationModal } from "../../../components/la
 import { GoalsProvider } from "../Goals/goalsContext.jsx"
 import StarField from "../../../components/common/StarField/StarField.jsx"
 
+import ErrorBoundary from "../../../components/common/ErrorBoundary/ErrorBoundary.jsx"
 import "./DashboardLayout.css"
 
 export default function DashboardLayout() {
@@ -55,7 +56,9 @@ export default function DashboardLayout() {
 
         <main className="shell__content" id="main-content">
           <div className="shell__content-inner">
-            <Outlet />
+            <ErrorBoundary title="Dashboard View Error">
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
       </GoalsProvider>

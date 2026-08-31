@@ -7,6 +7,7 @@ import MarketOverviewCard from "./components/MarketOverviewCard.jsx"
 import CompanyCard from "./components/CompanyCard.jsx"
 import TopMovers from "./components/TopMovers.jsx"
 import SectorCard from "./components/SectorCard.jsx"
+import ErrorBoundary from "../../../components/common/ErrorBoundary/ErrorBoundary.jsx"
 import { useFlow } from "../../../App"
 import { getMarketSnapshot, getTopMovers } from "../../../api/marketApi.js"
 import { getExpenseSummary } from "../../../api/expenseApi.js"
@@ -398,11 +399,12 @@ export default function Dashboard() {
         const priceVal = item.current_price ?? item.previous_close ?? 0
         const changePct = item.change_percent ?? 0
         const positive = changePct >= 0
+        const sym = item.symbol || item.ticker || "N/A"
         return {
-          id: item.symbol.toLowerCase(),
-          name: item.company_name ? item.company_name.split(" ")[0] : item.symbol,
-          ticker: item.symbol,
-          value: typeof priceVal === "number" ? priceVal.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : priceVal,
+          id: String(sym).toLowerCase(),
+          name: item.company_name ? item.company_name.split(" ")[0] : sym,
+          ticker: sym,
+          value: typeof priceVal === "number" ? priceVal.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : String(priceVal),
           change: `${positive ? "+" : ""}${typeof changePct === "number" ? changePct.toFixed(2) : changePct}%`,
           positive,
         }
@@ -412,10 +414,12 @@ export default function Dashboard() {
   }, [liveMarketItems])
 
   const marketOverviewData = useMemo(() => {
-    if (liveIndexQuote && liveIndexQuote.current_price) {
+    if (liveIndexQuote && typeof liveIndexQuote.current_price === "number") {
       const p = liveIndexQuote.current_price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      const chg = liveIndexQuote.change >= 0 ? `+${liveIndexQuote.change.toFixed(2)}` : liveIndexQuote.change.toFixed(2)
-      const pct = liveIndexQuote.change_percent >= 0 ? `+${liveIndexQuote.change_percent.toFixed(2)}%` : `${liveIndexQuote.change_percent.toFixed(2)}%`
+      const chgVal = typeof liveIndexQuote.change === "number" ? liveIndexQuote.change : 0
+      const pctVal = typeof liveIndexQuote.change_percent === "number" ? liveIndexQuote.change_percent : 0
+      const chg = chgVal >= 0 ? `+${chgVal.toFixed(2)}` : chgVal.toFixed(2)
+      const pct = pctVal >= 0 ? `+${pctVal.toFixed(2)}%` : `${pctVal.toFixed(2)}%`
       return {
         status: liveIndexQuote.is_live ? "OPEN" : "CLOSED",
         indices: [
@@ -423,7 +427,7 @@ export default function Dashboard() {
             label: "NIFTY 50",
             value: p,
             change: `${chg} (${pct})`,
-            positive: liveIndexQuote.change >= 0,
+            positive: chgVal >= 0,
             data_state: liveIndexQuote.data_state,
           }
         ]
@@ -520,17 +524,19 @@ export default function Dashboard() {
           </div>
 
           <div className="dashboard__movers-col">
-            <TopMovers
-              movers={topMoversData ? topMoversData.movers : displayTopMovers}
-              asOfFormatted={topMoversData ? topMoversData.as_of_formatted : null}
-              marketStatus={topMoversData ? topMoversData.market_status : null}
-              isStale={topMoversData ? topMoversData.is_stale : false}
-              loading={loadingMovers}
-              error={moversError}
-              onRetry={fetchLiveTopMovers}
-              onViewAll={() => navigate("/dashboard/constituents")}
-              style={{ animationDelay: "120ms" }}
-            />
+            <ErrorBoundary title="Top Movers Error">
+              <TopMovers
+                movers={topMoversData ? topMoversData.movers : displayTopMovers}
+                asOfFormatted={topMoversData ? topMoversData.as_of_formatted : null}
+                marketStatus={topMoversData ? topMoversData.market_status : null}
+                isStale={topMoversData ? topMoversData.is_stale : false}
+                loading={loadingMovers}
+                error={moversError}
+                onRetry={fetchLiveTopMovers}
+                onViewAll={() => navigate("/dashboard/constituents")}
+                style={{ animationDelay: "120ms" }}
+              />
+            </ErrorBoundary>
 
             {!query.trim() && totalCarouselPages > 1 && (
               <div className="dashboard__carousel-dots">

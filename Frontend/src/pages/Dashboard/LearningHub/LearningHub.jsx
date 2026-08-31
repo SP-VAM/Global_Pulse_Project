@@ -32,11 +32,13 @@ export default function LearningHub() {
   // Recently watched learning modules stored per user (defaults to [] for brand-new users)
   const [activeModules, setActiveModules] = useState(() => {
     try {
+      localStorage.removeItem("recent_learning_modules_v3");
+      localStorage.removeItem("lh_user_video_progress_v1");
       const userEmail = getCurrentUserEmail();
-      if (!userEmail || userEmail === "guest") return [];
-      const activeModulesKey = `recent_learning_modules_v3_${userEmail}`;
+      const isDummy = !userEmail || userEmail === "guest" || userEmail.endsWith("@globalpulse.io") || userEmail.endsWith("@mobile.globalpulse") || userEmail.endsWith("@user.globalpulse");
+      const activeModulesKey = `recent_learning_modules_v4_${userEmail}`;
       const saved = localStorage.getItem(activeModulesKey);
-      if (saved) return JSON.parse(saved);
+      if (saved && !isDummy) return JSON.parse(saved);
       return [];
     } catch (e) {
       return [];
@@ -208,7 +210,7 @@ export default function LearningHub() {
       const updated = [course, ...filtered].slice(0, 3);
       try {
         const userEmail = getCurrentUserEmail();
-        const activeModulesKey = `recent_learning_modules_v3_${userEmail}`;
+        const activeModulesKey = `recent_learning_modules_v4_${userEmail}`;
         localStorage.setItem(activeModulesKey, JSON.stringify(updated));
       } catch (e) {
         console.error("LocalStorage write error:", e);

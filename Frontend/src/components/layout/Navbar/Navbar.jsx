@@ -12,6 +12,7 @@ import {
   clearReadNotifications,
 } from "../../../api/notificationApi.js"
 import { getUserInitial } from "../../../utils/avatarUtils.js"
+import ErrorBoundary from "../../common/ErrorBoundary/ErrorBoundary.jsx"
 import "./Navbar.css"
 
 export default function Navbar({ onLogoutClick }) {
@@ -251,10 +252,13 @@ export default function Navbar({ onLogoutClick }) {
 
   const toggle = (menu) => setOpenMenu((cur) => (cur === menu ? null : menu))
 
-  const userAvatar = currentUser?.profile_image || currentUser?.profileImage || currentUser?.avatar
   const fullName = [currentUser?.first_name || currentUser?.firstName, currentUser?.last_name || currentUser?.lastName].filter(Boolean).join(" ")
-  const displayName = fullName || currentUser?.full_name || currentUser?.username || "John"
-  const displayEmail = currentUser?.email || (currentUser?.username ? `${currentUser.username}@globalpulse.io` : "john.abc@gmail.com")
+  const displayName = fullName || currentUser?.full_name || currentUser?.username || "User"
+  const rawEmail = typeof currentUser?.email === "string" ? currentUser.email : ""
+  const isDummyEmail = !rawEmail || rawEmail.includes("@globalpulse.io") || rawEmail.includes("@mobile.globalpulse") || rawEmail.includes("@user.globalpulse")
+  const displayEmail = !isDummyEmail
+    ? rawEmail
+    : (currentUser?.mobile_number || currentUser?.mobileNumber || currentUser?.phone || "")
 
   return (
     <header className="navbar" ref={navRef}>
@@ -276,16 +280,18 @@ export default function Navbar({ onLogoutClick }) {
             )}
           </button>
 
-          <NotificationPanel
-            open={openMenu === "notif"}
-            onClose={() => setOpenMenu(null)}
-            notifications={notifications}
-            loading={loading}
-            error={error}
-            onMarkAllRead={handleMarkAllRead}
-            onClearRead={handleClearRead}
-            onNotificationClick={handleNotificationClick}
-          />
+          <ErrorBoundary fallback={null}>
+            <NotificationPanel
+              open={openMenu === "notif"}
+              onClose={() => setOpenMenu(null)}
+              notifications={notifications}
+              loading={loading}
+              error={error}
+              onMarkAllRead={handleMarkAllRead}
+              onClearRead={handleClearRead}
+              onNotificationClick={handleNotificationClick}
+            />
+          </ErrorBoundary>
         </div>
 
         <div className="navbar__item-wrap">

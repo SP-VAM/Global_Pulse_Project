@@ -55,8 +55,8 @@ export default function Profile() {
         const lastName = parsed.lastName || ""
 
         // Email pre-filled if present, empty if null
-        const rawEmail = parsed.email || parsed.user_email || localStorage.getItem("email") || ""
-        const email = rawEmail.includes("@mobile.globalpulse") || rawEmail.includes("@user.globalpulse") ? "" : rawEmail
+        const rawEmail = typeof parsed.email === "string" ? parsed.email : (typeof parsed.user_email === "string" ? parsed.user_email : "")
+        const email = (rawEmail && (rawEmail.includes("@mobile.globalpulse") || rawEmail.includes("@user.globalpulse") || rawEmail.includes("@globalpulse.io"))) ? "" : rawEmail
         const isEmailVerified = parsed.is_email_verified || parsed.isEmailVerified || false
 
         // Phone is empty initially unless explicitly verified & saved
@@ -189,7 +189,9 @@ export default function Profile() {
           const fetchedPhone = fetchedUser.mobile_number || fetchedUser.mobileNumber || fetchedUser.phone || ""
           const fetchedFirstName = fetchedUser.first_name || fetchedUser.firstName || ""
           const fetchedLastName = fetchedUser.last_name || fetchedUser.lastName || ""
-          const fetchedEmail = fetchedUser.email || ""
+          const rawFetchedEmail = typeof fetchedUser.email === "string" ? fetchedUser.email : ""
+          const isDummyEmail = Boolean(rawFetchedEmail && (rawFetchedEmail.includes("@globalpulse.io") || rawFetchedEmail.includes("@mobile.globalpulse") || rawFetchedEmail.includes("@user.globalpulse")))
+          const fetchedEmail = isDummyEmail ? "" : rawFetchedEmail
           const isPhoneVer = Boolean(fetchedUser.is_mobile_verified || fetchedUser.isMobileVerified || fetchedUser.isPhoneVerified)
           const isEmailVer = Boolean(fetchedUser.is_email_verified || fetchedUser.isEmailVerified)
 
@@ -197,7 +199,7 @@ export default function Profile() {
             ...prev,
             firstName: fetchedFirstName || prev.firstName,
             lastName: fetchedLastName || prev.lastName,
-            email: fetchedEmail || prev.email,
+            email: fetchedEmail,
             phone: fetchedPhone || prev.phone,
           }))
 
