@@ -128,7 +128,7 @@ export default function Navbar({ onLogoutClick }) {
         setLoading(false)
 
         // If unread notifications exist, mark them as read immediately upon viewing
-        const hasUnread = notifs.some((n) => !n.is_read) || unreadCount > 0
+        const hasUnread = notifs.some((n) => !n.is_read)
         if (hasUnread) {
           // Optimistically reset unread count and badge to 0
           setUnreadCount(0)
@@ -147,6 +147,9 @@ export default function Navbar({ onLogoutClick }) {
         if (err?.message?.includes("401") || err?.message?.includes("Unauthorized") || err?.message?.includes("authenticated")) {
           setNotifications([])
           setError(null)
+        } else if (err?.message?.includes("429")) {
+          console.warn("[Navbar] Rate limited (HTTP 429), keeping existing state")
+          setError(null)
         } else {
           setError("Notifications temporarily unavailable")
         }
@@ -156,7 +159,7 @@ export default function Navbar({ onLogoutClick }) {
     return () => {
       isMounted = false
     }
-  }, [openMenu, unreadCount])
+  }, [openMenu])
 
   const handleMarkAllRead = async () => {
     setUnreadCount(0)
