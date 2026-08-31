@@ -20,6 +20,7 @@ import {
 import "./Profile.css"
 import { useUser } from "../../../context/UserContext.jsx"
 import { sendOtp, verifyOtp, changePassword, getActiveSessions, revokeSession } from "../../../api/authApi.js"
+import { getUserInitial } from "../../../utils/avatarUtils.js"
 
 function Toggle({ on, onChange }) {
   return (
@@ -1055,17 +1056,12 @@ export default function Profile() {
 
   const currentTab = activeTab.toLowerCase()
 
-  const userInitial = (
-    formData.firstName?.trim() ||
-    user?.firstName?.trim() ||
-    formData.email?.trim() ||
-    user?.email?.trim() ||
-    globalUser?.first_name ||
-    globalUser?.username ||
-    globalUser?.email ||
-    localStorage.getItem("email") ||
-    "N"
-  ).charAt(0).toUpperCase()
+  const userInitial = getUserInitial({
+    first_name: formData.firstName || user?.firstName || globalUser?.first_name,
+    firstName: formData.firstName || user?.firstName || globalUser?.first_name,
+    username: user?.username || globalUser?.username,
+    email: formData.email || user?.email || globalUser?.email,
+  })
 
   return (
     <div className="profile-container">

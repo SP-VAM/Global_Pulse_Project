@@ -107,6 +107,22 @@ export default function NotificationPanel({
 }) {
   const [activeFilter, setActiveFilter] = useState("All")
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
+
+  const handleConfirmClear = async () => {
+    if (isClearing) return
+    setIsClearing(true)
+    try {
+      if (onClearRead) {
+        await onClearRead()
+      }
+    } catch (err) {
+      console.error("[NotificationPanel] Clear read error:", err)
+    } finally {
+      setIsClearing(false)
+      setShowClearConfirm(false)
+    }
+  }
 
   const hasUnread = notifications.some((n) => !n.is_read)
   const hasRead = notifications.some((n) => n.is_read)

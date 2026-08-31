@@ -40,9 +40,6 @@ export default function TopMovers({
             </span>
           )}
         </div>
-        <button className="movers__viewall" onClick={handleViewAll}>
-          VIEW ALL
-        </button>
       </header>
 
       {loading ? (

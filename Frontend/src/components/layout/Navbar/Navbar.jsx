@@ -11,6 +11,7 @@ import {
   markNotificationRead,
   clearReadNotifications,
 } from "../../../api/notificationApi.js"
+import { getUserInitial } from "../../../utils/avatarUtils.js"
 import "./Navbar.css"
 
 export default function Navbar({ onLogoutClick }) {
@@ -295,7 +296,7 @@ export default function Navbar({ onLogoutClick }) {
               {userAvatar ? (
                 <img src={userAvatar} alt="Avatar" />
               ) : (
-                (displayName || "J").charAt(0).toUpperCase()
+                getUserInitial(currentUser)
               )}
             </span>
             <span className="navbar__name">{displayName}</span>
