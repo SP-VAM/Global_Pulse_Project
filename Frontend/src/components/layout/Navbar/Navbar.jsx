@@ -252,6 +252,7 @@ export default function Navbar({ onLogoutClick }) {
 
   const toggle = (menu) => setOpenMenu((cur) => (cur === menu ? null : menu))
 
+  const userAvatar = currentUser?.profile_image || currentUser?.profileImage || currentUser?.avatar
   const fullName = [currentUser?.first_name || currentUser?.firstName, currentUser?.last_name || currentUser?.lastName].filter(Boolean).join(" ")
   const displayName = fullName || currentUser?.full_name || currentUser?.username || "User"
   const rawEmail = typeof currentUser?.email === "string" ? currentUser.email : ""
