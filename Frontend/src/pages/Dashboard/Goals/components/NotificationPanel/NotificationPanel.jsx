@@ -1,4 +1,5 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import "./NotificationPanel.css"
 import {
   X,
@@ -123,6 +124,25 @@ export default function NotificationPanel({
       setShowClearConfirm(false)
     }
   }
+
+  useEffect(() => {
+    if (!showClearConfirm) return
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && !isClearing) {
+        setShowClearConfirm(false)
+      }
+    }
+
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      document.body.style.overflow = originalOverflow
+    }
+  }, [showClearConfirm, isClearing])
 
   const hasUnread = notifications.some((n) => !n.is_read)
   const hasRead = notifications.some((n) => n.is_read)
@@ -280,8 +300,8 @@ export default function NotificationPanel({
         </div>
       </div>
 
-      {showClearConfirm && (
-        <div className="np-modal-backdrop" onClick={() => setShowClearConfirm(false)}>
+      {showClearConfirm && createPortal(
+        <div className="np-modal-backdrop" onClick={() => !isClearing && setShowClearConfirm(false)}>
           <div className="np-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="np-modal-head">
               <Trash2 size={20} className="np-modal-icon--danger" />
@@ -309,7 +329,8 @@ export default function NotificationPanel({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
