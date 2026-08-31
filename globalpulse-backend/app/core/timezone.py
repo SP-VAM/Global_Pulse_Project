@@ -6,6 +6,7 @@ No fixed offsets are ever manually applied.
 DST is handled automatically by zoneinfo.
 """
 from datetime import datetime, timezone
+from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.core.logging import get_logger
