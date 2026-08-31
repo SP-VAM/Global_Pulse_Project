@@ -29,16 +29,17 @@ const getCurrentUserEmail = () => {
  * - Network error handling & retry
  */
 export default function LearningHub() {
-  // Recently watched learning modules stored in localStorage (max 3 for 1 clean row)
+  // Recently watched learning modules stored per user (defaults to [] for brand-new users)
   const [activeModules, setActiveModules] = useState(() => {
     try {
       const userEmail = getCurrentUserEmail();
+      if (!userEmail || userEmail === "guest") return [];
       const activeModulesKey = `recent_learning_modules_v3_${userEmail}`;
-      const saved = localStorage.getItem(activeModulesKey) || localStorage.getItem("recent_learning_modules_v3");
+      const saved = localStorage.getItem(activeModulesKey);
       if (saved) return JSON.parse(saved);
-      return learningData.slice(0, 3);
+      return [];
     } catch (e) {
-      return learningData.slice(0, 3);
+      return [];
     }
   });
 
@@ -47,7 +48,7 @@ export default function LearningHub() {
     try {
       const userEmail = getCurrentUserEmail();
       const progressKey = `lh_user_video_progress_v1_${userEmail}`;
-      const saved = localStorage.getItem(progressKey) || localStorage.getItem("lh_user_video_progress_v1");
+      const saved = localStorage.getItem(progressKey);
       if (!saved) return {};
       const parsed = JSON.parse(saved);
       const normalized = { ...parsed };

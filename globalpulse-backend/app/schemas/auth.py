@@ -150,6 +150,14 @@ class UserResponse(BaseModel):
     last_login_at: Optional[datetime] = None
     created_at: datetime
 
+    @property
+    def phone(self) -> Optional[str]:
+        return self.mobile_number
+
+    @property
+    def phone_number(self) -> Optional[str]:
+        return self.mobile_number
+
 
 class TokenResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)

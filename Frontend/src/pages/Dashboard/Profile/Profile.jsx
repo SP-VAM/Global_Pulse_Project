@@ -19,7 +19,7 @@ import {
 } from "lucide-react"
 import "./Profile.css"
 import { useUser } from "../../../context/UserContext.jsx"
-import { sendOtp, verifyOtp, changePassword, getActiveSessions, revokeSession } from "../../../api/authApi.js"
+import { sendOtp, verifyOtp, changePassword, getActiveSessions, revokeSession, getMe, updateProfile } from "../../../api/authApi.js"
 import { getUserInitial } from "../../../utils/avatarUtils.js"
 
 function Toggle({ on, onChange }) {
@@ -179,6 +179,40 @@ export default function Profile() {
   const [sessionError, setSessionError] = useState(null)
   const [revokingSessionId, setRevokingSessionId] = useState(null)
   const [confirmRevokeSession, setConfirmRevokeSession] = useState(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const syncBackendProfile = async () => {
+      try {
+        const fetchedUser = await getMe()
+        if (fetchedUser && typeof fetchedUser === "object" && isMounted) {
+          const fetchedPhone = fetchedUser.mobile_number || fetchedUser.mobileNumber || fetchedUser.phone || ""
+          const fetchedFirstName = fetchedUser.first_name || fetchedUser.firstName || ""
+          const fetchedLastName = fetchedUser.last_name || fetchedUser.lastName || ""
+          const fetchedEmail = fetchedUser.email || ""
+          const isPhoneVer = Boolean(fetchedUser.is_mobile_verified || fetchedUser.isMobileVerified || fetchedUser.isPhoneVerified)
+          const isEmailVer = Boolean(fetchedUser.is_email_verified || fetchedUser.isEmailVerified)
+
+          setFormData((prev) => ({
+            ...prev,
+            firstName: fetchedFirstName || prev.firstName,
+            lastName: fetchedLastName || prev.lastName,
+            email: fetchedEmail || prev.email,
+            phone: fetchedPhone || prev.phone,
+          }))
+
+          if (fetchedPhone) setIsPhoneVerified(isPhoneVer)
+          if (fetchedEmail) setIsEmailVerified(isEmailVer)
+        }
+      } catch (err) {
+        console.warn("[Profile] getMe profile sync error:", err)
+      }
+    }
+    syncBackendProfile()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   useEffect(() => {
     if (activeTab === "Security" || activeTab === "security") {
@@ -971,7 +1005,7 @@ export default function Profile() {
     showNotification("Settings reset to defaults", "info")
   }
 
-  const handleSaveChanges = (e) => {
+  const handleSaveChanges = async (e) => {
     e.preventDefault()
 
     const fnErr = validateFirstName(formData.firstName)
@@ -1041,9 +1075,23 @@ export default function Profile() {
       toastMessage = "Profile updated successfully."
     }
 
+    try {
+      await updateProfile({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        mobileNumber: formData.phone,
+        email: formData.email,
+      })
+    } catch (apiErr) {
+      console.warn("[Profile] Backend updateProfile sync failed:", apiErr)
+    }
+
     const updatedUser = {
       ...formData,
+      first_name: formData.firstName,
+      last_name: formData.lastName,
       full_name: `${formData.firstName} ${formData.lastName}`.trim(),
+      mobile_number: formData.phone,
       isEmailVerified,
       isPhoneVerified,
     }
