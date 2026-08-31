@@ -91,7 +91,7 @@ const isNear52WHigh = (item) => {
   const range = item.high52 - item.low52
   if (range <= 0) return item.price >= item.high52
   const ratio = (item.price - item.low52) / range
-  return ratio >= 0.5 && item.price >= item.high52 * 0.95
+  return ratio >= 0.80 || item.price >= item.high52 * 0.98
 }
 
 const isNear52WLow = (item) => {
@@ -99,7 +99,7 @@ const isNear52WLow = (item) => {
   const range = item.high52 - item.low52
   if (range <= 0) return false
   const ratio = (item.price - item.low52) / range
-  return ratio < 0.5 && item.price <= item.low52 * 1.05
+  return ratio <= 0.20 || item.price <= item.low52 * 1.02
 }
 
 // Generate baseline constituent items array from verified local dataset
@@ -483,9 +483,9 @@ export default function Constituents() {
     } else if (performanceFilter === "Losers") {
       rows = rows.filter((c) => c.changePct < 0)
     } else if (performanceFilter === "52W High") {
-      rows = rows.filter((c) => c.price && c.high52 && c.price >= c.high52 * 0.95)
+      rows = rows.filter((c) => isNear52WHigh(c))
     } else if (performanceFilter === "52W Low") {
-      rows = rows.filter((c) => c.price && c.low52 && c.price <= c.low52 * 1.05)
+      rows = rows.filter((c) => isNear52WLow(c))
     }
 
     // 2. Sector filter
