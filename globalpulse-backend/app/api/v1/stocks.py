@@ -10,7 +10,10 @@ Exposes:
 """
 import time
 from typing import Dict, List, Optional, Tuple
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 from fastapi import APIRouter, Depends, Path, Query, Request
 
 from app.api.v1.limiter import limiter

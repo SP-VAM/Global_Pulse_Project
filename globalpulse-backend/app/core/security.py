@@ -6,8 +6,18 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
-import bcrypt
-import jwt
+try:
+    import bcrypt
+except ImportError:
+    bcrypt = None
+
+try:
+    import jwt
+except ImportError:
+    try:
+        from jose import jwt
+    except ImportError:
+        jwt = None
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 

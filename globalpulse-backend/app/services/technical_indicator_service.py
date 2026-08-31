@@ -3,8 +3,15 @@ GlobalPulse Technical Indicator Calculation Service
 Calculates 20+ technical indicators mathematically from raw price DataFrames.
 """
 from typing import Dict, Any
-import numpy as np
-import pandas as pd
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
 class TechnicalIndicatorService:

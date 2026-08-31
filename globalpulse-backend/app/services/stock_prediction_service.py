@@ -19,9 +19,20 @@ import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
-import pandas as pd
-import yfinance as yf
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
 from app.core.config import get_settings
 from app.core.exceptions import NotFoundError, ValidationError

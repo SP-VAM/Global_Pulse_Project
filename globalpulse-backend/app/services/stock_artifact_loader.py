@@ -8,7 +8,10 @@ import logging
 import os
 from typing import Any, List, Optional
 
-import joblib
+try:
+    import joblib
+except ImportError:
+    joblib = None
 
 from app.core.config import get_settings
 from app.core.exceptions import GlobalPulseError

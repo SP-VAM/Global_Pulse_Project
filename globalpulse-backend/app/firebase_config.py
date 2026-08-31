@@ -1,8 +1,13 @@
 import logging
 import os
 import json
-import firebase_admin
-from firebase_admin import credentials, auth
+try:
+    import firebase_admin
+    from firebase_admin import credentials, auth
+except ImportError:
+    firebase_admin = None
+    credentials = None
+    auth = None
 
 logger = logging.getLogger("globalpulse.firebase")
 

@@ -5,7 +5,10 @@ Allows switching seamlessly between providers (yfinance, Finnhub, etc.).
 """
 from abc import ABC, abstractmethod
 from typing import Optional
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
 class StockMarketDataProvider(ABC):

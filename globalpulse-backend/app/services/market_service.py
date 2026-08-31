@@ -9,9 +9,20 @@ from __future__ import annotations
 
 import logging
 from typing import Optional
-import numpy as np
-import pandas as pd
-import yfinance as yf
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
 from app.core.exceptions import GlobalPulseError
 from app.core.timezone import TimezoneService

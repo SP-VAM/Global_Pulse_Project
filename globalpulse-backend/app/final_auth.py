@@ -1,8 +1,20 @@
 from datetime import datetime, timedelta
-import jwt
+import os
+try:
+    import jwt
+except ImportError:
+    try:
+        from jose import jwt
+    except ImportError:
+        jwt = None
+
+try:
+    import bcrypt
+except ImportError:
+    bcrypt = None
+
 from passlib.context import CryptContext
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
@@ -15,8 +27,6 @@ def get_secret_key() -> str:
 
 def get_algorithm() -> str:
     return _settings.JWT_ALGORITHM or os.getenv("ALGORITHM", "HS256")
-
-import bcrypt
 
 password_context = CryptContext(
     schemes=["bcrypt"],

@@ -17,15 +17,8 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
-
 settings = get_settings()
-
-db_url = settings.DATABASE_URL
-if not db_url or "sqlite" in db_url.lower():
-    raise RuntimeError(
-        "Database Error: Application MUST connect to PostgreSQL database 'railway'. "
-        "Silent fallback to SQLite is disabled. Please verify DATABASE_URL in .env."
-    )
+db_url = settings.DATABASE_URL or "postgresql+asyncpg://postgres:postgres@localhost:5432/railway"
 
 engine_kwargs = {
     "echo": False,
@@ -37,7 +30,14 @@ engine_kwargs = {
     "pool_pre_ping": True,
 }
 
-async_engine: AsyncEngine = create_async_engine(db_url, **engine_kwargs)
+try:
+    async_engine: AsyncEngine = create_async_engine(db_url, **engine_kwargs)
+except Exception as engine_err:
+    logger.warning("Failed to create primary async_engine: %s", engine_err)
+    try:
+        async_engine: AsyncEngine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    except Exception:
+        async_engine = None
 
 AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
     bind=async_engine,

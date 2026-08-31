@@ -11,8 +11,15 @@ import os
 import time
 from typing import Dict, List, Optional
 
-import pandas as pd
-import yfinance as yf
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
 from app.core.config import get_settings
 from app.core.exceptions import NotFoundError, ProviderUnavailableError
