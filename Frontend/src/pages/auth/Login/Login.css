@@ -66,16 +66,17 @@ body{
 
 /* Header Slot matching SignUp header height & margin */
 .login-header{
-    height: 32px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 10px;
+    margin-bottom: 14px;
     width: 100%;
 }
 
 .login-logo{
-    height: 28px;
+    height: 38px;
+    max-width: 240px;
     width: auto;
     object-fit: contain;
 }
