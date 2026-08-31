@@ -187,8 +187,9 @@ export default function Constituents() {
     const syncBackendWatchlist = async () => {
       try {
         const res = await fetchUserWatchlists()
-        if (Array.isArray(res) && isMounted && res.length > 0) {
-          const tickers = res.map((w) => (w.symbol || w.ticker || "").toUpperCase()).filter(Boolean)
+        const rawItems = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : [])
+        if (isMounted && rawItems.length > 0) {
+          const tickers = rawItems.map((w) => (w.symbol || w.ticker || "").toUpperCase()).filter(Boolean)
           if (tickers.length > 0) {
             setWatchlist(tickers)
             const key = getUserWatchlistKey()
@@ -352,8 +353,9 @@ export default function Constituents() {
 
     try {
       if (isPresent) {
-        const userWatchlists = await fetchUserWatchlists().catch(() => [])
-        const match = Array.isArray(userWatchlists) ? userWatchlists.find((w) => (w.symbol || "").toUpperCase() === ticker.toUpperCase()) : null
+        const res = await fetchUserWatchlists().catch(() => null)
+        const userWatchlists = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : [])
+        const match = userWatchlists.find((w) => (w.symbol || "").toUpperCase() === ticker.toUpperCase())
         if (match && match.id) {
           await deleteUserWatchlist(match.id)
         }
