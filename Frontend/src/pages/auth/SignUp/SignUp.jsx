@@ -46,11 +46,15 @@ function SignUp({ isModal = false, onClose }) {
           }
         );
 
-        const data = await response.json();
+        let data = null;
+        try {
+          data = await response.json();
+        } catch (e) {}
 
-        if (response.ok) {
-          localStorage.setItem("access_token", data.access_token);
-          localStorage.setItem("token", data.access_token);
+        if (response.ok && data) {
+          const token = data.access_token || data.accessToken;
+          localStorage.setItem("access_token", token);
+          localStorage.setItem("token", token);
           localStorage.setItem("user", JSON.stringify(data.user));
 
           if (data.is_new_user) {
@@ -70,8 +74,10 @@ function SignUp({ isModal = false, onClose }) {
               });
             }, 1500);
           }
+        } else if (response.status === 503) {
+          setErrorMessage("Backend server is starting up (503). Please wait 15 seconds and try again.");
         } else {
-          setErrorMessage(data?.detail || "Google Signup Failed");
+          setErrorMessage(data?.detail || "Google Signup Failed. Please check backend server status.");
         }
       } catch (error) {
         console.error(error);
