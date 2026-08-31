@@ -150,11 +150,28 @@ export default function Constituents() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
+  // Helper to resolve user-scoped storage key for watchlist data isolation
+  const getUserWatchlistKey = () => {
+    try {
+      const saved = localStorage.getItem("user")
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        const id = parsed.email || parsed.mobile_number || parsed.phone || parsed.username
+        if (id && !id.endsWith("@globalpulse.io") && !id.endsWith("@mobile.globalpulse")) {
+          return `nifty50_watchlist_${id}`
+        }
+      }
+    } catch (e) {}
+    return "nifty50_watchlist_shared"
+  }
+
   // Watchlist & UI Selection States
   const [watchlist, setWatchlist] = useState(() => {
     try {
-      const saved = localStorage.getItem("nifty50_watchlist")
-      return saved ? JSON.parse(saved) : ["ICICIBANK", "RELIANCE", "HDFCBANK"]
+      const key = getUserWatchlistKey()
+      const saved = localStorage.getItem(key)
+      if (saved) return JSON.parse(saved)
+      return ["ICICIBANK", "RELIANCE", "HDFCBANK"]
     } catch (e) {
       return ["ICICIBANK", "RELIANCE", "HDFCBANK"]
     }
@@ -298,7 +315,8 @@ export default function Constituents() {
         ? prev.filter((t) => t !== ticker)
         : [...prev, ticker]
       try {
-        localStorage.setItem("nifty50_watchlist", JSON.stringify(updated))
+        const key = getUserWatchlistKey()
+        localStorage.setItem(key, JSON.stringify(updated))
       } catch (e) {
         console.error(e)
       }
@@ -315,7 +333,8 @@ export default function Constituents() {
     setWatchlist((prev) => {
       const updated = Array.from(new Set([...prev, ...tickersToAdd]))
       try {
-        localStorage.setItem("nifty50_watchlist", JSON.stringify(updated))
+        const key = getUserWatchlistKey()
+        localStorage.setItem(key, JSON.stringify(updated))
       } catch (e) {
         console.error(e)
       }
@@ -328,7 +347,8 @@ export default function Constituents() {
   const handleClearWatchlist = () => {
     setWatchlist([])
     try {
-      localStorage.setItem("nifty50_watchlist", JSON.stringify([]))
+      const key = getUserWatchlistKey()
+      localStorage.setItem(key, JSON.stringify([]))
     } catch (e) {
       console.error(e)
     }
