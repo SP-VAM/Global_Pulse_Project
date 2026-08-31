@@ -72,10 +72,23 @@ class EmailService:
             """
             msg.attach(MIMEText(html_content, "html"))
 
-            with smtplib.SMTP(self.settings.SMTP_HOST, self.settings.SMTP_PORT, timeout=10) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_pass)
-                server.sendmail(sender_email, recipient_email, msg.as_string())
+            # 1. Try configured SMTP port (STARTTLS 587 or SSL 465)
+            try:
+                if self.settings.SMTP_PORT == 465:
+                    with smtplib.SMTP_SSL(self.settings.SMTP_HOST, 465, timeout=10) as server:
+                        server.login(smtp_user, smtp_pass)
+                        server.sendmail(sender_email, recipient_email, msg.as_string())
+                else:
+                    with smtplib.SMTP(self.settings.SMTP_HOST, self.settings.SMTP_PORT, timeout=10) as server:
+                        server.starttls()
+                        server.login(smtp_user, smtp_pass)
+                        server.sendmail(sender_email, recipient_email, msg.as_string())
+            except Exception as primary_err:
+                logger.warning("Primary SMTP dispatch failed (%s). Trying SMTP_SSL on port 465...", type(primary_err).__name__)
+                # Fallback to SSL port 465 for cloud hosting environments that block port 587
+                with smtplib.SMTP_SSL(self.settings.SMTP_HOST, 465, timeout=10) as server:
+                    server.login(smtp_user, smtp_pass)
+                    server.sendmail(sender_email, recipient_email, msg.as_string())
 
             logger.info("Successfully dispatched real OTP email via SMTP to %s", masked)
             return True
