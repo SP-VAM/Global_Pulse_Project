@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import logoImg from "../../../assets/images/logo.png"
 import "./Logo.css"
 
 /**
@@ -10,7 +11,7 @@ import "./Logo.css"
 export default function Logo({ to = "/dashboard", size = "md" }) {
   const content = (
     <span className={`logo logo--${size}`}>
-      <img className="logo__img" src="/logo.png" alt="GlobalPulse" />
+      <img className="logo__img" src={logoImg} alt="GlobalPulse" />
     </span>
   )
 
