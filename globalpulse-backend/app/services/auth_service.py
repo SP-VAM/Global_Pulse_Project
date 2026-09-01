@@ -678,39 +678,52 @@ class AuthService:
         return {"success": True, "message": "Session revoked successfully."}
 
     async def update_profile(self, user_id: int, req: UpdateProfileRequest) -> UserResponse:
-        """Update authenticated user profile fields."""
+        """Update authenticated user profile fields using strict partial update semantics."""
         user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise ValidationError("User account not found.")
 
+        set_fields = req.model_dump(exclude_unset=True)
         updates = {}
-        if req.username and req.username != user.username:
+
+        if "username" in set_fields and req.username and req.username != user.username:
             existing = await self.user_repo.get_by_username(req.username)
             if existing and existing.user_id != user_id:
                 raise ValidationError(f"Username '{req.username}' is already taken.")
             updates["username"] = req.username
 
-        if req.email and req.email != user.email:
+        if "email" in set_fields and req.email and req.email != user.email:
             existing = await self.user_repo.get_by_email(req.email)
             if existing and existing.user_id != user_id:
                 raise ValidationError(f"Email '{req.email}' is already registered.")
             updates["email"] = req.email
 
-        if req.mobile_number and req.mobile_number != user.mobile_number:
-            existing = await self.user_repo.get_by_mobile(req.mobile_number)
-            if existing and existing.user_id != user_id:
-                raise ValidationError(f"Mobile number '{req.mobile_number}' is already registered.")
-            updates["mobile_number"] = req.mobile_number
-            updates["is_mobile_verified"] = True
+        mobile_val = req.mobile_number if req.mobile_number is not None else req.mobileNumber
+        if ("mobile_number" in set_fields or "mobileNumber" in set_fields) and mobile_val != user.mobile_number:
+            if mobile_val:
+                existing = await self.user_repo.get_by_mobile(mobile_val)
+                if existing and existing.user_id != user_id:
+                    raise ValidationError(f"Mobile number '{mobile_val}' is already registered.")
+                updates["mobile_number"] = mobile_val
+                updates["is_mobile_verified"] = True
+            else:
+                updates["mobile_number"] = None
 
-        if req.first_name is not None and req.first_name != user.first_name:
-            updates["first_name"] = req.first_name
+        if "first_name" in set_fields or "firstName" in set_fields:
+            fn_val = req.first_name if req.first_name is not None else req.firstName
+            if fn_val != user.first_name:
+                updates["first_name"] = fn_val or ""
 
-        if req.last_name is not None and req.last_name != user.last_name:
-            updates["last_name"] = req.last_name
+        if "last_name" in set_fields or "lastName" in set_fields:
+            ln_val = req.last_name if req.last_name is not None else req.lastName
+            if ln_val != user.last_name:
+                updates["last_name"] = ln_val or ""
 
-        if req.profile_image is not None and req.profile_image != user.profile_image:
-            updates["profile_image"] = req.profile_image
+        if "profile_image" in set_fields or "profileImage" in set_fields:
+            img_val = req.profile_image if req.profile_image is not None else req.profileImage
+            norm_img = img_val if (img_val and str(img_val).strip()) else None
+            if norm_img != user.profile_image:
+                updates["profile_image"] = norm_img
 
         if updates:
             updated_user = await self.user_repo.update(user_id, updates)
@@ -725,6 +738,7 @@ class AuthService:
             return UserResponse.model_validate(updated_user)
 
         return UserResponse.model_validate(user)
+
 
     async def get_user_settings(self, user_id: int) -> UserSettingsModel:
         """Fetch or create default settings for user."""

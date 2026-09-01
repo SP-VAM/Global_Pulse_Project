@@ -351,31 +351,32 @@ export default function Profile() {
   // --- VALIDATION HELPERS ---
   const validateFirstName = (val) => {
     if (!val || val.trim() === "") {
-      return "First name is required."
+      return ""
     }
-    const lettersOnlyRegex = /^[A-Za-z]+$/
+    const lettersOnlyRegex = /^[A-Za-z\s]+$/
     if (!lettersOnlyRegex.test(val)) {
       return "First name should contain only letters."
     }
-    if (val.length < 2 || val.length > 25) {
-      return "First name must be between 2 and 25 characters."
+    if (val.trim().length > 50) {
+      return "First name must be at most 50 characters."
     }
     return ""
   }
 
   const validateLastName = (val) => {
     if (!val || val.trim() === "") {
-      return "Last name is required."
+      return ""
     }
-    const lettersOnlyRegex = /^[A-Za-z]+$/
+    const lettersOnlyRegex = /^[A-Za-z\s]+$/
     if (!lettersOnlyRegex.test(val)) {
       return "Last name should contain only letters."
     }
-    if (val.length < 1 || val.length > 25) {
-      return "Last name must be between 1 and 25 characters."
+    if (val.trim().length > 50) {
+      return "Last name must be at most 50 characters."
     }
     return ""
   }
+
 
   const VALID_TLDS = new Set([
     "com", "in", "org", "net", "edu", "gov", "co", "io", "me", "ai", "info", "biz",
@@ -512,11 +513,69 @@ export default function Profile() {
     const hasValidExt = /\.(jpg|jpeg|png|webp)$/i.test(fileNameLower)
     const isTypeValid = validTypes.includes(file.type) || hasValidExt
 
-    if (!isTypeValid || file.size > 5 * 1024 * 1024) {
-      return "Please upload a valid image file up to 5 MB."
+    if (fileNameLower.endsWith(".svg") || file.type === "image/svg+xml") {
+      return "SVG files are not supported. Please upload a JPEG, PNG, or WebP image."
+    }
+
+    if (!isTypeValid || file.size > 2 * 1024 * 1024) {
+      return "Please upload a valid JPEG, PNG, or WebP image file up to 2 MB."
     }
     return ""
   }
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      const photoErr = validatePhoto(file)
+      if (photoErr) {
+        setErrors((prev) => ({ ...prev, photo: photoErr }))
+        showNotification(photoErr, "error")
+        e.target.value = ""
+        return
+      }
+
+      setErrors((prev) => ({ ...prev, photo: "" }))
+      const reader = new FileReader()
+      reader.onloadend = async () => {
+        const newAvatar = reader.result
+        try {
+          showNotification("Uploading profile photo...", "info")
+          const updatedUser = await updateProfile({ profile_image: newAvatar })
+          if (updatedUser) {
+            setFormData((prev) => ({ ...prev, avatar: newAvatar }))
+            setUser((prev) => ({ ...prev, avatar: newAvatar }))
+            updateAvatar(newAvatar)
+            showNotification("Photo updated and saved successfully!", "success")
+          }
+        } catch (apiErr) {
+          console.error("Photo upload backend error:", apiErr)
+          const errorMsg = apiErr.message || "Failed to save profile photo to server."
+          setErrors((prev) => ({ ...prev, photo: errorMsg }))
+          showNotification(errorMsg, "error")
+        } finally {
+          e.target.value = ""
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleRemovePhoto = async () => {
+    try {
+      showNotification("Removing profile photo...", "info")
+      await updateProfile({ profile_image: "" })
+      setFormData((prev) => ({ ...prev, avatar: null }))
+      setUser((prev) => ({ ...prev, avatar: null }))
+      setErrors((prev) => ({ ...prev, photo: "" }))
+      updateAvatar(null)
+      showNotification("Photo removed successfully", "info")
+    } catch (apiErr) {
+      console.error("Remove photo backend error:", apiErr)
+      const errorMsg = apiErr.message || "Failed to remove profile photo on server."
+      showNotification(errorMsg, "error")
+    }
+  }
+
 
   // --- PASSWORD VALIDATION HELPERS ---
   const validateCurrentPassword = (val) => {
@@ -737,38 +796,6 @@ export default function Profile() {
     setErrors((prev) => ({ ...prev, email: err }))
   }
 
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      const photoErr = validatePhoto(file)
-      if (photoErr) {
-        setErrors((prev) => ({ ...prev, photo: photoErr }))
-        showNotification(photoErr, "error")
-        e.target.value = ""
-        return
-      }
-
-      setErrors((prev) => ({ ...prev, photo: "" }))
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const newAvatar = reader.result
-        setFormData((prev) => ({ ...prev, avatar: newAvatar }))
-        setUser((prev) => ({ ...prev, avatar: newAvatar }))
-        updateAvatar(newAvatar)
-        showNotification("Photo updated successfully!", "success")
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const handleRemovePhoto = () => {
-    setFormData((prev) => ({ ...prev, avatar: null }))
-    setUser((prev) => ({ ...prev, avatar: null }))
-    setErrors((prev) => ({ ...prev, photo: "" }))
-    updateAvatar(null)
-    showNotification("Photo removed", "info")
-  }
-
   // Email Flow Actions
   const handleEditEmailClick = () => {
     setIsEditingEmail(true)
@@ -975,21 +1002,11 @@ export default function Profile() {
   }
 
   const handleResetDefaults = () => {
-    const defaultData = {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      avatar: null,
-      isEmailVerified: false,
-      isPhoneVerified: false,
-    }
-    setFormData(defaultData)
-    setUser(defaultData)
+    setFormData({ ...user })
     setIsEditingEmail(false)
     setIsEditingPhone(false)
-    setIsEmailVerified(false)
-    setIsPhoneVerified(false)
+    setIsEmailVerified(user?.isEmailVerified || false)
+    setIsPhoneVerified(user?.isPhoneVerified || false)
     setShowEmailOtp(false)
     setShowPhoneOtp(false)
     setEmailOtp(["", "", "", "", "", ""])
@@ -1003,8 +1020,7 @@ export default function Profile() {
       emailOtp: "",
       phoneOtp: "",
     })
-    updateUser(defaultData)
-    showNotification("Settings reset to defaults", "info")
+    showNotification("Form reset to current profile state", "info")
   }
 
   const handleSaveChanges = async (e) => {
@@ -1078,29 +1094,34 @@ export default function Profile() {
     }
 
     try {
-      await updateProfile({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+      const resp = await updateProfile({
+        firstName: (formData.firstName || "").trim(),
+        lastName: (formData.lastName || "").trim(),
         mobileNumber: formData.phone,
         email: formData.email,
       })
+
+      const updatedUser = {
+        ...formData,
+        firstName: resp?.first_name !== undefined ? resp.first_name : formData.firstName,
+        lastName: resp?.last_name !== undefined ? resp.last_name : formData.lastName,
+        first_name: resp?.first_name !== undefined ? resp.first_name : formData.firstName,
+        last_name: resp?.last_name !== undefined ? resp.last_name : formData.lastName,
+        full_name: `${formData.firstName} ${formData.lastName}`.trim(),
+        mobile_number: resp?.mobile_number !== undefined ? resp.mobile_number : formData.phone,
+        phone: resp?.mobile_number !== undefined ? resp.mobile_number : formData.phone,
+        isEmailVerified,
+        isPhoneVerified,
+      }
+
+      setUser(updatedUser)
+      updateUser(updatedUser)
+      showNotification(toastMessage, "success")
     } catch (apiErr) {
-      console.warn("[Profile] Backend updateProfile sync failed:", apiErr)
+      console.error("[Profile] Backend updateProfile failed:", apiErr)
+      const msg = apiErr.message || "Failed to save profile changes to server."
+      showNotification(msg, "error")
     }
-
-    const updatedUser = {
-      ...formData,
-      first_name: formData.firstName,
-      last_name: formData.lastName,
-      full_name: `${formData.firstName} ${formData.lastName}`.trim(),
-      mobile_number: formData.phone,
-      isEmailVerified,
-      isPhoneVerified,
-    }
-
-    setUser(updatedUser)
-    updateUser(updatedUser)
-    showNotification(toastMessage, "success")
   }
 
 
@@ -1109,6 +1130,8 @@ export default function Profile() {
   const userInitial = getUserInitial({
     first_name: formData.firstName || user?.firstName || globalUser?.first_name,
     firstName: formData.firstName || user?.firstName || globalUser?.first_name,
+    last_name: formData.lastName || user?.lastName || globalUser?.last_name,
+    lastName: formData.lastName || user?.lastName || globalUser?.last_name,
     username: user?.username || globalUser?.username,
     email: formData.email || user?.email || globalUser?.email,
   })

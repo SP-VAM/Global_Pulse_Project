@@ -18,6 +18,8 @@ export function getUserInitial(user) {
   const candidateNames = [
     user.first_name,
     user.firstName,
+    user.last_name,
+    user.lastName,
     user.full_name,
     user.fullName,
     user.display_name,

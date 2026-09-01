@@ -2,10 +2,12 @@
 Pydantic Schemas for User Authentication & Authorization.
 Serializes fields to camelCase for frontend compatibility.
 """
+import base64
+import re
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from app.core.exceptions import ValidationError
@@ -128,9 +130,65 @@ class UpdateProfileRequest(BaseModel):
     username: Optional[str] = Field(None, min_length=3, max_length=100)
     email: Optional[EmailStr] = Field(None)
     mobile_number: Optional[str] = Field(None)
+    mobileNumber: Optional[str] = Field(None)
     first_name: Optional[str] = Field(None)
+    firstName: Optional[str] = Field(None)
     last_name: Optional[str] = Field(None)
+    lastName: Optional[str] = Field(None)
     profile_image: Optional[str] = Field(None)
+    profileImage: Optional[str] = Field(None)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "firstName" in data and "first_name" not in data:
+                data["first_name"] = data["firstName"]
+            if "lastName" in data and "last_name" not in data:
+                data["last_name"] = data["lastName"]
+            if "mobileNumber" in data and "mobile_number" not in data:
+                data["mobile_number"] = data["mobileNumber"]
+            if "profileImage" in data and "profile_image" not in data:
+                data["profile_image"] = data["profileImage"]
+        return data
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def validate_names(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return str(v).strip()
+
+    @field_validator("profile_image")
+    @classmethod
+    def validate_profile_image(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not str(v).strip():
+            return ""
+        v_str = str(v).strip()
+        if v_str.startswith("data:image/"):
+            match = re.match(r"^data:image/(jpeg|jpg|png|webp);base64,(.+)$", v_str, re.IGNORECASE)
+            if not match:
+                raise ValidationError("Invalid profile image format. Only JPEG, PNG, and WebP images are allowed.")
+            b64_data = match.group(2)
+            try:
+                raw_bytes = base64.b64decode(b64_data)
+            except Exception:
+                raise ValidationError("Invalid Base64 encoding in profile image payload.")
+
+            if len(raw_bytes) > 2097152:  # 2 MB
+                raise ValidationError("Profile image size exceeds maximum allowed limit of 2 MB.")
+
+            is_jpeg = raw_bytes.startswith(b"\xff\xd8\xff")
+            is_png = raw_bytes.startswith(b"\x89PNG")
+            is_webp = raw_bytes.startswith(b"RIFF") and b"WEBP" in raw_bytes[:16]
+            if not (is_jpeg or is_png or is_webp):
+                raise ValidationError("Uploaded file is not a valid JPEG, PNG, or WebP image.")
+            return v_str
+        elif v_str.startswith("http://") or v_str.startswith("https://"):
+            return v_str
+        else:
+            raise ValidationError("Invalid profile image Data URL.")
+
 
 
 class UserResponse(BaseModel):
