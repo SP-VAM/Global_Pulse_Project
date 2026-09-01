@@ -157,24 +157,24 @@ export default function Constituents() {
       const saved = localStorage.getItem("user")
       if (saved) {
         const parsed = JSON.parse(saved)
-        const id = parsed.email || parsed.mobile_number || parsed.phone || parsed.username
-        if (id && !id.endsWith("@globalpulse.io") && !id.endsWith("@mobile.globalpulse")) {
+        const id = parsed.user_id || parsed.id || parsed.email || parsed.mobile_number || parsed.phone || parsed.username
+        if (id) {
           return `nifty50_watchlist_${id}`
         }
       }
     } catch (e) {}
-    return "nifty50_watchlist_shared"
+    return "nifty50_watchlist_guest"
   }
 
-  // Watchlist & UI Selection States
+  // Watchlist & UI Selection States (Isolated per user)
   const [watchlist, setWatchlist] = useState(() => {
     try {
       const key = getUserWatchlistKey()
       const saved = localStorage.getItem(key)
       if (saved) return JSON.parse(saved)
-      return ["ICICIBANK", "RELIANCE", "HDFCBANK"]
+      return []
     } catch (e) {
-      return ["ICICIBANK", "RELIANCE", "HDFCBANK"]
+      return []
     }
   })
   const [showWatchlistOnly, setShowWatchlistOnly] = useState(false)
@@ -1146,9 +1146,6 @@ export default function Constituents() {
                         title={isWatchlisted ? "Remove from watchlist" : "Add to watchlist"}
                       >
                         <Star size={15} fill={isWatchlisted ? "#f5a524" : "none"} color={isWatchlisted ? "#f5a524" : "#64748b"} />
-                      </button>
-                      <button type="button" className="btn-action-more" aria-label="More actions">
-                        <ChevronDown size={14} />
                       </button>
                     </td>
                   </tr>
