@@ -974,13 +974,19 @@
 }
 
 .widget-view-all {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
   font-size: 10px;
   color: #60a5fa;
   text-decoration: none;
   font-weight: 600;
+  font-family: inherit;
 }
 .widget-view-all:hover {
   text-decoration: underline;
+  color: #93c5fd;
 }
 
 .widget-list {

@@ -233,9 +233,52 @@ export default function Constituents() {
     })
   }
 
+  const containerRef = useRef(null)
   const abortControllerRef = useRef(null)
   const isFetchingRef = useRef(false)
   const watchlistDropdownRef = useRef(null)
+
+  const handleViewAllGainers = (e) => {
+    e.preventDefault()
+    setPerformanceFilter("Gainers")
+    setSort({ key: "changePct", dir: "desc" })
+    setSector("All")
+    setQuery("")
+    setShowWatchlistOnly(false)
+    setPage(1)
+    triggerToast("Filtered Top Gainers 📈")
+    if (containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }
+
+  const handleViewAllLosers = (e) => {
+    e.preventDefault()
+    setPerformanceFilter("Losers")
+    setSort({ key: "changePct", dir: "asc" })
+    setSector("All")
+    setQuery("")
+    setShowWatchlistOnly(false)
+    setPage(1)
+    triggerToast("Filtered Top Losers 📉")
+    if (containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }
+
+  const handleViewAllVolume = (e) => {
+    e.preventDefault()
+    setPerformanceFilter("All")
+    setSort({ key: "volume", dir: "desc" })
+    setSector("All")
+    setQuery("")
+    setShowWatchlistOnly(false)
+    setPage(1)
+    triggerToast("Sorted by Highest Volume 📊")
+    if (containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }
 
   // Close watchlist dropdown on outside click
   useEffect(() => {
@@ -623,7 +666,7 @@ export default function Constituents() {
   const isLoadingState = status === "loading" && items.length === 0
 
   return (
-    <div className="constituents">
+    <div className="constituents" ref={containerRef}>
       {/* TOAST NOTIFICATION */}
       {toastMessage && (
         <div className="constituents__toast">
@@ -1189,7 +1232,9 @@ export default function Constituents() {
             <div className="widget-title-row gp-pos">
               <TrendingUp size={14} /> Top Gainers
             </div>
-            <Link to="#" className="widget-view-all">View all</Link>
+            <button type="button" onClick={handleViewAllGainers} className="widget-view-all">
+              View all
+            </button>
           </div>
 
           <div className="widget-list">
@@ -1209,7 +1254,9 @@ export default function Constituents() {
             <div className="widget-title-row gp-neg">
               <TrendingDown size={14} /> Top Losers
             </div>
-            <Link to="#" className="widget-view-all">View all</Link>
+            <button type="button" onClick={handleViewAllLosers} className="widget-view-all">
+              View all
+            </button>
           </div>
 
           <div className="widget-list">
@@ -1229,7 +1276,9 @@ export default function Constituents() {
             <div className="widget-title-row">
               <BarChart2 size={14} className="icon-blue" /> Most Active by Volume
             </div>
-            <Link to="#" className="widget-view-all">View all</Link>
+            <button type="button" onClick={handleViewAllVolume} className="widget-view-all">
+              View all
+            </button>
           </div>
 
           <div className="widget-list">
