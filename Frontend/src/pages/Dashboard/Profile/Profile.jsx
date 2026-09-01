@@ -195,12 +195,29 @@ export default function Profile() {
           const isPhoneVer = Boolean(fetchedUser.is_mobile_verified || fetchedUser.isMobileVerified || fetchedUser.isPhoneVerified)
           const isEmailVer = Boolean(fetchedUser.is_email_verified || fetchedUser.isEmailVerified)
 
+          const fetchedPhoto = fetchedUser.profile_image || fetchedUser.profileImage || fetchedUser.avatar || null
+          const cleanPhoto = (typeof fetchedPhoto === "string" && fetchedPhoto.trim() && fetchedPhoto !== "null" && fetchedPhoto !== "undefined") ? fetchedPhoto.trim() : null
+
           setFormData((prev) => ({
             ...prev,
             firstName: fetchedFirstName || prev.firstName,
             lastName: fetchedLastName || prev.lastName,
             email: fetchedEmail,
             phone: fetchedPhone || prev.phone,
+            avatar: cleanPhoto !== null ? cleanPhoto : prev.avatar,
+          }))
+
+          setUser((prev) => ({
+            ...prev,
+            firstName: fetchedFirstName || prev.firstName,
+            lastName: fetchedLastName || prev.lastName,
+            first_name: fetchedFirstName || prev.firstName,
+            last_name: fetchedLastName || prev.lastName,
+            email: fetchedEmail,
+            phone: fetchedPhone || prev.phone,
+            mobile_number: fetchedPhone || prev.phone,
+            avatar: cleanPhoto !== null ? cleanPhoto : prev.avatar,
+            profile_image: cleanPhoto !== null ? cleanPhoto : prev.profile_image,
           }))
 
           if (fetchedPhone) setIsPhoneVerified(isPhoneVer)

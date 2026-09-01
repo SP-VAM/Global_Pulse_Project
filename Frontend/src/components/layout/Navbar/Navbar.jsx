@@ -256,7 +256,9 @@ export default function Navbar({ onLogoutClick }) {
   const toggle = (menu) => setOpenMenu((cur) => (cur === menu ? null : menu))
 
   const effectiveUser = globalUser || currentUser
-  const userAvatar = effectiveUser?.profile_image || effectiveUser?.profileImage || effectiveUser?.avatar
+  const [imgFailed, setImgFailed] = useState(false)
+  const rawAvatar = effectiveUser?.profile_image || effectiveUser?.profileImage || effectiveUser?.avatar
+  const userAvatar = (typeof rawAvatar === "string" && rawAvatar.trim() && rawAvatar !== "null" && rawAvatar !== "undefined") ? rawAvatar.trim() : null
   const fullName = [effectiveUser?.first_name || effectiveUser?.firstName, effectiveUser?.last_name || effectiveUser?.lastName].filter(Boolean).join(" ")
   const displayName = fullName || effectiveUser?.full_name || effectiveUser?.username || "User"
   const rawEmail = typeof effectiveUser?.email === "string" ? effectiveUser.email : ""
@@ -264,6 +266,10 @@ export default function Navbar({ onLogoutClick }) {
   const displayEmail = !isDummyEmail
     ? rawEmail
     : (effectiveUser?.mobile_number || effectiveUser?.mobileNumber || effectiveUser?.phone || "")
+
+  useEffect(() => {
+    setImgFailed(false)
+  }, [userAvatar])
 
   return (
     <header className="navbar" ref={navRef}>
@@ -307,8 +313,8 @@ export default function Navbar({ onLogoutClick }) {
             aria-expanded={openMenu === "profile"}
           >
             <span className="navbar__avatar">
-              {userAvatar ? (
-                <img src={userAvatar} alt="Avatar" />
+              {userAvatar && !imgFailed ? (
+                <img src={userAvatar} alt="Avatar" onError={() => setImgFailed(true)} />
               ) : (
                 getUserInitial(effectiveUser)
               )}
