@@ -11,6 +11,7 @@ import {
   markNotificationRead,
   clearReadNotifications,
 } from "../../../api/notificationApi.js"
+import { useUser } from "../../../context/UserContext.jsx"
 import { getUserInitial } from "../../../utils/avatarUtils.js"
 import ErrorBoundary from "../../common/ErrorBoundary/ErrorBoundary.jsx"
 import "./Navbar.css"
@@ -19,6 +20,7 @@ export default function Navbar({ onLogoutClick }) {
   const [openMenu, setOpenMenu] = useState(null) // "notif" | "profile" | null
   const navRef = useRef(null)
   const navigate = useNavigate()
+  const { user: globalUser } = useUser()
 
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -33,6 +35,7 @@ export default function Navbar({ onLogoutClick }) {
       return null
     }
   })
+
 
   // Synchronize unread count from backend
   const refreshUnreadCount = useCallback(async () => {
@@ -252,14 +255,15 @@ export default function Navbar({ onLogoutClick }) {
 
   const toggle = (menu) => setOpenMenu((cur) => (cur === menu ? null : menu))
 
-  const userAvatar = currentUser?.profile_image || currentUser?.profileImage || currentUser?.avatar
-  const fullName = [currentUser?.first_name || currentUser?.firstName, currentUser?.last_name || currentUser?.lastName].filter(Boolean).join(" ")
-  const displayName = fullName || currentUser?.full_name || currentUser?.username || "User"
-  const rawEmail = typeof currentUser?.email === "string" ? currentUser.email : ""
+  const effectiveUser = globalUser || currentUser
+  const userAvatar = effectiveUser?.profile_image || effectiveUser?.profileImage || effectiveUser?.avatar
+  const fullName = [effectiveUser?.first_name || effectiveUser?.firstName, effectiveUser?.last_name || effectiveUser?.lastName].filter(Boolean).join(" ")
+  const displayName = fullName || effectiveUser?.full_name || effectiveUser?.username || "User"
+  const rawEmail = typeof effectiveUser?.email === "string" ? effectiveUser.email : ""
   const isDummyEmail = !rawEmail || rawEmail.includes("@globalpulse.io") || rawEmail.includes("@mobile.globalpulse") || rawEmail.includes("@user.globalpulse")
   const displayEmail = !isDummyEmail
     ? rawEmail
-    : (currentUser?.mobile_number || currentUser?.mobileNumber || currentUser?.phone || "")
+    : (effectiveUser?.mobile_number || effectiveUser?.mobileNumber || effectiveUser?.phone || "")
 
   return (
     <header className="navbar" ref={navRef}>
@@ -306,7 +310,7 @@ export default function Navbar({ onLogoutClick }) {
               {userAvatar ? (
                 <img src={userAvatar} alt="Avatar" />
               ) : (
-                getUserInitial(currentUser)
+                getUserInitial(effectiveUser)
               )}
             </span>
             <span className="navbar__name">{displayName}</span>
